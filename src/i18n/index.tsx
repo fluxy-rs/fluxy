@@ -13,8 +13,8 @@ type Messages = Record<string, string>;
 
 const zh: Messages = {
   "app.lanOnly": "仅局域网",
-      "nav.chat": "消息",
-"nav.devices": "设备",
+  "nav.chat": "消息",
+  "nav.devices": "设备",
   "nav.settings": "设置",
   "nav.primary": "主导航",
   "nav.skip": "跳到主要内容",
@@ -62,7 +62,8 @@ const zh: Messages = {
   "pairing.pairAction": "配对",
   "pairing.pairWith": "与 {name} 配对",
   "pairing.myQrTitle": "我的二维码",
-  "pairing.myQrBody": "用另一台设备扫描这个码即可发起配对。双方仍需核对六位码，确认后才会保存信任。",
+  "pairing.myQrBody":
+    "用另一台设备扫描这个码即可发起配对。双方仍需核对六位码，确认后才会保存信任。",
   "pairing.myQrUnavailable": "暂时拿不到本机地址，稍后再试。",
   "pairing.dialogTitle": "核对短认证码",
   "pairing.directionInitiator": "你发起了这次配对。请在另一台设备上确认同一组六位码。",
@@ -105,10 +106,10 @@ const zh: Messages = {
   "chat.sendFailed": "发送失败：{message}",
   "chat.placeholder": "输入消息",
   "chat.enterHint": "Enter 发送，Shift+Enter 换行",
-      "chat.attach": "附件",
-    "chat.attachTitle": "选择要发送的文件",
-    "chat.attachSent": "已发送 {name}",
-"chat.send": "发送",
+  "chat.attach": "附件",
+  "chat.attachTitle": "选择要发送的文件",
+  "chat.attachSent": "已发送 {name}",
+  "chat.send": "发送",
   "chat.offlineHint": "设备当前离线。等它重新出现在局域网后即可继续聊天。",
   "chat.memoryPill": "仅内存",
   "chat.errorConnectionLost": "连接已断开，消息未送达；可以重试。",
@@ -138,7 +139,8 @@ const zh: Messages = {
   "network.stateListenerOnly": "仅监听",
   "network.stateUnavailable": "不可用",
   "network.stateStopped": "已停止",
-  "network.blocked": "发现通道没有就绪。确认设备连接到私有局域网；Fluxy 不提供手动地址或二维码作为绕过方式。",
+  "network.blocked":
+    "发现通道没有就绪。确认设备连接到私有局域网；Fluxy 不提供手动地址或二维码作为绕过方式。",
   "network.interface": "活动接口",
   "network.localAddress": "本机地址",
   "network.listenAddr": "监听地址",
@@ -157,7 +159,8 @@ const zh: Messages = {
   "network.fallbackTargets": "回退广播与探测目标",
   "network.fallbackPeers": "回退发现设备",
   "network.fallbackError": "回退通道错误：{message}",
-  "network.note": "mDNS 优先；mDNS 被热点隔离时可使用 UDP 网关探测与有限广播回退。两者都只提供线索，不创建信任；所有配对仍经过 TLS 与六位 SAS 核对。",
+  "network.note":
+    "mDNS 优先；mDNS 被热点隔离时可使用 UDP 网关探测与有限广播回退。两者都只提供线索，不创建信任；所有配对仍经过 TLS 与六位 SAS 核对。",
   "network.selectionTitle": "网络接口",
   "network.selectionBody": "选择监听与广播使用的网卡和地址；同一时间只使用一个地址。",
   "network.modeLabel": "选择方式",
@@ -200,7 +203,8 @@ const zh: Messages = {
   "network.copyInterfaces": "复制接口与地址",
   "network.copiedInterfaces": "已复制接口与地址。",
   "network.guidanceTitle": "如何恢复",
-  "network.guidanceManualLost": "所选地址已不存在。请重新选择网卡与地址，或把网络接回后等待自动恢复。",
+  "network.guidanceManualLost":
+    "所选地址已不存在。请重新选择网卡与地址，或把网络接回后等待自动恢复。",
   "network.guidanceUnavailable": "监听未就绪。请选择另一块网卡，或确认网线、Wi-Fi 已连接。",
   "network.guidancePick": "在“本机网卡”中选择一块网卡，然后应用。",
   "network.guidanceError": "最近一次错误：{message}",
@@ -243,7 +247,8 @@ const zh: Messages = {
   "clipboard.title": "剪贴板",
   "clipboard.subtitle": "把一段文字从一台设备递到另一台，不经过云端。",
   "clipboard.policyTitle": "接收策略",
-  "clipboard.policyBody": "每台可信设备都可以单独选择询问、自动接收或拒绝；默认是询问。选择自动接收意味着该设备可以直接覆盖本机剪贴板。",
+  "clipboard.policyBody":
+    "每台可信设备都可以单独选择询问、自动接收或拒绝；默认是询问。选择自动接收意味着该设备可以直接覆盖本机剪贴板。",
   "clipboard.policyChip": "逐设备策略",
   "clipboard.policyEmpty": "还没有可信设备。配对后可以在这里设置每台设备的接收策略。",
   "clipboard.policyFor": "{name} 的接收策略",
@@ -262,8 +267,10 @@ const zh: Messages = {
   "clipboard.autoSendDisabled": "已关闭自动发送剪贴板。",
   "clipboard.autoSendTargets": "将发送给 {count} 台在线可信设备。",
   "clipboard.autoSendNoTargets": "当前没有在线可信设备；设备上线后会自动同步。",
-  "clipboard.autoSendLoopNote": "收到并写入的内容不会再自动发回，因此两台设备同时开启也不会互相循环。",
-  "clipboard.autoOffNote": "自动发送默认关闭；开启后只同步文本，并且只发送你在本机复制的内容——开启时已在剪贴板中的内容不会立即发送。接收策略仍按设备分别生效。",
+  "clipboard.autoSendLoopNote":
+    "收到并写入的内容不会再自动发回，因此两台设备同时开启也不会互相循环。",
+  "clipboard.autoOffNote":
+    "自动发送默认关闭；开启后只同步文本，并且只发送你在本机复制的内容——开启时已在剪贴板中的内容不会立即发送。接收策略仍按设备分别生效。",
   "tray.open": "打开 Fluxy",
   "tray.autoClipboard": "自动发送剪贴板",
   "tray.autostart": "开机启动",
@@ -328,10 +335,10 @@ const zh: Messages = {
   "settings.appearanceTitle": "外观",
   "settings.languageTitle": "语言",
   "settings.deviceTitle": "本机设备名",
-      "mobile.nearbyTitle": "附近的设备",
-    "mobile.nearbyEmpty": "正在搜索局域网中的设备…",
-    "mobile.nearbyPair": "配对",
-    "mobile.nearbyPaired": "已配对",
+  "mobile.nearbyTitle": "附近的设备",
+  "mobile.nearbyEmpty": "正在搜索局域网中的设备…",
+  "mobile.nearbyPair": "配对",
+  "mobile.nearbyPaired": "已配对",
   "mobile.openChat": "对话 ›",
   "devices.title": "设备",
   "devices.listAria": "设备列表",
@@ -371,21 +378,21 @@ const zh: Messages = {
   "devices.trustRemoved": "已移除对 {name} 的信任",
   "devices.selectTitle": "选择一台设备",
   "devices.selectBody": "左边是局域网里能看到的设备；配对过的会一直留在这里。",
-    "devices.trustedTitle": "信任的设备",
-    "mobile.scanNoPermission": "没有相机权限，无法扫码。可以在系统设置里授予后重试。",
+  "devices.trustedTitle": "信任的设备",
+  "mobile.scanNoPermission": "没有相机权限，无法扫码。可以在系统设置里授予后重试。",
   "mobile.scanNotOurs": "这不是 Fluxy 的配对码。",
-    "mobile.scanUnknown": "扫码成功，但这台设备还不在附近列表里。请稍等几秒再试，或改用手动输入。",
-    "mobile.scanFailed": "扫码失败：{message}",
+  "mobile.scanUnknown": "扫码成功，但这台设备还不在附近列表里。请稍等几秒再试，或改用手动输入。",
+  "mobile.scanFailed": "扫码失败：{message}",
   "mobile.scanAction": "扫码添加",
-    "mobile.manualOpen": "找不到设备？手动输入",
-    "mobile.manualBody": "网络隔离或过滤了多播时，输入对方显示的地址与指纹。",
+  "mobile.manualOpen": "找不到设备？手动输入",
+  "mobile.manualBody": "网络隔离或过滤了多播时，输入对方显示的地址与指纹。",
   "mobile.address": "地址",
   "mobile.fingerprint": "指纹",
   "mobile.pairAction": "发起配对",
   "mobile.pairWaiting": "已发送配对请求，等待对端确认。",
-      "mobile.pairCancel": "取消配对",
-    "mobile.pairNoAnswer": "对方没有响应，可以重新发起配对。",
-"mobile.pairCompare": "确认两台设备的六位码一致：",
+  "mobile.pairCancel": "取消配对",
+  "mobile.pairNoAnswer": "对方没有响应，可以重新发起配对。",
+  "mobile.pairCompare": "确认两台设备的六位码一致：",
   "mobile.pairConfirm": "一致，确认",
   "mobile.pairConfirmed": "配对完成。",
   "mobile.noFiles": "还没有选择文件。",
@@ -397,26 +404,29 @@ const zh: Messages = {
   "settings.receiveFailed": "无法更改接收目录：{message}",
   "settings.deviceBody": "其他设备在局域网列表里看到的名字。",
   "settings.deviceNameSave": "保存名称",
-  "settings.deviceNameHint": "1–64 个字符。保存后会重启局域网广播，进行中的连接会断开，其他设备会立即看到新名称。",
+  "settings.deviceNameHint":
+    "1–64 个字符。保存后会重启局域网广播，进行中的连接会断开，其他设备会立即看到新名称。",
   "settings.deviceNameRequired": "设备名不能为空。",
   "settings.deviceNameSaved": "设备名已更新。",
   "settings.deviceNameFailed": "重命名失败：{message}",
-    "settings.autoAcceptBody": "来自已信任设备的文件，是否不经确认直接接收。关闭时每次都会询问。",
-    "settings.autoAcceptToggle": "自动接收文件",
-    "settings.autoAcceptOn": "已开启自动接收。",
-    "settings.autoAcceptOff": "已关闭自动接收，收到文件会先询问。",
-    "settings.autoAcceptFailed": "更新自动接收设置失败：{message}",
+  "settings.autoAcceptBody": "来自已信任设备的文件，是否不经确认直接接收。关闭时每次都会询问。",
+  "settings.autoAcceptToggle": "自动接收文件",
+  "settings.autoAcceptOn": "已开启自动接收。",
+  "settings.autoAcceptOff": "已关闭自动接收，收到文件会先询问。",
+  "settings.autoAcceptFailed": "更新自动接收设置失败：{message}",
   "settings.receivingTitle": "接收",
   "settings.receivingBody": "别人发来文件时的行为。",
   "settings.notificationsBody": "消息、剪贴板和传输事件是否弹出系统通知。",
   "settings.autostartTitle": "后台与启动",
-  "settings.autostartBody": "关闭窗口后 Fluxy 仍在托盘中运行并继续接收；开机启动会在登录时以隐藏窗口方式启动。",
+  "settings.autostartBody":
+    "关闭窗口后 Fluxy 仍在托盘中运行并继续接收；开机启动会在登录时以隐藏窗口方式启动。",
   "settings.autostartToggle": "开机启动",
   "settings.autostartEnabled": "已开启开机启动。",
   "settings.autostartDisabled": "已关闭开机启动。",
   "settings.autostartFailed": "更新开机启动失败：{message}",
   "help.title": "帮助与防火墙",
-  "help.body": "局域网直连不需要服务器，但系统防火墙必须允许 Fluxy 的 UDP 端口，否则设备之间只能看到对方却连不上。",
+  "help.body":
+    "局域网直连不需要服务器，但系统防火墙必须允许 Fluxy 的 UDP 端口，否则设备之间只能看到对方却连不上。",
   "help.backgroundTitle": "后台运行",
   "help.backgroundBody": "Fluxy 关闭窗口后不会退出，而是留在系统托盘里继续接收。",
   "help.backgroundTray": "点击关闭按钮只是隐藏窗口；托盘图标左键单击可随时恢复。",
@@ -424,24 +434,32 @@ const zh: Messages = {
   "help.autostartOn": "开机启动已开启，登录项位于 {location}。",
   "help.autostartOff": "开机启动已关闭；可在设置中开启，登录时以隐藏窗口方式启动。",
   "help.portsTitle": "需要放行的端口",
-  "help.portsBody": "发现使用固定 UDP 端口，传输使用本机监听的 UDP 端口（端口为 0 时由系统分配，每次启动可能不同）。",
+  "help.portsBody":
+    "发现使用固定 UDP 端口，传输使用本机监听的 UDP 端口（端口为 0 时由系统分配，每次启动可能不同）。",
   "help.portDiscovery": "设备发现",
   "help.portTransfer": "文件与聊天传输",
-  "help.portNote": "放行程序本身（而不是单个端口）可以覆盖系统分配的端口；若你希望固定端口，可在后续的网络接口设置中指定。",
+  "help.portNote":
+    "放行程序本身（而不是单个端口）可以覆盖系统分配的端口；若你希望固定端口，可在后续的网络接口设置中指定。",
   "help.copyRule": "复制命令",
   "help.windowsTitle": "Windows",
-  "help.windowsBody": "以管理员身份打开 PowerShell，执行以下命令。若首次启动时弹出的防火墙对话框，请勾选“专用网络”并允许访问。",
-  "help.windowsCommand": "New-NetFirewallRule -DisplayName \"Fluxy discovery\" -Direction Inbound -Protocol UDP -LocalPort {discovery} -Action Allow\nNew-NetFirewallRule -DisplayName \"Fluxy transfer\" -Direction Inbound -Protocol UDP -LocalPort {port} -Action Allow",
+  "help.windowsBody":
+    "以管理员身份打开 PowerShell，执行以下命令。若首次启动时弹出的防火墙对话框，请勾选“专用网络”并允许访问。",
+  "help.windowsCommand":
+    'New-NetFirewallRule -DisplayName "Fluxy discovery" -Direction Inbound -Protocol UDP -LocalPort {discovery} -Action Allow\nNew-NetFirewallRule -DisplayName "Fluxy transfer" -Direction Inbound -Protocol UDP -LocalPort {port} -Action Allow',
   "help.macosTitle": "macOS",
-  "help.macosBody": "在“系统设置 → 网络 → 防火墙”中允许 Fluxy 接受传入连接，或执行下面的命令（需要管理员密码）。",
-  "help.macosCommand": "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/Fluxy.app\nsudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Fluxy.app",
+  "help.macosBody":
+    "在“系统设置 → 网络 → 防火墙”中允许 Fluxy 接受传入连接，或执行下面的命令（需要管理员密码）。",
+  "help.macosCommand":
+    "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/Fluxy.app\nsudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Fluxy.app",
   "help.linuxTitle": "Linux",
-  "help.linuxBody": "使用 ufw 或 firewalld 放行发现与传输端口；firewalld 下可用 firewall-cmd 添加同样的规则。",
+  "help.linuxBody":
+    "使用 ufw 或 firewalld 放行发现与传输端口；firewalld 下可用 firewall-cmd 添加同样的规则。",
   "help.linuxCommand": "sudo ufw allow {discovery}/udp\nsudo ufw allow {port}/udp",
   "help.troubleTitle": "常见问题",
   "help.troubleBody": "按下面的顺序排查，多数“看不到设备”和“连不上”都能解决。",
   "help.troubleMdns": "附近设备里看不到对方",
-  "help.troubleMdnsBody": "确认两台设备在同一网段、都允许了 UDP {discovery}，并关闭会隔离客户端的访客网络或 AP 隔离。",
+  "help.troubleMdnsBody":
+    "确认两台设备在同一网段、都允许了 UDP {discovery}，并关闭会隔离客户端的访客网络或 AP 隔离。",
   "help.troubleFirewall": "能看到设备但配对或传输失败",
   "help.troubleFirewallBody": "入站 UDP 被拦截时最典型：放行 Fluxy 程序或上面的传输端口后重试。",
   "help.troublePublic": "Windows 上首次连接就失败",
@@ -471,12 +489,12 @@ const zh: Messages = {
   "settings.trustBody": "已配对设备会保存公钥和证书钉扎；轮换身份会清空这些信任。",
   "settings.clipboardBody": "手机默认只在你主动操作时发送或复制文本，不会自动读取系统剪贴板。",
   "settings.advancedTitle": "高级设置",
-    "settings.advancedBody": "网络接口、本机身份、发现诊断和运行日志。日常不需要改动。",
-    "settings.backToSettings": "返回设置",
-    "settings.moreTitle": "更多",
-    "settings.clipboardLink": "剪贴板",
-    "settings.helpTitle": "帮助",
-    "settings.helpBody": "配对、传输和剪贴板的使用说明。",
+  "settings.advancedBody": "网络接口、本机身份、发现诊断和运行日志。日常不需要改动。",
+  "settings.backToSettings": "返回设置",
+  "settings.moreTitle": "更多",
+  "settings.clipboardLink": "剪贴板",
+  "settings.helpTitle": "帮助",
+  "settings.helpBody": "配对、传输和剪贴板的使用说明。",
   "settings.diagnosticsTitle": "诊断",
   "settings.diagnosticsBody": "用于确认事件通道和快照没有掉队。",
   "settings.eventSeq": "事件序号",
@@ -495,7 +513,8 @@ const zh: Messages = {
   "settings.rotateBody": "轮换会生成新的身份密钥，并清除现有信任。所有设备都需要重新配对。",
   "settings.rotateButton": "轮换本机身份",
   "settings.rotateDialogTitle": "确定轮换身份？",
-  "settings.rotateDialogBody": "现有可信设备会立即失效，且无法撤销。请确认其他设备可以重新配对后再继续。",
+  "settings.rotateDialogBody":
+    "现有可信设备会立即失效，且无法撤销。请确认其他设备可以重新配对后再继续。",
   "settings.rotateConfirm": "轮换并清除信任",
   "settings.rotateSuccess": "身份已轮换，旧信任已清除。",
   "settings.rotateWarning": "旧身份无法恢复；现有可信设备需要重新配对。",
@@ -529,8 +548,8 @@ const zh: Messages = {
 
 const en: Messages = {
   "app.lanOnly": "LAN only",
-      "nav.chat": "Messages",
-"nav.devices": "Devices",
+  "nav.chat": "Messages",
+  "nav.devices": "Devices",
   "nav.settings": "Settings",
   "nav.primary": "Primary navigation",
   "nav.skip": "Skip to content",
@@ -552,7 +571,8 @@ const en: Messages = {
   "status.connecting": "Connecting",
   "status.offline": "Offline",
   "home.title": "Devices",
-  "home.subtitle": "Devices on your network appear here. Once paired, conversations live under Messages.",
+  "home.subtitle":
+    "Devices on your network appear here. Once paired, conversations live under Messages.",
   "home.trustedCount": "{count} devices",
   "home.nearbyCount": "{count} nearby",
   "home.thisDevice": "This device",
@@ -571,25 +591,33 @@ const en: Messages = {
   "nearby.title": "Nearby devices",
   "nearby.body": "Found automatically on this local network. No address or QR code required.",
   "nearby.emptyTitle": "No devices found yet",
-  "nearby.emptyBody": "Make sure the other device has Fluxy open and is on the same Wi-Fi, hotspot, or Ethernet.",
-  "nearby.emptyNote": "Discovery is only a hint; trust comes from the same six-digit code on both screens.",
-  "nearby.note": "A discovery record expires after two minutes, so an offline device does not linger indefinitely.",
+  "nearby.emptyBody":
+    "Make sure the other device has Fluxy open and is on the same Wi-Fi, hotspot, or Ethernet.",
+  "nearby.emptyNote":
+    "Discovery is only a hint; trust comes from the same six-digit code on both screens.",
+  "nearby.note":
+    "A discovery record expires after two minutes, so an offline device does not linger indefinitely.",
 
   "pairing.pairAction": "Pair",
   "pairing.pairWith": "Pair with {name}",
   "pairing.myQrTitle": "My code",
-  "pairing.myQrBody": "Scan this from the other device to start pairing. Both screens still compare a six-digit code before trust is saved.",
+  "pairing.myQrBody":
+    "Scan this from the other device to start pairing. Both screens still compare a six-digit code before trust is saved.",
   "pairing.myQrUnavailable": "This device has no address to share yet. Try again in a moment.",
   "pairing.dialogTitle": "Compare the short code",
-  "pairing.directionInitiator": "You started this pairing. Confirm the same six-digit code on the other device.",
-  "pairing.directionResponder": "Another device asked to pair. Compare the six-digit code on its screen first.",
+  "pairing.directionInitiator":
+    "You started this pairing. Confirm the same six-digit code on the other device.",
+  "pairing.directionResponder":
+    "Another device asked to pair. Compare the six-digit code on its screen first.",
   "pairing.sasLabel": "Six-digit short authentication code",
   "pairing.expiresIn": "Expires in {time}",
   "pairing.expired": "Code expired",
-  "pairing.warning": "Compare only on your own two devices. Both screens must show the same six digits; cancel if they differ.",
+  "pairing.warning":
+    "Compare only on your own two devices. Both screens must show the same six digits; cancel if they differ.",
   "pairing.acknowledge": "I see the same six digits on this device and the other screen",
   "pairing.confirm": "Codes match, pair",
-  "pairing.noAuto": "Fluxy never auto-confirms. Trust is saved only after you tick the box and confirm.",
+  "pairing.noAuto":
+    "Fluxy never auto-confirms. Trust is saved only after you tick the box and confirm.",
   "pairing.requestFailed": "Pairing could not start: {message}",
   "pairing.successToast": "Paired with {name}.",
   "pairing.expiredToast": "The code expired. Start pairing again.",
@@ -621,10 +649,10 @@ const en: Messages = {
   "chat.sendFailed": "Send failed: {message}",
   "chat.placeholder": "Write a message",
   "chat.enterHint": "Enter to send, Shift+Enter for a new line",
-      "chat.attach": "Attach",
-    "chat.attachTitle": "Choose a file to send",
-    "chat.attachSent": "Sent {name}",
-"chat.send": "Send",
+  "chat.attach": "Attach",
+  "chat.attachTitle": "Choose a file to send",
+  "chat.attachSent": "Sent {name}",
+  "chat.send": "Send",
   "chat.offlineHint": "This device is offline. Chat will be available when it returns to the LAN.",
   "chat.memoryPill": "Memory only",
   "chat.errorConnectionLost": "The connection ended before delivery; you can retry.",
@@ -654,7 +682,8 @@ const en: Messages = {
   "network.stateListenerOnly": "Listener only",
   "network.stateUnavailable": "Unavailable",
   "network.stateStopped": "Stopped",
-  "network.blocked": "Discovery is not ready. Connect this device to a private LAN; Fluxy does not offer a manual address or QR bypass.",
+  "network.blocked":
+    "Discovery is not ready. Connect this device to a private LAN; Fluxy does not offer a manual address or QR bypass.",
   "network.interface": "Active interface",
   "network.localAddress": "Local address",
   "network.listenAddr": "Listen address",
@@ -673,14 +702,18 @@ const en: Messages = {
   "network.fallbackTargets": "Fallback broadcast and probe targets",
   "network.fallbackPeers": "Fallback peers",
   "network.fallbackError": "Fallback channel error: {message}",
-  "network.note": "mDNS is preferred; UDP gateway probe and limited broadcast are a fallback when a hotspot filters mDNS. Both are only hints and never create trust; every pairing still uses TLS and the six-digit SAS check.",
+  "network.note":
+    "mDNS is preferred; UDP gateway probe and limited broadcast are a fallback when a hotspot filters mDNS. Both are only hints and never create trust; every pairing still uses TLS and the six-digit SAS check.",
   "network.selectionTitle": "Network interface",
-  "network.selectionBody": "Pick the adapter and address used for listening and advertising. One address is active at a time.",
+  "network.selectionBody":
+    "Pick the adapter and address used for listening and advertising. One address is active at a time.",
   "network.modeLabel": "Selection",
   "network.modeAuto": "Automatic",
   "network.modeManual": "Manual",
-  "network.modeAutoHint": "Prefers the default-route interface and avoids VPN and virtual adapters; re-selects when the network changes.",
-  "network.modeManualHint": "Keeps the chosen adapter and address; if the address disappears Fluxy reports it and waits instead of switching silently.",
+  "network.modeAutoHint":
+    "Prefers the default-route interface and avoids VPN and virtual adapters; re-selects when the network changes.",
+  "network.modeManualHint":
+    "Keeps the chosen adapter and address; if the address disappears Fluxy reports it and waits instead of switching silently.",
   "network.interfaceList": "Local adapters",
   "network.interfaceListHint": "This list stays on this device and never enters the protocol.",
   "network.interfaceRecommended": "Recommended",
@@ -708,20 +741,25 @@ const en: Messages = {
   "network.revert": "Revert",
   "network.pendingChange": "Unapplied change",
   "network.confirmTitle": "Switch network interface?",
-  "network.confirmBody": "Switching drops current connections; transfers in flight pause first and resume from their checkpoint after the rebind.",
-  "network.confirmWarning": "Peers have to rediscover this device, and connections using the old address will time out.",
+  "network.confirmBody":
+    "Switching drops current connections; transfers in flight pause first and resume from their checkpoint after the rebind.",
+  "network.confirmWarning":
+    "Peers have to rediscover this device, and connections using the old address will time out.",
   "network.confirmAction": "Switch and rebind",
   "network.switchApplied": "Network interface switched.",
   "network.switchFailed": "Switch failed: {message}",
   "network.copyInterfaces": "Copy interfaces and addresses",
   "network.copiedInterfaces": "Interfaces and addresses copied.",
   "network.guidanceTitle": "How to recover",
-  "network.guidanceManualLost": "The chosen address is gone. Pick another adapter and address, or plug the network back in and wait for it to return.",
-  "network.guidanceUnavailable": "The listener is not ready. Pick another adapter, or check that the cable or Wi-Fi is connected.",
+  "network.guidanceManualLost":
+    "The chosen address is gone. Pick another adapter and address, or plug the network back in and wait for it to return.",
+  "network.guidanceUnavailable":
+    "The listener is not ready. Pick another adapter, or check that the cable or Wi-Fi is connected.",
   "network.guidancePick": "Choose an adapter under Local adapters, then apply.",
   "network.guidanceError": "Most recent error: {message}",
   "network.pinnedNote": "The socket is pinned to this adapter.",
-  "network.unpinnedNote": "This platform does not pin the socket to the adapter, so traffic may still leave through a VPN or another route.",
+  "network.unpinnedNote":
+    "This platform does not pin the socket to the adapter, so traffic may still leave through a VPN or another route.",
   "network.rebindNever": "No automatic rebind yet",
   "network.rebindCount": "Rebound automatically {count} times",
   "network.rebindLast": "last {time}",
@@ -730,27 +768,37 @@ const en: Messages = {
   "common.no": "No",
   "transfers.title": "Transfers",
   "transfers.reason.protocol": "Protocol error: the two sides read the same request differently.",
-  "transfers.reason.unsupported_version": "Unsupported version: the peer speaks a different protocol version.",
-  "transfers.reason.identity": "Identity unusable: the local identity or certificate failed verification.",
-  "transfers.reason.trust": "Trust check failed: the peer certificate does not match the saved pin.",
+  "transfers.reason.unsupported_version":
+    "Unsupported version: the peer speaks a different protocol version.",
+  "transfers.reason.identity":
+    "Identity unusable: the local identity or certificate failed verification.",
+  "transfers.reason.trust":
+    "Trust check failed: the peer certificate does not match the saved pin.",
   "transfers.reason.timeout": "Timeout: the peer did not answer in time.",
   "transfers.reason.network_unavailable": "Network unavailable: there is no usable LAN interface.",
   "transfers.reason.transfer": "Transfer failed: the data stream broke, or the peer refused it.",
-  "transfers.reason.source_changed": "Source changed: the file no longer matches what was registered.",
-  "transfers.reason.file_access": "File access failed: the source could not be read or the target written.",
+  "transfers.reason.source_changed":
+    "Source changed: the file no longer matches what was registered.",
+  "transfers.reason.file_access":
+    "File access failed: the source could not be read or the target written.",
   "transfers.reason.disk_full": "Disk full: the receiver ran out of space.",
   "transfers.reason.rejected": "The receiver declined the transfer.",
-  "transfers.reason.invalid_manifest": "The manifest does not match its summary, so receiving was refused.",
-  "transfers.reason.invalid_batch": "The folder listing is incomplete or inconsistent with the file, so receiving was refused.",
-  "transfers.reason.hash_mismatch": "Hash mismatch: the received content does not match the manifest.",
-  "transfers.reason.missing_chunks": "Missing chunks: some blocks still had not arrived after a retry.",
+  "transfers.reason.invalid_manifest":
+    "The manifest does not match its summary, so receiving was refused.",
+  "transfers.reason.invalid_batch":
+    "The folder listing is incomplete or inconsistent with the file, so receiving was refused.",
+  "transfers.reason.hash_mismatch":
+    "Hash mismatch: the received content does not match the manifest.",
+  "transfers.reason.missing_chunks":
+    "Missing chunks: some blocks still had not arrived after a retry.",
   "transfers.reason.canceled": "Canceled: this transfer was cancelled.",
   "transfers.reason.clipboard_too_large": "Clipboard too large: it exceeds the 1 MiB limit.",
   "transfers.reason.peer_busy": "Peer busy: the other device is in another transfer or pairing.",
   "transfers.reason.internal": "Internal error: copy the details and retry.",
   "transfers.offerTitle": "Incoming file transfer",
   "transfers.offerBody": "{name} wants to send {file} ({size}).",
-  "transfers.offerNote": "Accepted files are written to this device's received folder; the local clipboard is never changed.",
+  "transfers.offerNote":
+    "Accepted files are written to this device's received folder; the local clipboard is never changed.",
   "transfers.accept": "Accept",
   "transfers.reject": "Reject",
   "transfers.acceptedToast": "Accepted the file from {name}",
@@ -759,18 +807,22 @@ const en: Messages = {
   "clipboard.title": "Clipboard",
   "clipboard.subtitle": "Hand a piece of text to another device without touching a cloud.",
   "clipboard.policyTitle": "Receive policy",
-  "clipboard.policyBody": "Each trusted device has its own policy: ask, auto-receive, or reject. Ask is the default. Auto-receive lets that device overwrite this clipboard without a prompt.",
+  "clipboard.policyBody":
+    "Each trusted device has its own policy: ask, auto-receive, or reject. Ask is the default. Auto-receive lets that device overwrite this clipboard without a prompt.",
   "clipboard.policyChip": "Per-device policy",
-  "clipboard.policyEmpty": "No trusted devices yet. Pair a device to configure its receive policy here.",
+  "clipboard.policyEmpty":
+    "No trusted devices yet. Pair a device to configure its receive policy here.",
   "clipboard.policyFor": "Receive policy for {name}",
   "clipboard.policyAsk": "Ask",
   "clipboard.policyAskBody": "Show a confirmation for each offer; write only after you accept.",
   "clipboard.policyAuto": "Auto",
-  "clipboard.policyAutoBody": "Write incoming text to the system clipboard without asking each time.",
+  "clipboard.policyAutoBody":
+    "Write incoming text to the system clipboard without asking each time.",
   "clipboard.policyReject": "Reject",
   "clipboard.policyRejectBody": "Refuse this device's offers automatically without prompting.",
   "clipboard.policySaved": "Updated the receive policy for {name}.",
-  "clipboard.policyWarning": "Auto-receive overwrites the current clipboard and applies only to devices you explicitly authorize.",
+  "clipboard.policyWarning":
+    "Auto-receive overwrites the current clipboard and applies only to devices you explicitly authorize.",
   "clipboard.autoSendLabel": "Auto send",
   "clipboard.autoSendOff": "Off: the clipboard is never read in the background",
   "clipboard.autoSendOn": "On: checked every 300 ms and sent once the value is stable",
@@ -778,8 +830,10 @@ const en: Messages = {
   "clipboard.autoSendDisabled": "Automatic clipboard sending is off.",
   "clipboard.autoSendTargets": "Will be sent to {count} online trusted device(s).",
   "clipboard.autoSendNoTargets": "No trusted device is online; syncing starts when one appears.",
-  "clipboard.autoSendLoopNote": "Content that arrived from a peer is never sent back, so two devices with this on cannot loop.",
-  "clipboard.autoOffNote": "Automatic sending is off by default; when it is on it only syncs text, and only what you copy from then on - what is already on the clipboard when you enable it is not sent. Receive policy stays per device.",
+  "clipboard.autoSendLoopNote":
+    "Content that arrived from a peer is never sent back, so two devices with this on cannot loop.",
+  "clipboard.autoOffNote":
+    "Automatic sending is off by default; when it is on it only syncs text, and only what you copy from then on - what is already on the clipboard when you enable it is not sent. Receive policy stays per device.",
   "tray.open": "Open Fluxy",
   "tray.autoClipboard": "Auto send clipboard",
   "tray.autostart": "Start at login",
@@ -799,18 +853,22 @@ const en: Messages = {
   "clipboard.incomingEmpty": "No clipboard offers received yet.",
   "clipboard.manualSend": "Manual send",
   "clipboard.sendTitle": "Send current clipboard",
-  "clipboard.sendBody": "Read text from this device and first send an offer containing only a preview, size, and digest.",
+  "clipboard.sendBody":
+    "Read text from this device and first send an offer containing only a preview, size, and digest.",
   "clipboard.chooseDevice": "Choose an online device",
   "clipboard.noOnlineTitle": "No trusted device is online",
-  "clipboard.noOnlineBody": "Open Fluxy on a paired device and connect it to the same Wi-Fi, hotspot, or Ethernet.",
+  "clipboard.noOnlineBody":
+    "Open Fluxy on a paired device and connect it to the same Wi-Fi, hotspot, or Ethernet.",
   "clipboard.noOnlineNote": "Devices appear here automatically after they come back online.",
-  "clipboard.readHint": "The system clipboard is read only when you press send; content is never written to history or logs.",
+  "clipboard.readHint":
+    "The system clipboard is read only when you press send; content is never written to history or logs.",
   "clipboard.sendButton": "Send current clipboard",
   "clipboard.sending": "Reading and sending…",
   "clipboard.sentToast": "Clipboard offer sent to {name}.",
   "clipboard.sendFailed": "Send failed: {message}",
   "clipboard.incomingBody": "The sender only transmits the text after you confirm.",
-  "clipboard.incomingNote": "Nothing is written to this device's clipboard until you choose accept.",
+  "clipboard.incomingNote":
+    "Nothing is written to this device's clipboard until you choose accept.",
   "clipboard.accept": "Accept and write",
   "clipboard.reject": "Reject",
   "clipboard.acceptedToast": "Clipboard content from {name} was accepted.",
@@ -820,7 +878,8 @@ const en: Messages = {
   "clipboard.expiresIn": "Expires in {seconds}s",
   "clipboard.expired": "Expired",
   "clipboard.historyTitle": "Recent shares",
-  "clipboard.historyBody": "Only previews and state stay in memory; message bodies are not retained.",
+  "clipboard.historyBody":
+    "Only previews and state stay in memory; message bodies are not retained.",
   "clipboard.historyEmpty": "No clipboard shares yet.",
   "clipboard.direction.sent": "Sent",
   "clipboard.direction.received": "Received",
@@ -844,10 +903,10 @@ const en: Messages = {
   "settings.appearanceTitle": "Appearance",
   "settings.languageTitle": "Language",
   "settings.deviceTitle": "Device name",
-      "mobile.nearbyTitle": "Nearby devices",
-    "mobile.nearbyEmpty": "Looking for devices on this network…",
-    "mobile.nearbyPair": "Pair",
-    "mobile.nearbyPaired": "Paired",
+  "mobile.nearbyTitle": "Nearby devices",
+  "mobile.nearbyEmpty": "Looking for devices on this network…",
+  "mobile.nearbyPair": "Pair",
+  "mobile.nearbyPaired": "Paired",
   "mobile.openChat": "Open chat ›",
   "devices.title": "Devices",
   "devices.listAria": "Device list",
@@ -883,25 +942,30 @@ const en: Messages = {
   "devices.removeTrustBody": "Connecting again will need a fresh pairing",
   "devices.removeTrustAction": "Remove trust",
   "devices.removeTrustTitle": "Remove trust for this device?",
-  "devices.removeTrustConfirm": "The pairing with {name} will be deleted, and connecting again needs pairing confirmation.",
+  "devices.removeTrustConfirm":
+    "The pairing with {name} will be deleted, and connecting again needs pairing confirmation.",
   "devices.trustRemoved": "Removed trust for {name}",
   "devices.selectTitle": "Pick a device",
-  "devices.selectBody": "Everything visible on your network is listed on the left; paired devices stay here.",
-    "devices.trustedTitle": "Trusted devices",
-    "mobile.scanNoPermission": "Camera permission is not granted, so scanning cannot start. Grant it in system settings and retry.",
+  "devices.selectBody":
+    "Everything visible on your network is listed on the left; paired devices stay here.",
+  "devices.trustedTitle": "Trusted devices",
+  "mobile.scanNoPermission":
+    "Camera permission is not granted, so scanning cannot start. Grant it in system settings and retry.",
   "mobile.scanNotOurs": "That is not a Fluxy pairing code.",
-    "mobile.scanUnknown": "Scanned, but that device is not in the nearby list yet. Wait a moment and retry, or type the address.",
-    "mobile.scanFailed": "Scan failed: {message}",
-    "mobile.scanAction": "Scan a code",
-    "mobile.manualOpen": "Cannot see it? Enter it by hand",
-    "mobile.manualBody": "For a network that isolates peers or filters multicast: type the address and fingerprint the other side shows.",
+  "mobile.scanUnknown":
+    "Scanned, but that device is not in the nearby list yet. Wait a moment and retry, or type the address.",
+  "mobile.scanFailed": "Scan failed: {message}",
+  "mobile.scanAction": "Scan a code",
+  "mobile.manualOpen": "Cannot see it? Enter it by hand",
+  "mobile.manualBody":
+    "For a network that isolates peers or filters multicast: type the address and fingerprint the other side shows.",
   "mobile.address": "Address",
   "mobile.fingerprint": "Fingerprint",
   "mobile.pairAction": "Start pairing",
   "mobile.pairWaiting": "Pairing request sent; waiting for the other device.",
-      "mobile.pairCancel": "Cancel",
-    "mobile.pairNoAnswer": "No answer from the other device. You can try again.",
-"mobile.pairCompare": "Confirm the six-digit code matches:",
+  "mobile.pairCancel": "Cancel",
+  "mobile.pairNoAnswer": "No answer from the other device. You can try again.",
+  "mobile.pairCompare": "Confirm the six-digit code matches:",
   "mobile.pairConfirm": "It matches",
   "mobile.pairConfirmed": "Paired.",
   "mobile.preparing": "Preparing the file - large files are hashed first, this can take a while.",
@@ -913,64 +977,87 @@ const en: Messages = {
   "settings.receiveFailed": "Could not change the receive directory: {message}",
   "settings.deviceBody": "The name other devices see in the local device list.",
   "settings.deviceNameSave": "Save name",
-  "settings.deviceNameHint": "1–64 characters. Saving restarts the local advertisement, drops sessions in flight, and shows the new name to other devices right away.",
+  "settings.deviceNameHint":
+    "1–64 characters. Saving restarts the local advertisement, drops sessions in flight, and shows the new name to other devices right away.",
   "settings.deviceNameRequired": "A device name is required.",
   "settings.deviceNameSaved": "Device name updated.",
   "settings.deviceNameFailed": "Rename failed: {message}",
-    "settings.autoAcceptBody": "Whether files from trusted devices are received without asking. When off, every transfer asks first.",
-    "settings.autoAcceptToggle": "Accept files automatically",
-    "settings.autoAcceptOn": "Auto-accept turned on.",
-    "settings.autoAcceptOff": "Auto-accept turned off; incoming files will ask first.",
-    "settings.autoAcceptFailed": "Could not update auto-accept: {message}",
+  "settings.autoAcceptBody":
+    "Whether files from trusted devices are received without asking. When off, every transfer asks first.",
+  "settings.autoAcceptToggle": "Accept files automatically",
+  "settings.autoAcceptOn": "Auto-accept turned on.",
+  "settings.autoAcceptOff": "Auto-accept turned off; incoming files will ask first.",
+  "settings.autoAcceptFailed": "Could not update auto-accept: {message}",
   "settings.receivingTitle": "Receiving",
   "settings.receivingBody": "How incoming files are handled.",
-  "settings.notificationsBody": "Whether chat, clipboard, and transfer events raise a system notification.",
+  "settings.notificationsBody":
+    "Whether chat, clipboard, and transfer events raise a system notification.",
   "settings.autostartTitle": "Background and startup",
-  "settings.autostartBody": "Fluxy keeps running in the tray after the window closes and keeps receiving; starting at login launches it hidden in the tray.",
+  "settings.autostartBody":
+    "Fluxy keeps running in the tray after the window closes and keeps receiving; starting at login launches it hidden in the tray.",
   "settings.autostartToggle": "Start at login",
   "settings.autostartEnabled": "Starting at login is on.",
   "settings.autostartDisabled": "Starting at login is off.",
   "settings.autostartFailed": "Could not update the login item: {message}",
   "help.title": "Help and firewall",
-  "help.body": "LAN-only means no server, but the system firewall still has to allow Fluxy's UDP ports. Otherwise devices see each other and never connect.",
+  "help.body":
+    "LAN-only means no server, but the system firewall still has to allow Fluxy's UDP ports. Otherwise devices see each other and never connect.",
   "help.backgroundTitle": "Running in the background",
-  "help.backgroundBody": "Closing the window does not quit Fluxy: it stays in the system tray and keeps receiving.",
-  "help.backgroundTray": "The close button only hides the window; left-clicking the tray icon restores it at any time.",
+  "help.backgroundBody":
+    "Closing the window does not quit Fluxy: it stays in the system tray and keeps receiving.",
+  "help.backgroundTray":
+    "The close button only hides the window; left-clicking the tray icon restores it at any time.",
   "help.backgroundQuit": "Use Quit in the tray menu to really exit.",
   "help.autostartOn": "Starting at login is on; the login item lives in {location}.",
-  "help.autostartOff": "Starting at login is off; enable it in settings to launch hidden in the tray.",
+  "help.autostartOff":
+    "Starting at login is off; enable it in settings to launch hidden in the tray.",
   "help.portsTitle": "Ports to allow",
-  "help.portsBody": "Discovery uses a fixed UDP port, and transfers use the UDP port this device listens on (port 0 means the system assigns one, which can change between runs).",
+  "help.portsBody":
+    "Discovery uses a fixed UDP port, and transfers use the UDP port this device listens on (port 0 means the system assigns one, which can change between runs).",
   "help.portDiscovery": "Device discovery",
   "help.portTransfer": "Chat and file transfers",
-  "help.portNote": "Allowing the program itself instead of a single port covers the system-assigned port; a fixed port arrives with the network-interface settings.",
+  "help.portNote":
+    "Allowing the program itself instead of a single port covers the system-assigned port; a fixed port arrives with the network-interface settings.",
   "help.copyRule": "Copy command",
   "help.windowsTitle": "Windows",
-  "help.windowsBody": "Open PowerShell as administrator and run the commands below. If the firewall prompt appeared on first launch, tick the private-network box and allow access.",
-  "help.windowsCommand": "New-NetFirewallRule -DisplayName \"Fluxy discovery\" -Direction Inbound -Protocol UDP -LocalPort {discovery} -Action Allow\nNew-NetFirewallRule -DisplayName \"Fluxy transfer\" -Direction Inbound -Protocol UDP -LocalPort {port} -Action Allow",
+  "help.windowsBody":
+    "Open PowerShell as administrator and run the commands below. If the firewall prompt appeared on first launch, tick the private-network box and allow access.",
+  "help.windowsCommand":
+    'New-NetFirewallRule -DisplayName "Fluxy discovery" -Direction Inbound -Protocol UDP -LocalPort {discovery} -Action Allow\nNew-NetFirewallRule -DisplayName "Fluxy transfer" -Direction Inbound -Protocol UDP -LocalPort {port} -Action Allow',
   "help.macosTitle": "macOS",
-  "help.macosBody": "Allow Fluxy to accept incoming connections in System Settings → Network → Firewall, or run the commands below (administrator password required).",
-  "help.macosCommand": "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/Fluxy.app\nsudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Fluxy.app",
+  "help.macosBody":
+    "Allow Fluxy to accept incoming connections in System Settings → Network → Firewall, or run the commands below (administrator password required).",
+  "help.macosCommand":
+    "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/Fluxy.app\nsudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Fluxy.app",
   "help.linuxTitle": "Linux",
-  "help.linuxBody": "Allow the discovery and transfer ports with ufw or firewalld; firewall-cmd takes the same rules.",
+  "help.linuxBody":
+    "Allow the discovery and transfer ports with ufw or firewalld; firewall-cmd takes the same rules.",
   "help.linuxCommand": "sudo ufw allow {discovery}/udp\nsudo ufw allow {port}/udp",
   "help.troubleTitle": "Common problems",
-  "help.troubleBody": "Work through these in order; they cover most \"cannot see\" and \"cannot connect\" reports.",
+  "help.troubleBody":
+    'Work through these in order; they cover most "cannot see" and "cannot connect" reports.',
   "help.troubleMdns": "A device never appears nearby",
-  "help.troubleMdnsBody": "Check that both devices are on the same subnet, that UDP {discovery} is allowed, and that guest networks or AP isolation are off.",
+  "help.troubleMdnsBody":
+    "Check that both devices are on the same subnet, that UDP {discovery} is allowed, and that guest networks or AP isolation are off.",
   "help.troubleFirewall": "The device appears but pairing or transfers fail",
-  "help.troubleFirewallBody": "That is the classic blocked-inbound-UDP case: allow the Fluxy program or the transfer port above and retry.",
+  "help.troubleFirewallBody":
+    "That is the classic blocked-inbound-UDP case: allow the Fluxy program or the transfer port above and retry.",
   "help.troublePublic": "The first connection fails on Windows",
-  "help.troublePublicBody": "Switch the current network profile from public to private, or allow Fluxy for public networks as well.",
+  "help.troublePublicBody":
+    "Switch the current network profile from public to private, or allow Fluxy for public networks as well.",
   "help.troubleVpn": "Devices lose each other behind a VPN",
-  "help.troubleVpnBody": "A VPN reroutes traffic to another interface; disable it or wait for discovery to pick the new interface.",
+  "help.troubleVpnBody":
+    "A VPN reroutes traffic to another interface; disable it or wait for discovery to pick the new interface.",
   "help.troubleHotspot": "Discovery fails on a phone hotspot",
-  "help.troubleHotspotBody": "Hotspots often block multicast; Fluxy falls back to gateway probes, and manual addressing remains available.",
+  "help.troubleHotspotBody":
+    "Hotspots often block multicast; Fluxy falls back to gateway probes, and manual addressing remains available.",
   "help.diagnosticsTitle": "Diagnostics",
-  "help.diagnosticsBody": "Include this when reporting a problem; it contains no chat text and no file paths.",
+  "help.diagnosticsBody":
+    "Include this when reporting a problem; it contains no chat text and no file paths.",
   "help.dataDir": "Data directory",
   "help.docsNote": "Full guide",
-  "help.notAdvertised": "This device is neither advertising nor browsing mDNS, so nearby devices may not find it.",
+  "help.notAdvertised":
+    "This device is neither advertising nor browsing mDNS, so nearby devices may not find it.",
   "help.executablePlaceholder": "C:\\Program Files\\Fluxy\\fluxy.exe",
   "settings.notificationsToggle": "Desktop notifications",
   "settings.notificationsEnabled": "Desktop notifications turned on.",
@@ -984,15 +1071,18 @@ const en: Messages = {
   "settings.portLabel": "Listen port",
   "settings.dataDirLabel": "Data directory",
   "settings.trustTitle": "Trusted devices",
-  "settings.trustBody": "Paired devices keep a public key and certificate pin. Rotating identity clears this trust.",
-  "settings.clipboardBody": "The phone only sends or copies text when you ask it to; it never reads the system clipboard on its own.",
+  "settings.trustBody":
+    "Paired devices keep a public key and certificate pin. Rotating identity clears this trust.",
+  "settings.clipboardBody":
+    "The phone only sends or copies text when you ask it to; it never reads the system clipboard on its own.",
   "settings.advancedTitle": "Advanced",
-    "settings.advancedBody": "Network interface, device identity, discovery diagnostics and the log tail. Seldom changed.",
-    "settings.backToSettings": "Back to settings",
-    "settings.moreTitle": "More",
-    "settings.clipboardLink": "Clipboard",
-    "settings.helpTitle": "Help",
-    "settings.helpBody": "How pairing, transfers and the clipboard work.",
+  "settings.advancedBody":
+    "Network interface, device identity, discovery diagnostics and the log tail. Seldom changed.",
+  "settings.backToSettings": "Back to settings",
+  "settings.moreTitle": "More",
+  "settings.clipboardLink": "Clipboard",
+  "settings.helpTitle": "Help",
+  "settings.helpBody": "How pairing, transfers and the clipboard work.",
   "settings.diagnosticsTitle": "Diagnostics",
   "settings.diagnosticsBody": "Check that the event channel and snapshots are keeping up.",
   "settings.eventSeq": "Event sequence",
@@ -1001,20 +1091,25 @@ const en: Messages = {
   "settings.copyDiagnostics": "Copy diagnostics",
   "settings.lanTitle": "Local network permission",
   "settings.lanBody": "The system has not granted LAN access, so no other device can be found.",
-  "settings.lanFix": "Allow Fluxy to access the local network in system settings, then reopen the app.",
+  "settings.lanFix":
+    "Allow Fluxy to access the local network in system settings, then reopen the app.",
   "settings.logHeading": "Run log",
-  "settings.logHint": "Recent application log lines. A release build has no console, so this is where to look when something fails.",
+  "settings.logHint":
+    "Recent application log lines. A release build has no console, so this is where to look when something fails.",
   "settings.logLoad": "Load log",
   "settings.logRefresh": "Refresh",
   "settings.logEmpty": "The log file is still empty.",
   "settings.rotateTitle": "Rotate identity",
-  "settings.rotateBody": "Rotating creates a new identity key and clears existing trust. Every device must pair again.",
+  "settings.rotateBody":
+    "Rotating creates a new identity key and clears existing trust. Every device must pair again.",
   "settings.rotateButton": "Rotate identity",
   "settings.rotateDialogTitle": "Rotate this identity?",
-  "settings.rotateDialogBody": "Existing trusted devices stop working immediately. This cannot be undone. Make sure the other devices can pair again before continuing.",
+  "settings.rotateDialogBody":
+    "Existing trusted devices stop working immediately. This cannot be undone. Make sure the other devices can pair again before continuing.",
   "settings.rotateConfirm": "Rotate and clear trust",
   "settings.rotateSuccess": "Identity rotated. Old trust is cleared.",
-  "settings.rotateWarning": "The old identity cannot be restored. Existing trusted devices must pair again.",
+  "settings.rotateWarning":
+    "The old identity cannot be restored. Existing trusted devices must pair again.",
   "settings.rotateFailure": "Rotation failed: {message}",
   "settings.localOnlyNote": "No public servers. No chat history on disk.",
   "settings.themeSystem": "System",
@@ -1024,9 +1119,11 @@ const en: Messages = {
   "settings.languageEn": "English",
   "settings.thisVersion": "Version {version}",
   "error.title": "Engine is not responding",
-  "error.body": "The app could not read the local engine. Confirm the desktop shell is running, then try again.",
+  "error.body":
+    "The app could not read the local engine. Confirm the desktop shell is running, then try again.",
   "error.desktopTitle": "This is a desktop app",
-  "error.desktopBody": "Start the interface through the desktop shell: bun run tauri:dev. A browser preview has no local engine.",
+  "error.desktopBody":
+    "Start the interface through the desktop shell: bun run tauri:dev. A browser preview has no local engine.",
   "error.retry": "Reconnect",
   "error.details": "Error details",
   "error.copyDetails": "Copy details",
@@ -1070,10 +1167,7 @@ function readLocale(): Locale {
   return "zh-CN";
 }
 
-function interpolate(
-  template: string,
-  vars?: Record<string, string | number>,
-): string {
+function interpolate(template: string, vars?: Record<string, string | number>): string {
   if (!vars) {
     return template;
   }
@@ -1104,9 +1198,7 @@ export function I18nProvider(props: ParentProps) {
   };
 
   return (
-    <I18nContext.Provider value={{ locale, setLocale, t }}>
-      {props.children}
-    </I18nContext.Provider>
+    <I18nContext.Provider value={{ locale, setLocale, t }}>{props.children}</I18nContext.Provider>
   );
 }
 

@@ -101,19 +101,10 @@ export type PairingNotice =
 
 type PairingEventData = Extract<AppEventEnvelope["event"], { category: "pairing" }>["data"];
 type ChatEventData = Extract<AppEventEnvelope["event"], { category: "chat" }>["data"];
-type ClipboardEventData = Extract<
-  AppEventEnvelope["event"],
-  { category: "clipboard" }
->["data"];
-type TransferEventData = Extract<
-  AppEventEnvelope["event"],
-  { category: "transfer" }
->["data"];
+type ClipboardEventData = Extract<AppEventEnvelope["event"], { category: "clipboard" }>["data"];
+type TransferEventData = Extract<AppEventEnvelope["event"], { category: "transfer" }>["data"];
 /** A navigation request raised by native chrome such as the tray. */
-export type ShellRequest = Extract<
-  AppEventEnvelope["event"],
-  { category: "shell" }
->["data"];
+export type ShellRequest = Extract<AppEventEnvelope["event"], { category: "shell" }>["data"];
 
 /** A batch of files and folders the OS dropped on the window. */
 export interface TransferDrop {
@@ -159,10 +150,7 @@ export type EngineContextValue = {
   sendChat: (deviceId: string, text: string) => Promise<ChatMessageView>;
   retryChat: (deviceId: string, messageId: string) => Promise<ChatMessageView>;
   shareClipboard: (deviceId: string) => Promise<ClipboardShareView>;
-  setClipboardPolicy: (
-    deviceId: string,
-    policy: ClipboardReceivePolicy,
-  ) => Promise<void>;
+  setClipboardPolicy: (deviceId: string, policy: ClipboardReceivePolicy) => Promise<void>;
   setDeviceAutoAccept: (deviceId: string, policy: DeviceAutoAccept) => Promise<void>;
   acceptClipboard: (deviceId: string, offerId: string) => Promise<ClipboardShareView>;
   rejectClipboard: (deviceId: string, offerId: string) => Promise<ClipboardShareView>;
@@ -171,10 +159,7 @@ export type EngineContextValue = {
   startTransfer: (deviceId: string, fileId: string) => Promise<TransferSummary>;
   pickFiles: (title: string | null) => Promise<RegisteredFileView[]>;
   pickFolder: (title: string | null) => Promise<RegisteredFolderView | null>;
-  startFolder: (
-    deviceId: string,
-    folderId: string,
-  ) => Promise<TransferSummary[]>;
+  startFolder: (deviceId: string, folderId: string) => Promise<TransferSummary[]>;
   startTransfers: (deviceId: string, fileIds: string[]) => Promise<TransferSummary[]>;
   setTransferConcurrency: (limit: number) => Promise<SettingsSnapshot>;
   setDeviceName: (name: string) => Promise<SettingsSnapshot>;
@@ -252,9 +237,7 @@ export function EngineProvider(props: ParentProps) {
   const clipboardShares = () => snapshot()?.clipboard.shares ?? [];
   const transfers = () => snapshot()?.transfers ?? [];
   const incomingOffer = () =>
-    transfers().find(
-      (item) => item.direction === "receive" && item.state === "offered",
-    ) ?? null;
+    transfers().find((item) => item.direction === "receive" && item.state === "offered") ?? null;
   const chatBuffers = new Map<string, Partial<ChatMessageView>>();
   let pairingTimer: number | undefined;
 
@@ -326,10 +309,7 @@ export function EngineProvider(props: ParentProps) {
         setSnapshot(next);
         pruneChatBuffers(next);
         expectedSeq = Math.max(expectedSeq, next.seq);
-        currentSnapshotVersion = Math.max(
-          currentSnapshotVersion,
-          next.snapshot_version,
-        );
+        currentSnapshotVersion = Math.max(currentSnapshotVersion, next.snapshot_version);
         setError(null);
       } catch (cause) {
         if (!disposed) {
@@ -425,19 +405,14 @@ export function EngineProvider(props: ParentProps) {
 
   function pruneChatBuffers(next: AppSnapshot) {
     for (const [messageId, patch] of chatBuffers) {
-      const message = next.chat.messages.find(
-        (item) => item.message_id === messageId,
-      );
+      const message = next.chat.messages.find((item) => item.message_id === messageId);
       if (message && message.state === patch.state) {
         chatBuffers.delete(messageId);
       }
     }
   }
 
-  function updateConversation(
-    deviceId: string,
-    patch: Partial<ChatConversationView>,
-  ) {
+  function updateConversation(deviceId: string, patch: Partial<ChatConversationView>) {
     setSnapshot((previous) => {
       if (!previous) return previous;
       const conversations = previous.chat.conversations.map((item) =>
@@ -482,8 +457,7 @@ export function EngineProvider(props: ParentProps) {
               last_message: message.text.slice(0, 96),
               last_at_ms: Math.max(item.last_at_ms, message.created_at_ms),
               online: true,
-              session_state:
-                message.direction === "received" ? "connected" : item.session_state,
+              session_state: message.direction === "received" ? "connected" : item.session_state,
             }
           : item,
       );
@@ -558,10 +532,7 @@ export function EngineProvider(props: ParentProps) {
       if (index >= 0) {
         const existing = shares[index];
         const terminal = (state: string) =>
-          state === "applied" ||
-          state === "failed" ||
-          state === "rejected" ||
-          state === "expired";
+          state === "applied" || state === "failed" || state === "rejected" || state === "expired";
         const stale =
           (terminal(existing.state) && !terminal(initial.state)) ||
           (initial.state === "offered" && existing.state !== "offered") ||
@@ -579,10 +550,7 @@ export function EngineProvider(props: ParentProps) {
     });
   }
 
-  function patchClipboardShare(
-    offerId: string,
-    patch: Partial<ClipboardShareView>,
-  ): boolean {
+  function patchClipboardShare(offerId: string, patch: Partial<ClipboardShareView>): boolean {
     let found = false;
     setSnapshot((previous) => {
       if (!previous) return previous;
@@ -591,9 +559,7 @@ export function EngineProvider(props: ParentProps) {
         found = true;
         return { ...item, ...patch };
       });
-      return found
-        ? { ...previous, clipboard: { ...previous.clipboard, shares } }
-        : previous;
+      return found ? { ...previous, clipboard: { ...previous.clipboard, shares } } : previous;
     });
     return found;
   }
@@ -659,14 +625,11 @@ export function EngineProvider(props: ParentProps) {
     }
   }
 
-
   function upsertTransfer(next: TransferSummary) {
     setSnapshot((previous) => {
       if (!previous) return previous;
       const transfers = [...previous.transfers];
-      const index = transfers.findIndex(
-        (item) => item.transfer_id === next.transfer_id,
-      );
+      const index = transfers.findIndex((item) => item.transfer_id === next.transfer_id);
       if (index >= 0) {
         transfers[index] = { ...transfers[index], ...next };
       } else {
@@ -794,9 +757,7 @@ export function EngineProvider(props: ParentProps) {
         });
         break;
       case "completed": {
-        const current = transfers().find(
-          (item) => item.transfer_id === data.transfer_id,
-        );
+        const current = transfers().find((item) => item.transfer_id === data.transfer_id);
         patchTransfer(data.transfer_id, {
           state: "completed",
           bytes_done: current?.bytes_total ?? current?.bytes_done ?? 0,
@@ -840,10 +801,7 @@ export function EngineProvider(props: ParentProps) {
       // Native chrome cannot navigate the WebView, so it asks the UI to.
       setShellRequest(envelope.event.data);
       expectedSeq = Math.max(expectedSeq, envelope.seq);
-      currentSnapshotVersion = Math.max(
-        currentSnapshotVersion,
-        envelope.snapshot_version,
-      );
+      currentSnapshotVersion = Math.max(currentSnapshotVersion, envelope.snapshot_version);
       return;
     }
 
@@ -853,10 +811,7 @@ export function EngineProvider(props: ParentProps) {
         void refreshInternal(false);
       }
       expectedSeq = Math.max(expectedSeq, envelope.seq);
-      currentSnapshotVersion = Math.max(
-        currentSnapshotVersion,
-        envelope.snapshot_version,
-      );
+      currentSnapshotVersion = Math.max(currentSnapshotVersion, envelope.snapshot_version);
       return;
     }
 
@@ -870,10 +825,7 @@ export function EngineProvider(props: ParentProps) {
         void refreshInternal(false);
       }
       expectedSeq = Math.max(expectedSeq, envelope.seq);
-      currentSnapshotVersion = Math.max(
-        currentSnapshotVersion,
-        envelope.snapshot_version,
-      );
+      currentSnapshotVersion = Math.max(currentSnapshotVersion, envelope.snapshot_version);
       return;
     }
 
@@ -885,10 +837,7 @@ export function EngineProvider(props: ParentProps) {
         void refreshInternal(false);
       }
       expectedSeq = Math.max(expectedSeq, envelope.seq);
-      currentSnapshotVersion = Math.max(
-        currentSnapshotVersion,
-        envelope.snapshot_version,
-      );
+      currentSnapshotVersion = Math.max(currentSnapshotVersion, envelope.snapshot_version);
       return;
     }
 
@@ -897,8 +846,7 @@ export function EngineProvider(props: ParentProps) {
     } else if (
       envelope.event.category === "peer" ||
       envelope.event.category === "trust" ||
-      (envelope.event.category === "engine" &&
-        envelope.event.data.type === "network_changed")
+      (envelope.event.category === "engine" && envelope.event.data.type === "network_changed")
     ) {
       void refreshInternal(false);
     }
@@ -923,10 +871,7 @@ export function EngineProvider(props: ParentProps) {
       if (disposed) {
         return;
       }
-      if (
-        info.seq > expectedSeq ||
-        info.snapshot_version !== currentSnapshotVersion
-      ) {
+      if (info.seq > expectedSeq || info.snapshot_version !== currentSnapshotVersion) {
         await refreshInternal(false);
       }
     } catch (cause) {
@@ -1016,36 +961,24 @@ export function EngineProvider(props: ParentProps) {
     await refreshInternal(false);
   }
 
-  async function setDeviceAutoAccept(
-    deviceId: string,
-    policy: DeviceAutoAccept,
-  ): Promise<void> {
+  async function setDeviceAutoAccept(deviceId: string, policy: DeviceAutoAccept): Promise<void> {
     await setDeviceAutoAcceptCommand(deviceId, policy);
     await refreshInternal(false);
   }
 
-  async function acceptClipboard(
-    deviceId: string,
-    offerId: string,
-  ): Promise<ClipboardShareView> {
+  async function acceptClipboard(deviceId: string, offerId: string): Promise<ClipboardShareView> {
     const share = await acceptClipboardCommand(deviceId, offerId);
     upsertClipboardShare(share);
     return share;
   }
 
-  async function rejectClipboard(
-    deviceId: string,
-    offerId: string,
-  ): Promise<ClipboardShareView> {
+  async function rejectClipboard(deviceId: string, offerId: string): Promise<ClipboardShareView> {
     const share = await rejectClipboardCommand(deviceId, offerId);
     upsertClipboardShare(share);
     return share;
   }
 
-
-  async function pickFile(
-    title: string | null,
-  ): Promise<RegisteredFileView | null> {
+  async function pickFile(title: string | null): Promise<RegisteredFileView | null> {
     return pickFileCommand(title);
   }
 
@@ -1053,10 +986,7 @@ export function EngineProvider(props: ParentProps) {
     return registerFileCommand(path);
   }
 
-  async function startTransfer(
-    deviceId: string,
-    fileId: string,
-  ): Promise<TransferSummary> {
+  async function startTransfer(deviceId: string, fileId: string): Promise<TransferSummary> {
     setTransferError(null);
     try {
       const summary = await startTransferCommand(deviceId, fileId);
@@ -1068,22 +998,15 @@ export function EngineProvider(props: ParentProps) {
     }
   }
 
-  async function pickFiles(
-    title: string | null,
-  ): Promise<RegisteredFileView[]> {
+  async function pickFiles(title: string | null): Promise<RegisteredFileView[]> {
     return pickFilesCommand(title);
   }
 
-  async function pickFolder(
-    title: string | null,
-  ): Promise<RegisteredFolderView | null> {
+  async function pickFolder(title: string | null): Promise<RegisteredFolderView | null> {
     return pickFolderCommand(title);
   }
 
-  async function startFolder(
-    deviceId: string,
-    folderId: string,
-  ): Promise<TransferSummary[]> {
+  async function startFolder(deviceId: string, folderId: string): Promise<TransferSummary[]> {
     setTransferError(null);
     try {
       const summaries = await startFolderCommand(deviceId, folderId);
@@ -1097,10 +1020,7 @@ export function EngineProvider(props: ParentProps) {
     }
   }
 
-  async function startTransfers(
-    deviceId: string,
-    fileIds: string[],
-  ): Promise<TransferSummary[]> {
+  async function startTransfers(deviceId: string, fileIds: string[]): Promise<TransferSummary[]> {
     setTransferError(null);
     try {
       const summaries = await startTransfersCommand(deviceId, fileIds);
@@ -1116,17 +1036,13 @@ export function EngineProvider(props: ParentProps) {
 
   async function setTransferConcurrency(limit: number): Promise<SettingsSnapshot> {
     const settings = await setTransferConcurrencyCommand(limit);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
   async function setDeviceName(name: string): Promise<SettingsSnapshot> {
     const settings = await setDeviceNameCommand(name);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
@@ -1134,10 +1050,7 @@ export function EngineProvider(props: ParentProps) {
     return nearbyPeersCommand();
   }
 
-  async function pairManual(
-    address: string,
-    fingerprint: string,
-  ): Promise<PairingChallenge> {
+  async function pairManual(address: string, fingerprint: string): Promise<PairingChallenge> {
     const view = await pairManualCommand(address, fingerprint);
     // The typed view carries the challenge; the SAS arrives with the event.
     return {
@@ -1163,11 +1076,7 @@ export function EngineProvider(props: ParentProps) {
     return pickSourceFileCommand();
   }
 
-  async function exportFile(
-    path: string,
-    name: string,
-    mime: string,
-  ): Promise<string> {
+  async function exportFile(path: string, name: string, mime: string): Promise<string> {
     return exportFileCommand(path, name, mime);
   }
 
@@ -1193,9 +1102,7 @@ export function EngineProvider(props: ParentProps) {
 
   async function setReceiveDir(directory: string | null): Promise<SettingsSnapshot> {
     const settings = await setReceiveDirCommand(directory);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
@@ -1205,33 +1112,25 @@ export function EngineProvider(props: ParentProps) {
 
   async function setAutoAccept(enabled: boolean): Promise<SettingsSnapshot> {
     const settings = await setAutoAcceptCommand(enabled);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
   async function setNotifications(enabled: boolean): Promise<SettingsSnapshot> {
     const settings = await setNotificationsCommand(enabled);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
   async function setAutoClipboard(enabled: boolean): Promise<SettingsSnapshot> {
     const settings = await setAutoClipboardCommand(enabled);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
   async function setAutostart(enabled: boolean): Promise<SettingsSnapshot> {
     const settings = await setAutostartCommand(enabled);
-    setSnapshot((previous) =>
-      previous ? { ...previous, settings } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, settings } : previous));
     return settings;
   }
 
@@ -1243,9 +1142,7 @@ export function EngineProvider(props: ParentProps) {
     const view = await setNetworkSelectionCommand(mode, interfaceId, address);
     // Show the new selection immediately; the rebind that follows publishes its
     // own state through the snapshot.
-    setSnapshot((previous) =>
-      previous ? { ...previous, network: view } : previous,
-    );
+    setSnapshot((previous) => (previous ? { ...previous, network: view } : previous));
     await refreshInternal(false);
     return view;
   }
@@ -1259,10 +1156,7 @@ export function EngineProvider(props: ParentProps) {
     await openReceivedCommand(transferId);
   }
 
-  async function respondTransfer(
-    transferId: string,
-    accepted: boolean,
-  ): Promise<TransferSummary> {
+  async function respondTransfer(transferId: string, accepted: boolean): Promise<TransferSummary> {
     setTransferBusy(transferId);
     try {
       const summary = await respondTransferCommand(transferId, accepted);
@@ -1373,9 +1267,9 @@ export function EngineProvider(props: ParentProps) {
         setReceiveDir,
         pickReceiveDir,
         setNotifications,
-    setAutoAccept,
-    setAutoClipboard,
-    setAutostart,
+        setAutoAccept,
+        setAutoClipboard,
+        setAutostart,
         setNetworkSelection,
         clearDrop,
         openReceivedTransfer,

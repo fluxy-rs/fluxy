@@ -6,9 +6,7 @@ describe("transfer failure reasons", () => {
     expect(failureReasonKey("disk_full")).toBe("transfers.reason.disk_full");
     expect(failureReason("disk_full", "zh-CN", "?")).toContain("磁盘空间不足");
     expect(failureReason("disk_full", "en", "?")).toContain("Disk full");
-    expect(failureReason("source_changed", "en", "?")).toContain(
-      "Source changed",
-    );
+    expect(failureReason("source_changed", "en", "?")).toContain("Source changed");
   });
 
   it("names a rejection as a rejection, not as a generic failure", () => {
@@ -26,8 +24,6 @@ describe("transfer failure reasons", () => {
     expect(failureReasonKey("")).toBeNull();
     // A peer from the future may report a code this build does not know.
     expect(failureReasonKey("future_code")).toBeNull();
-    expect(failureReason("future_code", "zh-CN", "未记录原因")).toBe(
-      "未记录原因",
-    );
+    expect(failureReason("future_code", "zh-CN", "未记录原因")).toBe("未记录原因");
   });
 });

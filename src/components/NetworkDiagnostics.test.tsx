@@ -41,9 +41,7 @@ describe("NetworkDiagnostics", () => {
     renderWithEngine(() => <NetworkDiagnostics />, engine);
 
     expect(screen.getByText(/未启用/)).toBeInTheDocument();
-    expect(
-      screen.getByText("回退通道错误：probe socket unavailable"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("回退通道错误：probe socket unavailable")).toBeInTheDocument();
     expect(screen.getByText("发现中")).toBeInTheDocument();
   });
 });

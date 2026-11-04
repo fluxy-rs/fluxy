@@ -17,7 +17,7 @@ import { formatBytes } from "../lib/format";
 export function IncomingOfferDialog() {
   const engine = useEngine();
   const { t } = useI18n();
-  
+
   const [pending, setPending] = createSignal<string | null>(null);
 
   const incoming = createMemo(() => engine.incomingOffer());

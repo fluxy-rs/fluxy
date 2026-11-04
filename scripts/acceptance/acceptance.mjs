@@ -171,7 +171,10 @@ class Report {
     console.log("Acceptance matrix");
     for (const row of this.rows) {
       console.log(
-        "  " + row.id.padEnd(6) + row.status.padEnd(9) + row.name +
+        "  " +
+          row.id.padEnd(6) +
+          row.status.padEnd(9) +
+          row.name +
           (row.detail ? "  (" + row.detail + ")" : ""),
       );
     }
@@ -261,8 +264,13 @@ async function runLocal(options, report, label = "local") {
     "T-01",
     "single file transfer, root hash match",
     ok ? "PASS" : "FAIL",
-    formatBytes(size) + ", sender " + (sent.throughput_mib_s || "?") + " MiB/s, receiver " +
-      (received.throughput_mib_s || "?") + " MiB/s, root " + (received.root_hash || "?").slice(0, 16),
+    formatBytes(size) +
+      ", sender " +
+      (sent.throughput_mib_s || "?") +
+      " MiB/s, receiver " +
+      (received.throughput_mib_s || "?") +
+      " MiB/s, root " +
+      (received.root_hash || "?").slice(0, 16),
   );
   if (!ok) {
     console.log(sender.stdout);
@@ -284,15 +292,7 @@ async function runOutage(options, report, label = "outage") {
   const receiverAddr = await receiverAddress(receiver);
   const relay = await startRelay(Number.parseInt(receiverAddr.split(":")[1], 10));
 
-  let sender = startSender(
-    binary,
-    dirs,
-    options,
-    paired,
-    relay.addr,
-    source,
-    transferId,
-  );
+  let sender = startSender(binary, dirs, options, paired, relay.addr, source, transferId);
   // Cut the link once the receiver has some of the file on disk. The progress
   // line is throttled to two seconds, so the partial file is the reliable
   // signal that the transfer itself is moving (not just the pre-hash).
@@ -324,15 +324,7 @@ async function runOutage(options, report, label = "outage") {
     console.log("[" + label + "] the first run failed; retrying with the same transfer id");
     const retryReceiver = startReceiver(binary, dirs, options, "transfer-recv-retry");
     const retryAddr = await receiverAddress(retryReceiver);
-    const retrySender = startSender(
-      binary,
-      dirs,
-      options,
-      paired,
-      retryAddr,
-      source,
-      transferId,
-    );
+    const retrySender = startSender(binary, dirs, options, paired, retryAddr, source, transferId);
     const retrySendCode = await retrySender.waitForExit(900000);
     const retryRecvCode = await retryReceiver.waitForExit(900000);
     const second = outcome(retryReceiver);
@@ -343,7 +335,10 @@ async function runOutage(options, report, label = "outage") {
       second.status === "ok" &&
       resumed &&
       Number(second.missing_bytes_before) < size;
-    detail += ", resumed " + formatBytes(Number(second.missing_bytes_before || 0)) + " of " +
+    detail +=
+      ", resumed " +
+      formatBytes(Number(second.missing_bytes_before || 0)) +
+      " of " +
       formatBytes(size);
     if (!ok) {
       console.log(retrySender.stdout);
@@ -393,7 +388,12 @@ async function runRestart(options, report, label = "restart") {
   }
   const first = outcome(receiver);
   if (first.status === "ok") {
-    report.add("T-03", "receiver restart and resume", "FAIL", "the transfer finished before the kill");
+    report.add(
+      "T-03",
+      "receiver restart and resume",
+      "FAIL",
+      "the transfer finished before the kill",
+    );
     if (!options.keep) rmSync(root, { recursive: true, force: true });
     return false;
   }
@@ -416,8 +416,12 @@ async function runRestart(options, report, label = "restart") {
     "T-03",
     "receiver restart and resume",
     ok ? "PASS" : "FAIL",
-    "killed after " + formatBytes(checkpointed) + ", resumed " +
-      formatBytes(Number(second.missing_bytes_before || 0)) + " of " + formatBytes(size),
+    "killed after " +
+      formatBytes(checkpointed) +
+      ", resumed " +
+      formatBytes(Number(second.missing_bytes_before || 0)) +
+      " of " +
+      formatBytes(size),
   );
   if (!ok) {
     console.log(retrySender.stdout);
@@ -466,9 +470,16 @@ async function runBench(options, report, label = "bench") {
     "T-01",
     "large transfer with a memory ceiling",
     ok ? "PASS" : "FAIL",
-    formatBytes(size) + " in " + elapsed.toFixed(1) + "s (" +
-      (size / (1024 * 1024) / elapsed).toFixed(0) + " MiB/s), prehash " +
-      (sender.fieldFrom("hash_ms") || "?") + "ms, receiver peak RSS " + peakMib.toFixed(0) + " MiB" +
+    formatBytes(size) +
+      " in " +
+      elapsed.toFixed(1) +
+      "s (" +
+      (size / (1024 * 1024) / elapsed).toFixed(0) +
+      " MiB/s), prehash " +
+      (sender.fieldFrom("hash_ms") || "?") +
+      "ms, receiver peak RSS " +
+      peakMib.toFixed(0) +
+      " MiB" +
       (memory.samples ? " (" + memory.samples + " samples)" : " (no samples)"),
   );
   if (!ok) {

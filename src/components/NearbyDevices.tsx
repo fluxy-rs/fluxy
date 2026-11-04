@@ -42,7 +42,9 @@ export function NearbyDevices(props: { compact?: boolean }) {
                 {(peer) => (
                   <li>
                     <div class="fx-peer-main">
-                      <span class="fx-peer-name" title={peer.name}>{peer.name}</span>
+                      <span class="fx-peer-name" title={peer.name}>
+                        {peer.name}
+                      </span>
                       <span class="fx-peer-id fx-numeric">
                         {peer.platform} · {shortId(peer.device_id)}
                       </span>
@@ -53,10 +55,7 @@ export function NearbyDevices(props: { compact?: boolean }) {
                       aria-label={t("pairing.pairWith", { name: peer.name })}
                       title={t("pairing.pairWith", { name: peer.name })}
                       aria-disabled={pairingBusy() || undefined}
-                      aria-busy={
-                        engine.pairing()?.peer_device_id === peer.device_id ||
-                        undefined
-                      }
+                      aria-busy={engine.pairing()?.peer_device_id === peer.device_id || undefined}
                       onClick={() => pair(peer.device_id)}
                     >
                       <Show
@@ -111,10 +110,7 @@ export function NearbyDevices(props: { compact?: boolean }) {
                     variant="outline"
                     size="xs"
                     aria-disabled={pairingBusy() || undefined}
-                    aria-busy={
-                      engine.pairing()?.peer_device_id === peer.device_id ||
-                      undefined
-                    }
+                    aria-busy={engine.pairing()?.peer_device_id === peer.device_id || undefined}
                     onClick={() => pair(peer.device_id)}
                     icon={
                       engine.pairing()?.peer_device_id === peer.device_id ? (

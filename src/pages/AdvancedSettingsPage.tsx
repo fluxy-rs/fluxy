@@ -109,9 +109,7 @@ export function AdvancedSettingsPage() {
             <div>
               <dt>{t("settings.portLabel")}</dt>
               <dd class="fx-numeric">
-                {status().listen_port === 0
-                  ? t("home.systemAssigned")
-                  : status().listen_port}
+                {status().listen_port === 0 ? t("home.systemAssigned") : status().listen_port}
               </dd>
             </div>
             <div class="fx-definition-wide">
@@ -150,10 +148,7 @@ export function AdvancedSettingsPage() {
                   aria-label={t("home.copyId")}
                   onClick={() => void copyDeviceId()}
                 >
-                  <Show
-                    when={copiedId()}
-                    fallback={<Copy size={13} aria-hidden="true" />}
-                  >
+                  <Show when={copiedId()} fallback={<Copy size={13} aria-hidden="true" />}>
                     <span class="fx-copied-mark">{t("common.copied")}</span>
                   </Show>
                 </button>
@@ -186,16 +181,12 @@ export function AdvancedSettingsPage() {
             <div class="fx-definition-wide">
               <dt>{t("home.protocol")} · loopback</dt>
               <dd>
-                {snapshot().status.dev_loopback
-                  ? t("home.loopbackOn")
-                  : t("home.loopbackOff")}
+                {snapshot().status.dev_loopback ? t("home.loopbackOn") : t("home.loopbackOff")}
               </dd>
             </div>
             <div>
               <dt>{t("settings.eventSeq")}</dt>
-              <dd class="fx-numeric">
-                {engine.lastEvent()?.seq ?? snapshot().seq}
-              </dd>
+              <dd class="fx-numeric">{engine.lastEvent()?.seq ?? snapshot().seq}</dd>
             </div>
             <div>
               <dt>{t("settings.snapshotVersion")}</dt>
@@ -204,9 +195,7 @@ export function AdvancedSettingsPage() {
             <div>
               <dt>{t("settings.lastEvent")}</dt>
               <dd class="fx-numeric">
-                {engine.lastEvent()
-                  ? eventName(engine.lastEvent()!)
-                  : t("home.waitingEvent")}
+                {engine.lastEvent() ? eventName(engine.lastEvent()!) : t("home.waitingEvent")}
               </dd>
             </div>
           </dl>

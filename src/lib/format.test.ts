@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  etaSeconds,
-  formatBytes,
-  formatEta,
-  formatPercent,
-  formatSpeed,
-} from "./format";
+import { etaSeconds, formatBytes, formatEta, formatPercent, formatSpeed } from "./format";
 
 describe("formatBytes", () => {
   it("scales to binary multiples", () => {

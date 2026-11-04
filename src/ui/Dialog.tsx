@@ -10,13 +10,7 @@ import {
 } from "@neut/ui";
 import { X } from "lucide-solid";
 import { useI18n } from "../i18n";
-import {
-  Show,
-  createEffect,
-  onCleanup,
-  splitProps,
-  type JSX,
-} from "solid-js";
+import { Show, createEffect, onCleanup, splitProps, type JSX } from "solid-js";
 
 export type AppDialogProps = {
   open: boolean;
@@ -107,8 +101,7 @@ export function Dialog(props: AppDialogProps) {
 
   createEffect(() => {
     if (local.open) {
-      previousFocus =
-        local.returnFocus ?? (document.activeElement as HTMLElement | null);
+      previousFocus = local.returnFocus ?? (document.activeElement as HTMLElement | null);
       document.addEventListener("keydown", onKeyDown, true);
       focusFrame = window.requestAnimationFrame(() => {
         const items = focusable(surface);
@@ -176,10 +169,7 @@ export function Dialog(props: AppDialogProps) {
           <DialogFooter>{local.footer}</DialogFooter>
         </Show>
         <Show when={local.dismissible !== false}>
-          <DialogClose
-            class="fx-dialog-close fx-icon-button"
-            aria-label={t("common.close")}
-          >
+          <DialogClose class="fx-dialog-close fx-icon-button" aria-label={t("common.close")}>
             <X size={15} aria-hidden="true" />
           </DialogClose>
         </Show>

@@ -1,11 +1,7 @@
 import { createEffect, For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
 import { Button, Dialog, toast } from "../ui";
-import {
-  checkPermissions,
-  requestPermissions,
-  scan,
-} from "@tauri-apps/plugin-barcode-scanner";
+import { checkPermissions, requestPermissions, scan } from "@tauri-apps/plugin-barcode-scanner";
 import { PairingQrDialog } from "../components/PairingQrDialog";
 import { TrustedDevices } from "../components/TrustedDevices";
 import { useNavigate } from "@solidjs/router";
@@ -263,7 +259,6 @@ export function MobilePage() {
     }
   }
 
-
   async function send(deviceId: string) {
     const ids = files().map((file) => file.file_id);
     console.warn(`[send] attempt device=${deviceId} files=${ids.length}`);
@@ -333,10 +328,7 @@ export function MobilePage() {
         setNotice(t("mobile.pairWaiting"));
         setWaiting(true);
         try {
-          const view = await engine.pairManual(
-            `${payload.addr}:${payload.port}`,
-            payload.fp,
-          );
+          const view = await engine.pairManual(`${payload.addr}:${payload.port}`, payload.fp);
           setChallenge(view);
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause));
@@ -355,15 +347,13 @@ export function MobilePage() {
       // The plugin rejects with a plain object, so String(cause) prints
       // [object Object] and hides the reason. Pull the fields that exist.
       const detail = cause as { message?: string; code?: string } | null;
-      const message =
-        detail?.message ?? detail?.code ?? JSON.stringify(cause);
+      const message = detail?.message ?? detail?.code ?? JSON.stringify(cause);
       // Cancelling the camera rejects too; that is not worth a banner.
       if (!message.toLowerCase().includes("cancel")) {
         setError(t("mobile.scanFailed", { message }));
       }
     }
   }
-
 
   return (
     <main class="fx-mobile">
@@ -430,19 +420,13 @@ export function MobilePage() {
                         type="button"
                         class="fx-mobile-peer-main"
                         aria-expanded={open()}
-                        onClick={() =>
-                          setExpanded(open() ? null : peer.device_id)
-                        }
+                        onClick={() => setExpanded(open() ? null : peer.device_id)}
                       >
                         <span class="fx-mobile-peer-copy">
                           <strong>{peer.name}</strong>
                           <span class="fx-muted">{peerSubtitle(peer)}</span>
                         </span>
-                        <ChevronDown
-                          size={16}
-                          class="fx-mobile-caret"
-                          aria-hidden="true"
-                        />
+                        <ChevronDown size={16} class="fx-mobile-caret" aria-hidden="true" />
                       </button>
                       <Show
                         when={peer.trusted}
@@ -486,9 +470,7 @@ export function MobilePage() {
                         </div>
                         <div>
                           <dt>{t("devices.idLabel")}</dt>
-                          <dd class="fx-numeric">
-                            {shortId(peer.device_id, 24)}
-                          </dd>
+                          <dd class="fx-numeric">{shortId(peer.device_id, 24)}</dd>
                         </div>
                         <Show when={peer.address}>
                           <div>
@@ -500,11 +482,7 @@ export function MobilePage() {
                         </Show>
                         <div>
                           <dt>{t("devices.trustLabel")}</dt>
-                          <dd>
-                            {peer.trusted
-                              ? t("mobile.nearbyPaired")
-                              : t("devices.unpaired")}
-                          </dd>
+                          <dd>{peer.trusted ? t("mobile.nearbyPaired") : t("devices.unpaired")}</dd>
                         </div>
                       </dl>
 
@@ -561,9 +539,7 @@ export function MobilePage() {
                                       type="button"
                                       class="fx-choice-item"
                                       aria-pressed={entry().auto_accept === value}
-                                      onClick={() =>
-                                        void applyAutoAccept(peer.device_id, value)
-                                      }
+                                      onClick={() => void applyAutoAccept(peer.device_id, value)}
                                     >
                                       {t(label)}
                                     </button>
@@ -575,10 +551,7 @@ export function MobilePage() {
                             <div class="fx-mobile-control is-danger">
                               <p>{t("devices.removeTrustHeading")}</p>
                               <span class="fx-muted">{t("devices.removeTrustBody")}</span>
-                              <Button
-                                variant="outline"
-                                onClick={() => setConfirmRemove(entry())}
-                              >
+                              <Button variant="outline" onClick={() => setConfirmRemove(entry())}>
                                 {t("devices.removeTrustAction")}
                               </Button>
                             </div>
@@ -617,49 +590,48 @@ export function MobilePage() {
           </div>
         </Show>
         <div class="fx-mobile-manual">
-        <Show
-          when={manualOpen()}
-          fallback={
-            <Button variant="ghost" onClick={() => setManualOpen(true)}>
-              {t("mobile.manualOpen")}
-            </Button>
-          }
-        >
-          <p>{t("mobile.manualBody")}</p>
-        <label class="fx-field">
-          <span>{t("mobile.address")}</span>
-          <input
-            class="fx-input"
-            value={address()}
-            placeholder="192.168.1.8:49784"
-            onInput={(event) => setAddress(event.currentTarget.value)}
-          />
-        </label>
-        <label class="fx-field">
-          <span>{t("mobile.fingerprint")}</span>
-          <input
-            class="fx-input"
-            value={fingerprint()}
-            placeholder="64 hex characters"
-            onInput={(event) => setFingerprint(event.currentTarget.value)}
-          />
-        </label>
-          <Button variant="primary" disabled={busy()} onClick={() => void pair()}>
-            {t("mobile.pairAction")}
-          </Button>
-          <Show when={challenge()}>
-            <div class="fx-mobile-confirm">
-              <p>{t("mobile.pairCompare")}</p>
-              <p class="fx-mobile-sas fx-numeric">{challenge()?.sas}</p>
-              <Button variant="primary" onClick={() => void confirm()}>
-                {t("mobile.pairConfirm")}
+          <Show
+            when={manualOpen()}
+            fallback={
+              <Button variant="ghost" onClick={() => setManualOpen(true)}>
+                {t("mobile.manualOpen")}
               </Button>
-            </div>
+            }
+          >
+            <p>{t("mobile.manualBody")}</p>
+            <label class="fx-field">
+              <span>{t("mobile.address")}</span>
+              <input
+                class="fx-input"
+                value={address()}
+                placeholder="192.168.1.8:49784"
+                onInput={(event) => setAddress(event.currentTarget.value)}
+              />
+            </label>
+            <label class="fx-field">
+              <span>{t("mobile.fingerprint")}</span>
+              <input
+                class="fx-input"
+                value={fingerprint()}
+                placeholder="64 hex characters"
+                onInput={(event) => setFingerprint(event.currentTarget.value)}
+              />
+            </label>
+            <Button variant="primary" disabled={busy()} onClick={() => void pair()}>
+              {t("mobile.pairAction")}
+            </Button>
+            <Show when={challenge()}>
+              <div class="fx-mobile-confirm">
+                <p>{t("mobile.pairCompare")}</p>
+                <p class="fx-mobile-sas fx-numeric">{challenge()?.sas}</p>
+                <Button variant="primary" onClick={() => void confirm()}>
+                  {t("mobile.pairConfirm")}
+                </Button>
+              </div>
+            </Show>
           </Show>
-        </Show>
         </div>
       </section>
-
 
       <Dialog
         open={confirmRemove() !== null}

@@ -18,9 +18,7 @@ function renderPanel(
   const engine = createMockEngine({
     snapshot: () => makeSnapshot({ settings: options.settings ?? makeSettings() }),
     ...(options.setDeviceName ? { setDeviceName: options.setDeviceName } : {}),
-    ...(options.setNotifications
-      ? { setNotifications: options.setNotifications }
-      : {}),
+    ...(options.setNotifications ? { setNotifications: options.setNotifications } : {}),
     ...(options.setAutostart ? { setAutostart: options.setAutostart } : {}),
     ...(options.setAutoAccept ? { setAutoAccept: options.setAutoAccept } : {}),
   });
@@ -86,9 +84,7 @@ describe("LocalDeviceSettings", () => {
     fireEvent.input(nameField(), { target: { value: "Desk" } });
     fireEvent.submit(nameField().closest("form")!);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "pairing in progress",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("pairing in progress");
     expect(nameField().value).toBe("Desk");
   });
 
@@ -102,9 +98,7 @@ describe("LocalDeviceSettings", () => {
   });
 
   it("toggles auto-accept for incoming transfers", async () => {
-    const setAutoAccept = vi.fn(async () =>
-      makeSettings({ auto_accept_transfers: true }),
-    );
+    const setAutoAccept = vi.fn(async () => makeSettings({ auto_accept_transfers: true }));
     renderPanel({ setAutoAccept });
 
     // Off by default, so the switch starts unchecked and the click turns it on.
@@ -137,13 +131,12 @@ describe("LocalDeviceSettings", () => {
 
     fireEvent.click(screen.getByRole("switch", { name: /开机启动/ }));
 
-    await waitFor(() =>
-      expect(setAutostart).toHaveBeenCalledWith(true),
-    );
+    await waitFor(() => expect(setAutostart).toHaveBeenCalledWith(true));
     // The panel still shows the persisted state, which stayed off.
-    expect(
-      screen.getByRole("switch", { name: /开机启动/ }),
-    ).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("switch", { name: /开机启动/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
   });
 
   it("keeps the switch reachable while a save is in flight", async () => {

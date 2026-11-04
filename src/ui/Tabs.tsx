@@ -28,20 +28,10 @@ export function TabsList(props: TabsListProps) {
 
 export function TabsTrigger(props: TabsTriggerProps) {
   const [local, rest] = splitProps(props, ["class"]);
-  return (
-    <NeutTabsTrigger
-      {...rest}
-      class={`fx-tabs-trigger ${local.class ?? ""}`}
-    />
-  );
+  return <NeutTabsTrigger {...rest} class={`fx-tabs-trigger ${local.class ?? ""}`} />;
 }
 
 export function TabsContent(props: TabsContentProps) {
   const [local, rest] = splitProps(props, ["class"]);
-  return (
-    <NeutTabsContent
-      {...rest}
-      class={`fx-tabs-content ${local.class ?? ""}`}
-    />
-  );
+  return <NeutTabsContent {...rest} class={`fx-tabs-content ${local.class ?? ""}`} />;
 }

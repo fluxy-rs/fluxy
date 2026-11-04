@@ -1,12 +1,5 @@
 import { For, createSignal } from "solid-js";
-import {
-  LoaderCircle,
-  Monitor,
-  Moon,
-  RotateCcw,
-  ShieldAlert,
-  Sun,
-} from "lucide-solid";
+import { LoaderCircle, Monitor, Moon, RotateCcw, ShieldAlert, Sun } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { LocalDeviceSettings } from "../components/LocalDeviceSettings";
 import { SettingsLinkRow } from "../components/SettingsRow";
@@ -40,11 +33,8 @@ export function SettingsPage() {
   // looking like there is simply no peer around.
   let rotateTrigger: HTMLButtonElement | undefined;
 
-
   const snapshot = () => engine.snapshot()!;
   const status = () => snapshot().status;
-
-
 
   async function rotateIdentity() {
     setRotating(true);
@@ -68,7 +58,9 @@ export function SettingsPage() {
           <p>{t("settings.subtitle")}</p>
         </div>
         <div class="fx-page-meta">
-          <span class="fx-meta-chip">{t("settings.thisVersion", { version: status().version })}</span>
+          <span class="fx-meta-chip">
+            {t("settings.thisVersion", { version: status().version })}
+          </span>
         </div>
       </header>
 
@@ -135,7 +127,6 @@ export function SettingsPage() {
 
         <LocalDeviceSettings />
 
-
         <section class="fx-panel" aria-labelledby="more-heading">
           <header class="fx-panel-head">
             <div>
@@ -159,9 +150,7 @@ export function SettingsPage() {
           />
         </section>
 
-
-
-      <section class="fx-panel fx-panel-wide fx-danger-zone" aria-labelledby="rotate-heading">
+        <section class="fx-panel fx-panel-wide fx-danger-zone" aria-labelledby="rotate-heading">
           <header class="fx-panel-head">
             <div>
               <h2 id="rotate-heading">{t("settings.rotateTitle")}</h2>
@@ -198,11 +187,7 @@ export function SettingsPage() {
         returnFocus={rotateTrigger}
         footer={
           <>
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              disabled={rotating()}
-            >
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={rotating()}>
               {t("common.cancel")}
             </Button>
             <Button
@@ -210,11 +195,7 @@ export function SettingsPage() {
               onClick={() => void rotateIdentity()}
               disabled={rotating()}
               icon={
-                rotating() ? (
-                  <LoaderCircle size={14} class="fx-spin" />
-                ) : (
-                  <RotateCcw size={14} />
-                )
+                rotating() ? <LoaderCircle size={14} class="fx-spin" /> : <RotateCcw size={14} />
               }
             >
               {t("settings.rotateConfirm")}

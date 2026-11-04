@@ -19,10 +19,12 @@ const csp = security.csp ?? "";
 const devCsp = security.devCsp ?? "";
 
 function directive(policy, name) {
-  return policy
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part === name || part.startsWith(`${name} `)) ?? "";
+  return (
+    policy
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part === name || part.startsWith(`${name} `)) ?? ""
+  );
 }
 
 const expected = [
@@ -33,7 +35,9 @@ const expected = [
 ];
 for (const [name, value] of expected) {
   if (directive(csp, name) !== value) {
-    fail(`production CSP ${name} must be exactly "${value}", got "${directive(csp, name) || "(missing)"}"`);
+    fail(
+      `production CSP ${name} must be exactly "${value}", got "${directive(csp, name) || "(missing)"}"`,
+    );
   }
 }
 if (csp.includes("unsafe-eval")) fail("production CSP allows unsafe-eval");
@@ -70,7 +74,8 @@ if (permissions.some((permission) => String(permission).startsWith("opener:"))) 
 const cargo = await readFile(join(root, "src-tauri/Cargo.toml"), "utf8");
 const packageJson = await readFile(join(root, "package.json"), "utf8");
 if (cargo.includes("tauri-plugin-opener")) fail("Cargo.toml still depends on tauri-plugin-opener");
-if (packageJson.includes("@tauri-apps/plugin-opener")) fail("package.json still depends on the opener plugin");
+if (packageJson.includes("@tauri-apps/plugin-opener"))
+  fail("package.json still depends on the opener plugin");
 
 const sinkPatterns = [
   [/\.innerHTML\s*=/, "innerHTML assignment"],
@@ -110,4 +115,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("UI security check passed: strict CSP, no opener, minimal capabilities, no HTML/eval sinks.");
+console.log(
+  "UI security check passed: strict CSP, no opener, minimal capabilities, no HTML/eval sinks.",
+);

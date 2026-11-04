@@ -7,13 +7,9 @@ export function formatBytes(bytes: number, fractionDigits = 1): string {
   if (!Number.isFinite(bytes) || bytes <= 0) {
     return "0 B";
   }
-  const exponent = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    BYTE_UNITS.length - 1,
-  );
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1);
   const value = bytes / 1024 ** exponent;
-  const digits =
-    exponent === 0 ? 0 : value >= 100 ? 0 : value >= 10 ? 1 : fractionDigits;
+  const digits = exponent === 0 ? 0 : value >= 100 ? 0 : value >= 10 ? 1 : fractionDigits;
   return `${value.toFixed(digits)} ${BYTE_UNITS[exponent]}`;
 }
 
@@ -34,11 +30,7 @@ export function formatPercent(done: number, total: number): number {
 }
 
 /** Seconds left at the current rate, or null when it cannot be estimated. */
-export function etaSeconds(
-  done: number,
-  total: number,
-  bytesPerSecond: number,
-): number | null {
+export function etaSeconds(done: number, total: number, bytesPerSecond: number): number | null {
   if (
     !Number.isFinite(bytesPerSecond) ||
     bytesPerSecond <= 0 ||

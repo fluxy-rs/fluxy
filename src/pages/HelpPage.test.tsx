@@ -5,10 +5,12 @@ import { makeNetwork, makeSettings, makeSnapshot } from "../test/fixtures";
 import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
-function renderHelp(overrides: {
-  network?: Parameters<typeof makeNetwork>[0];
-  settings?: Parameters<typeof makeSettings>[0];
-} = {}) {
+function renderHelp(
+  overrides: {
+    network?: Parameters<typeof makeNetwork>[0];
+    settings?: Parameters<typeof makeSettings>[0];
+  } = {},
+) {
   const engine = createMockEngine({
     snapshot: () =>
       makeSnapshot({
@@ -78,8 +80,6 @@ describe("HelpPage", () => {
   it("warns when discovery is neither advertising nor browsing", () => {
     renderHelp({ network: { advertised: false, browsing: false } });
 
-    expect(
-      screen.getByText(/附近设备可能无法发现本机/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/附近设备可能无法发现本机/)).toBeInTheDocument();
   });
 });

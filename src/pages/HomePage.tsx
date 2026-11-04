@@ -40,18 +40,14 @@ export function HomePage() {
             <Wifi size={14} aria-hidden="true" />
             {t("home.nearbyCount", { count: nearby().length })}
           </span>
-        <div class="fx-home-qr">
-          <Button
-            variant="outline"
-            onClick={() => setQrOpen(true)}
-            icon={<QrCode size={15} />}
-          >
-            {t("pairing.myQrTitle")}
-          </Button>
-        </div>
+          <div class="fx-home-qr">
+            <Button variant="outline" onClick={() => setQrOpen(true)} icon={<QrCode size={15} />}>
+              {t("pairing.myQrTitle")}
+            </Button>
+          </div>
         </div>
       </header>
-<NearbyDevices />
+      <NearbyDevices />
 
       {/* A desktop cannot scan, but a phone needs something to scan. Without
           this the phone scanning feature has no target on the desktop side. */}

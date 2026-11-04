@@ -13,6 +13,8 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "check": "tsc --noEmit",
+    "format": "biome format --write .",
+    "check:format": "biome format .",
     "check:security": "bun scripts/check-ui-security.mjs",
     "audit": "node scripts/security/audit.mjs",
     "check:docs": "node scripts/check-docs-links.mjs",

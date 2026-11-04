@@ -31,8 +31,7 @@ export function AppShell(props: ParentProps) {
   /// phone has no such page, so it must keep scrolling normally. This cannot be
   /// `engine.desktop`, which only asks whether the Tauri bridge exists and is
   /// equally true on Android.
-  const deviceColumn = () =>
-    engine.desktop && engine.snapshot()?.status.platform !== "android";
+  const deviceColumn = () => engine.desktop && engine.snapshot()?.status.platform !== "android";
 
   createEffect(() => {
     document.title = `${t(titleKey(location.pathname))} · Fluxy`;
@@ -44,9 +43,7 @@ export function AppShell(props: ParentProps) {
     // is deferred because the stylesheet applies after this effect runs.
     theme.resolved();
     queueMicrotask(() => {
-      const value = getComputedStyle(document.documentElement)
-        .getPropertyValue("--fx-bg")
-        .trim();
+      const value = getComputedStyle(document.documentElement).getPropertyValue("--fx-bg").trim();
       if (value) void engine.setChromeColor(value).catch(() => undefined);
     });
   });
@@ -66,10 +63,7 @@ export function AppShell(props: ParentProps) {
       toast.success(t("pairing.successToast", { name: notice.device_name }));
     } else if (notice.code === "pairing_expired") {
       toast.error(t("pairing.expiredToast"));
-    } else if (
-      notice.code === "pairing_rejected" ||
-      notice.code === "sas_mismatch"
-    ) {
+    } else if (notice.code === "pairing_rejected" || notice.code === "sas_mismatch") {
       toast.error(t("pairing.rejectedToast"));
     } else {
       toast.error(t("pairing.failedToast", { message: notice.message }));
@@ -113,10 +107,7 @@ export function AppShell(props: ParentProps) {
             <Show
               when={engine.snapshot()}
               fallback={
-                <Show
-                  when={engine.error()}
-                  fallback={<LoadingState />}
-                >
+                <Show when={engine.error()} fallback={<LoadingState />}>
                   {(failure) => (
                     <ErrorState
                       failure={failure()}
@@ -129,10 +120,7 @@ export function AppShell(props: ParentProps) {
             >
               <Show when={engine.error()}>
                 {(failure) => (
-                  <ErrorBanner
-                    failure={failure()}
-                    onRetry={() => void engine.refresh()}
-                  />
+                  <ErrorBanner failure={failure()} onRetry={() => void engine.refresh()} />
                 )}
               </Show>
               {props.children}
