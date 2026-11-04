@@ -1,14 +1,22 @@
 name: Labels
 
-# Two dimensions, applied separately:
+# Two dimensions, applied separately and additively:
 #
-#   path  - which languages the diff touches, from .github/labeler.yml
+#   path  - which languages the diff touches
 #   type  - fix / feat / test / ..., parsed from the conventional-commit prefix
 #           in the pull request title
 #
-# sync-labels stays off for the path labels: it would delete the type labels on
-# every push, since they never match a glob. Removals are therefore manual, which
-# is the right default for a dimension that is only ever wrong after a rename.
+# Both jobs only ever add. Neither removes anything, on a merge or otherwise.
+#
+# The path dimension used to be actions/labeler@v5 with sync-labels: false. It
+# removed labels anyway: fix was applied by the type job at 09:01:46 and removed
+# by the path job at 09:01:47, because fix matches no glob. sync-labels: false
+# is supposed to prevent exactly that, and did not, so the matching is done here
+# where the behaviour is visible.
+#
+# The labels outlive a merge on purpose: .github/release.yml groups a release's
+# notes by them, so a merged pull request that lost its label would drop out of
+# the changelog.
 
 on:
   pull_request:
@@ -27,9 +35,63 @@ jobs:
     name: Path labels
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5
+      - uses: actions/github-script@v7
         with:
-          sync-labels: false
+          script: |
+            const number = context.payload.pull_request.number;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: number,
+              per_page: 100,
+            });
+            const paths = files.map((file) => file.filename);
+
+            // The same globs the old labeler.yml described, written as
+            // predicates so there is one place to read them.
+            const rules = {
+              rust: (p) =>
+                p.endsWith(".rs") ||
+                /(^|\/)Cargo\.(toml|lock)$/.test(p) ||
+                p.includes("rust-toolchain") ||
+                p === "deny.toml",
+              typescript: (p) =>
+                /\.(ts|tsx|mjs|js)$/.test(p) ||
+                p === "package.json" ||
+                p === "bun.lock" ||
+                /(^|\/)tsconfig.*\.json$/.test(p) ||
+                /(^|\/)(vite|vitest)\.config\./.test(p),
+              css: (p) => p === "src/styles.css",
+              kotlin: (p) => p.endsWith(".kt") || p.endsWith(".gradle.kts"),
+              // Named "workflow" rather than "ci" so it cannot collide with the
+              // type label of the same name: the old globs gave .github/** the
+              // label "ci", which the type job then treated as a stale type.
+              workflow: (p) => p.startsWith(".github/"),
+              documentation: (p) => p.endsWith(".md") || p.startsWith("docs/"),
+            };
+
+            const wanted = Object.keys(rules).filter((label) =>
+              paths.some((path) => rules[label](path)),
+            );
+            if (wanted.length === 0) {
+              core.info("no path labels for this diff");
+              return;
+            }
+
+            const current = (context.payload.pull_request.labels || []).map((label) => label.name);
+            const missing = wanted.filter((label) => !current.includes(label));
+            if (missing.length === 0) {
+              core.info("path labels already present: " + wanted.join(", "));
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              labels: missing,
+            });
+            core.info("path labels added: " + missing.join(", "));
 
   type:
     name: Type label
@@ -46,9 +108,8 @@ jobs:
               return;
             }
 
-            // The vocabulary this repository uses. chore and build have no label
-            // of their own, so they map onto the closest thing rather than leaving
-            // a pull request type-less.
+            // chore and build have no label of their own, so they map onto the
+            // closest thing rather than leaving a pull request type-less.
             const byPrefix = {
               fix: "fix",
               feat: "feat",
@@ -68,29 +129,16 @@ jobs:
               return;
             }
 
-            const typeOnly = ["fix", "feat", "test", "refactor", "perf", "ci", "deps"];
             const current = (context.payload.pull_request.labels || []).map((label) => label.name);
-            const stale = current.filter((name) => typeOnly.includes(name) && name !== wanted);
-
-            // Octokit has removeLabel (one) and removeAllLabels (everything), not
-            // a removeLabels. Removing one at a time also keeps the path labels
-            // that the sibling job owns.
-            for (const name of stale) {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                name,
-              });
-              core.info("dropped stale type label: " + name);
+            if (current.includes(wanted)) {
+              core.info("type label already present: " + wanted);
+              return;
             }
 
-            if (!current.includes(wanted)) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                labels: [wanted],
-              });
-            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: [wanted],
+            });
             core.info("type label: " + wanted);

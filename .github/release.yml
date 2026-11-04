@@ -1,0 +1,37 @@
+# How GitHub builds a release's notes from the pull requests that went into it.
+#
+# The type labels come from .github/workflows/labels.yml and are deliberately
+# left in place after a merge - this file is what reads them. Path labels
+# (rust, typescript, kotlin, css) are not used here on purpose: a release note
+# is for someone deciding whether to upgrade, and which directories a change
+# touched does not help them decide.
+changelog:
+  exclude:
+    labels:
+      - documentation
+    authors:
+      - dependabot
+  categories:
+    - title: Features
+      labels:
+        - feat
+    - title: Fixes
+      labels:
+        - fix
+    - title: Performance
+      labels:
+        - perf
+    - title: Refactors
+      labels:
+        - refactor
+    - title: Tests
+      labels:
+        - test
+    - title: Dependencies
+      labels:
+        - deps
+    # Anything without a type label still has to appear: a release that
+    # silently drops a change is worse than one with an untidy section.
+    - title: Other changes
+      labels:
+        - "*"
