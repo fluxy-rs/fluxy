@@ -28,7 +28,28 @@ class TransferService : Service() {
         const val NOTIFICATION_ID = 0x51
         const val TIMEOUT_MS = 6 * 60 * 60 * 1000L
 
+        /**
+         * How long a stop request waits for a start request that may follow it.
+         *
+         * Back-to-back transfers go 1 -> 0 -> 1 within milliseconds. Calling
+         * stopService() straight away lets it race the next
+         * startForegroundService(): the platform brings the service down while
+         * it is still waiting for startForeground, reports
+         * ForegroundServiceDidNotStartInTimeException, and kills the process.
+         * That is exactly what happened at 15:58:53 - the service was torn down
+         * 16 ms after being started, and the app died 90 ms later.
+         */
+        private const val STOP_GRACE_MS = 2000L
+
+        private val mainHandler = Handler(Looper.getMainLooper())
+
+        @Volatile
+        private var stopRequested = false
+
         fun start(context: Context) {
+            // A start inside the grace period cancels the pending stop, so a
+            // burst of transfers keeps one service lifetime.
+            stopRequested = false
             val intent = Intent(context, TransferService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -38,7 +59,15 @@ class TransferService : Service() {
         }
 
         fun stop(context: Context) {
-            context.stopService(Intent(context, TransferService::class.java))
+            val app = context.applicationContext
+            stopRequested = true
+            mainHandler.postDelayed({
+                if (!stopRequested) return@postDelayed
+                stopRequested = false
+                runCatching {
+                    app.stopService(Intent(app, TransferService::class.java))
+                }
+            }, STOP_GRACE_MS)
         }
     }
 
