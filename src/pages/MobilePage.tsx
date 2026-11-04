@@ -1,6 +1,6 @@
 import { createEffect, For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
-import { Button } from "../ui";
+import { Button, Dialog, toast } from "../ui";
 import {
   checkPermissions,
   requestPermissions,
@@ -12,7 +12,13 @@ import { useNavigate } from "@solidjs/router";
 import { takeOpenChatDevice } from "../api/engine";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
-import type { NearbyPeerView, RegisteredFileView } from "../bindings";
+import type {
+  ClipboardReceivePolicy,
+  DeviceAutoAccept,
+  NearbyPeerView,
+  PeerSummary,
+  RegisteredFileView,
+} from "../bindings";
 import type { PairingChallenge } from "../state/engine";
 import { ChevronDown, MessageCircle, QrCode, ScanLine } from "lucide-solid";
 import { shortId } from "../lib/format";
@@ -117,6 +123,54 @@ export function MobilePage() {
   // Accordion: at most one device shows its details, which matters on a phone
   // where an expanded row pushes everything else off the screen.
   const [expanded, setExpanded] = createSignal<string | null>(null);
+
+  // The details panel edits the trust entry, which lives in the snapshot, not
+  // in the discovery list: NearbyPeerView carries no policy fields.
+  const trustEntry = (deviceId: string): PeerSummary | undefined =>
+    snapshot()?.peers.find((peer) => peer.device_id === deviceId);
+
+  const [confirmRemove, setConfirmRemove] = createSignal<PeerSummary | null>(null);
+
+  const clipboardChoices: Array<[ClipboardReceivePolicy, string]> = [
+    ["ask", "devices.policyAsk"],
+    ["auto", "devices.policyAuto"],
+    ["reject", "devices.policyReject"],
+  ];
+
+  const autoAcceptChoices: Array<[DeviceAutoAccept, string]> = [
+    ["inherit", "devices.policyInherit"],
+    ["auto", "devices.policyAuto"],
+    ["ask", "devices.policyAsk"],
+  ];
+
+  async function applyClipboardPolicy(deviceId: string, policy: ClipboardReceivePolicy) {
+    try {
+      await engine.setClipboardPolicy(deviceId, policy);
+      toast.success(t("devices.policySaved"));
+    } catch (failure) {
+      toast.error(failure instanceof Error ? failure.message : String(failure));
+    }
+  }
+
+  async function applyAutoAccept(deviceId: string, policy: DeviceAutoAccept) {
+    try {
+      await engine.setDeviceAutoAccept(deviceId, policy);
+      toast.success(t("devices.policySaved"));
+    } catch (failure) {
+      toast.error(failure instanceof Error ? failure.message : String(failure));
+    }
+  }
+
+  async function removeTrust(peer: PeerSummary) {
+    try {
+      await engine.removeTrust(peer.device_id);
+      setConfirmRemove(null);
+      setExpanded(null);
+      toast.success(t("devices.trustRemoved", { name: peer.name }));
+    } catch (failure) {
+      toast.error(failure instanceof Error ? failure.message : String(failure));
+    }
+  }
 
   const snapshot = createMemo(() => engine.snapshot());
   const status = createMemo(() => snapshot()?.status);
@@ -453,6 +507,84 @@ export function MobilePage() {
                           </dd>
                         </div>
                       </dl>
+
+                      {/* Same three controls as the desktop device page,
+                          stacked instead of side by side: on a phone the
+                          segmented control needs the full width. */}
+                      <Show when={peer.trusted && trustEntry(peer.device_id)}>
+                        {(entry) => (
+                          <div class="fx-mobile-controls">
+                            <div class="fx-mobile-control">
+                              <p>{t("devices.clipboardHeading")}</p>
+                              <span class="fx-muted">{t("devices.clipboardBody")}</span>
+                              <div
+                                class="fx-choice"
+                                role="group"
+                                aria-label={t("devices.clipboardHeading")}
+                              >
+                                <For each={clipboardChoices}>
+                                  {([value, label]) => (
+                                    <button
+                                      type="button"
+                                      class="fx-choice-item"
+                                      aria-pressed={entry().clipboard_policy === value}
+                                      onClick={() =>
+                                        void applyClipboardPolicy(peer.device_id, value)
+                                      }
+                                    >
+                                      {t(label)}
+                                    </button>
+                                  )}
+                                </For>
+                              </div>
+                            </div>
+
+                            <div class="fx-mobile-control">
+                              <p>{t("devices.autoAcceptHeading")}</p>
+                              <span class="fx-muted">
+                                {entry().auto_accept === "inherit"
+                                  ? t("devices.autoAcceptInherit", {
+                                      value: snapshot()?.settings.auto_accept_transfers
+                                        ? t("devices.policyAuto")
+                                        : t("devices.policyAsk"),
+                                    })
+                                  : t("devices.autoAcceptBody")}
+                              </span>
+                              <div
+                                class="fx-choice"
+                                role="group"
+                                aria-label={t("devices.autoAcceptHeading")}
+                              >
+                                <For each={autoAcceptChoices}>
+                                  {([value, label]) => (
+                                    <button
+                                      type="button"
+                                      class="fx-choice-item"
+                                      aria-pressed={entry().auto_accept === value}
+                                      onClick={() =>
+                                        void applyAutoAccept(peer.device_id, value)
+                                      }
+                                    >
+                                      {t(label)}
+                                    </button>
+                                  )}
+                                </For>
+                              </div>
+                            </div>
+
+                            <div class="fx-mobile-control is-danger">
+                              <p>{t("devices.removeTrustHeading")}</p>
+                              <span class="fx-muted">{t("devices.removeTrustBody")}</span>
+                              <Button
+                                variant="outline"
+                                onClick={() => setConfirmRemove(entry())}
+                              >
+                                {t("devices.removeTrustAction")}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </Show>
                     </Show>
                   </li>
                 );
@@ -528,6 +660,34 @@ export function MobilePage() {
         </div>
       </section>
 
+
+      <Dialog
+        open={confirmRemove() !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmRemove(null);
+        }}
+        title={t("devices.removeTrustTitle")}
+        description={t("devices.removeTrustConfirm", {
+          name: confirmRemove()?.name ?? "",
+        })}
+        width="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmRemove(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const target = confirmRemove();
+                if (target) void removeTrust(target);
+              }}
+            >
+              {t("devices.removeTrustAction")}
+            </Button>
+          </>
+        }
+      />
 
       <PairingQrDialog open={qrOpen()} onOpenChange={setQrOpen} />
       <details class="fx-panel fx-disclosure">

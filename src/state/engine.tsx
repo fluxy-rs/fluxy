@@ -15,6 +15,7 @@ import type {
   ChatMessageView,
   ClipboardReceivePolicy,
   ClipboardShareView,
+  DeviceAutoAccept,
   EngineStatusView,
   NearbyPeerView,
   NetworkStatusView,
@@ -65,6 +66,7 @@ import {
   rotateIdentity,
   sendChatMessage as sendChatCommand,
   setClipboardPolicy as setClipboardPolicyCommand,
+  setDeviceAutoAccept as setDeviceAutoAcceptCommand,
   setShellLabels as setShellLabelsCommand,
   shareClipboard as shareClipboardCommand,
   startPairing as startPairingCommand,
@@ -161,6 +163,7 @@ export type EngineContextValue = {
     deviceId: string,
     policy: ClipboardReceivePolicy,
   ) => Promise<void>;
+  setDeviceAutoAccept: (deviceId: string, policy: DeviceAutoAccept) => Promise<void>;
   acceptClipboard: (deviceId: string, offerId: string) => Promise<ClipboardShareView>;
   rejectClipboard: (deviceId: string, offerId: string) => Promise<ClipboardShareView>;
   pickFile: (title: string | null) => Promise<RegisteredFileView | null>;
@@ -1013,6 +1016,14 @@ export function EngineProvider(props: ParentProps) {
     await refreshInternal(false);
   }
 
+  async function setDeviceAutoAccept(
+    deviceId: string,
+    policy: DeviceAutoAccept,
+  ): Promise<void> {
+    await setDeviceAutoAcceptCommand(deviceId, policy);
+    await refreshInternal(false);
+  }
+
   async function acceptClipboard(
     deviceId: string,
     offerId: string,
@@ -1336,6 +1347,7 @@ export function EngineProvider(props: ParentProps) {
         retryChat,
         shareClipboard,
         setClipboardPolicy,
+        setDeviceAutoAccept,
         acceptClipboard,
         rejectClipboard,
         pickFile,

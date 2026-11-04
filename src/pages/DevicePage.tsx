@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import {
   Ban,
@@ -10,9 +10,9 @@ import {
 } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
-import { Button } from "../ui";
+import { Button, Dialog, toast } from "../ui";
 import { shortId } from "../lib/format";
-import type { PeerSummary } from "../bindings";
+import type { ClipboardReceivePolicy, DeviceAutoAccept, PeerSummary } from "../bindings";
 
 /**
  * The device section: a list on the left, and the selected device's details on
@@ -65,6 +65,51 @@ export function DevicePage() {
       month: "short",
       day: "numeric",
     });
+  }
+
+  const [confirmRemove, setConfirmRemove] = createSignal<PeerSummary | null>(null);
+
+  const clipboardChoices: Array<[ClipboardReceivePolicy, string]> = [
+    ["ask", "devices.policyAsk"],
+    ["auto", "devices.policyAuto"],
+    ["reject", "devices.policyReject"],
+  ];
+
+  const autoAcceptChoices: Array<[DeviceAutoAccept, string]> = [
+    ["inherit", "devices.policyInherit"],
+    ["auto", "devices.policyAuto"],
+    ["ask", "devices.policyAsk"],
+  ];
+
+  async function applyClipboardPolicy(peer: PeerSummary, policy: ClipboardReceivePolicy) {
+    if (peer.clipboard_policy === policy) return;
+    try {
+      await engine.setClipboardPolicy(peer.device_id, policy);
+      toast.success(t("devices.policySaved"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function applyAutoAccept(peer: PeerSummary, policy: DeviceAutoAccept) {
+    if (peer.auto_accept === policy) return;
+    try {
+      await engine.setDeviceAutoAccept(peer.device_id, policy);
+      toast.success(t("devices.policySaved"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function removeTrust(peer: PeerSummary) {
+    try {
+      await engine.removeTrust(peer.device_id);
+      setConfirmRemove(null);
+      navigate("/");
+      toast.success(t("devices.trustRemoved", { name: peer.name }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
   }
 
   return (
@@ -230,6 +275,75 @@ export function DevicePage() {
               </div>
             </dl>
 
+            <Show when={peer().trusted}>
+              <section class="fx-device-controls">
+                <h3>{t("devices.receiveHeading")}</h3>
+                <div class="fx-device-control">
+                  <div class="fx-device-control-text">
+                    <p>{t("devices.clipboardHeading")}</p>
+                    <span>{t("devices.clipboardBody")}</span>
+                  </div>
+                  <div class="fx-choice" role="group" aria-label={t("devices.clipboardHeading")}>
+                    <For each={clipboardChoices}>
+                      {([value, label]) => (
+                        <button
+                          type="button"
+                          class="fx-choice-item"
+                          aria-pressed={peer().clipboard_policy === value}
+                          onClick={() => void applyClipboardPolicy(peer(), value)}
+                        >
+                          {t(label)}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
+                <div class="fx-device-control">
+                  <div class="fx-device-control-text">
+                    <p>{t("devices.autoAcceptHeading")}</p>
+                    <span>
+                      {peer().auto_accept === "inherit"
+                        ? t("devices.autoAcceptInherit", {
+                            value: engine.snapshot()?.settings.auto_accept_transfers
+                              ? t("devices.policyAuto")
+                              : t("devices.policyAsk"),
+                          })
+                        : t("devices.autoAcceptBody")}
+                    </span>
+                  </div>
+                  <div class="fx-choice" role="group" aria-label={t("devices.autoAcceptHeading")}>
+                    <For each={autoAcceptChoices}>
+                      {([value, label]) => (
+                        <button
+                          type="button"
+                          class="fx-choice-item"
+                          aria-pressed={peer().auto_accept === value}
+                          onClick={() => void applyAutoAccept(peer(), value)}
+                        >
+                          {t(label)}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
+                <div class="fx-device-control is-danger">
+                  <div class="fx-device-control-text">
+                    <p>{t("devices.removeTrustHeading")}</p>
+                    <span>{t("devices.removeTrustBody")}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    icon={<Ban size={14} aria-hidden="true" />}
+                    onClick={() => setConfirmRemove(peer())}
+                  >
+                    {t("devices.removeTrustAction")}
+                  </Button>
+                </div>
+              </section>
+            </Show>
+
             <footer class="fx-device-detail-foot">
               <Show
                 when={peer().trusted}
@@ -250,15 +364,39 @@ export function DevicePage() {
                 >
                   {t("devices.messageAction")}
                 </Button>
-                <A href="/settings/advanced" class="fx-device-trust-link">
-                  <Ban size={13} aria-hidden="true" />
-                  {t("devices.manageTrust")}
-                </A>
               </Show>
             </footer>
           </article>
         )}
       </Show>
+
+      <Dialog
+        open={confirmRemove() !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmRemove(null);
+        }}
+        title={t("devices.removeTrustTitle")}
+        description={t("devices.removeTrustConfirm", {
+          name: confirmRemove()?.name ?? "",
+        })}
+        width="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmRemove(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const target = confirmRemove();
+                if (target) void removeTrust(target);
+              }}
+            >
+              {t("devices.removeTrustAction")}
+            </Button>
+          </>
+        }
+      />
     </section>
   );
 }

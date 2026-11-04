@@ -235,6 +235,9 @@ pub struct PeerSummary {
     pub trusted: bool,
     pub online: bool,
     pub clipboard_policy: ClipboardReceivePolicy,
+    /// Per-device override for automatic acceptance. `Inherit` means the
+    /// global setting in `SettingsSnapshot` decides.
+    pub auto_accept: DeviceAutoAccept,
     pub paired_at_ms: i64,
     pub last_seen_ms: Option<i64>,
     pub addresses: Vec<String>,
@@ -254,6 +257,7 @@ impl From<&TrustEntry> for PeerSummary {
             trusted: true,
             online: false,
             clipboard_policy: value.clipboard_policy.into(),
+            auto_accept: value.auto_accept.into(),
             paired_at_ms: value.paired_at_ms,
             last_seen_ms: None,
             addresses: Vec::new(),
@@ -502,6 +506,40 @@ pub enum ClipboardReceivePolicy {
     Ask,
     Auto,
     Reject,
+}
+
+/// Per-device automatic acceptance of incoming files.
+///
+/// Three states rather than a boolean, because "not set" is a real answer: it
+/// means the global setting applies. A boolean would force every device to
+/// carry a copy of the global value and silently stop following it when that
+/// setting changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceAutoAccept {
+    Inherit,
+    Auto,
+    Ask,
+}
+
+impl From<fluxy_core::AutoAcceptPolicy> for DeviceAutoAccept {
+    fn from(value: fluxy_core::AutoAcceptPolicy) -> Self {
+        match value {
+            fluxy_core::AutoAcceptPolicy::Inherit => Self::Inherit,
+            fluxy_core::AutoAcceptPolicy::Auto => Self::Auto,
+            fluxy_core::AutoAcceptPolicy::Ask => Self::Ask,
+        }
+    }
+}
+
+impl From<DeviceAutoAccept> for fluxy_core::AutoAcceptPolicy {
+    fn from(value: DeviceAutoAccept) -> Self {
+        match value {
+            DeviceAutoAccept::Inherit => Self::Inherit,
+            DeviceAutoAccept::Auto => Self::Auto,
+            DeviceAutoAccept::Ask => Self::Ask,
+        }
+    }
 }
 
 impl From<ClipboardPolicy> for ClipboardReceivePolicy {
@@ -1489,6 +1527,42 @@ impl AppState {
         Ok(())
     }
 
+    /// Set or clear the per-device automatic acceptance of incoming files.
+    ///
+    /// `Inherit` is stored rather than resolved here, so a later change to the
+    /// global switch reaches every device that never overrode it.
+    pub fn device_set_auto_accept(
+        &self,
+        device_id: &str,
+        policy: DeviceAutoAccept,
+    ) -> Result<(), IpcError> {
+        let id = Uuid::parse_str(device_id).map_err(|_| IpcError::internal("invalid device id"))?;
+        let entry = {
+            let mut engine = self.lock_engine()?;
+            let previous = engine.set_auto_accept_policy(&id, policy.into())?;
+            if previous.is_none() {
+                return Err(IpcError {
+                    code: "not_trusted".into(),
+                    code_number: 4202,
+                    message: "device is not trusted".into(),
+                    retryable: false,
+                });
+            }
+            engine
+                .trusted_devices()
+                .into_iter()
+                .find(|entry| entry.device_id == id)
+                .ok_or_else(|| IpcError::internal("trust entry disappeared"))?
+        };
+        self.hub.bump_snapshot();
+        self.hub.emit(AppEvent::Trust {
+            data: TrustEvent::Updated {
+                peer: PeerSummary::from(&entry),
+            },
+        });
+        Ok(())
+    }
+
     pub fn rotate_identity(&self) -> Result<EngineStatusView, IpcError> {
         if self.network.pairing_in_progress() {
             return Err(IpcError {
@@ -1648,6 +1722,7 @@ mod tests {
             cert_fingerprint: [2; 32],
             paired_at_ms: 1_700_000_000_000,
             clipboard_policy: fluxy_core::ClipboardPolicy::Ask,
+            auto_accept: fluxy_core::AutoAcceptPolicy::Inherit,
         }
     }
 

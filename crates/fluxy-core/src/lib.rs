@@ -22,4 +22,4 @@ pub use transfer::{
     SchedulerConfig, StateError, StateMachine, TransferCheckpoint, TransferControl,
     TransferProgress, TransferRole, TransferState, compute_manifest, covered_ranges, write_atomic,
 };
-pub use trust::{ClipboardPolicy, TrustEntry, TrustStore};
+pub use trust::{AutoAcceptPolicy, ClipboardPolicy, TrustEntry, TrustStore};

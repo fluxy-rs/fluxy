@@ -164,6 +164,13 @@ export const commands = {
 	 *  the runtime decides whether it is openable and where it sits.
 	 */
 	transferOpen: (transferId: string) => typedError<null, IpcError>(__TAURI_INVOKE("transfer_open", { transferId })),
+	/**
+	 *  Set or clear a device's automatic acceptance of incoming files.
+	 * 
+	 *  `Inherit` is a real value, not a reset: it means the global setting decides,
+	 *  which is how a user who never touched this device keeps behaving.
+	 */
+	deviceSetAutoAccept: (deviceId: string, policy: DeviceAutoAccept) => typedError<null, IpcError>(__TAURI_INVOKE("device_set_auto_accept", { deviceId, policy })),
 	transfersList: () => typedError<TransferSummary[], IpcError>(__TAURI_INVOKE("transfers_list")),
 };
 
@@ -256,6 +263,16 @@ export type ClipboardShareView = {
 export type ClipboardSnapshot = {
 	shares: ClipboardShareView[],
 };
+
+/**
+ *  Per-device automatic acceptance of incoming files.
+ * 
+ *  Three states rather than a boolean, because "not set" is a real answer: it
+ *  means the global setting applies. A boolean would force every device to
+ *  carry a copy of the global value and silently stop following it when that
+ *  setting changed.
+ */
+export type DeviceAutoAccept = "inherit" | "auto" | "ask";
 
 export type EngineEvent = { type: "started"; version: string; device_id: string; device_name: string; started_at_ms: number } | { type: "stopped"; uptime_ms: number } | { type: "heartbeat"; uptime_ms: number } | { type: "network_changed"; state: string; detail: string };
 
@@ -399,6 +416,11 @@ export type PeerSummary = {
 	trusted: boolean,
 	online: boolean,
 	clipboard_policy: ClipboardReceivePolicy,
+	/**
+	 *  Per-device override for automatic acceptance. `Inherit` means the
+	 *  global setting in `SettingsSnapshot` decides.
+	 */
+	auto_accept: DeviceAutoAccept,
 	paired_at_ms: number,
 	last_seen_ms: number | null,
 	addresses: string[],

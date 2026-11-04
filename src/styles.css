@@ -10844,6 +10844,95 @@ a {
   display:flex;
   overflow-y:auto
   }
+.fx-device-controls {
+  border-top:1px solid var(--fx-line);
+  padding-top:14px;
+  margin-top:18px;
+}
+
+.fx-device-controls > h3 {
+  color:var(--fx-muted);
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  margin:0 0 10px;
+}
+
+.fx-device-control {
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:10px 0;
+  display:flex;
+}
+
+.fx-device-control + .fx-device-control {
+  border-top:1px solid var(--fx-line);
+}
+
+.fx-device-control-text {
+  min-width:0;
+}
+
+.fx-device-control-text p {
+  color:var(--fx-text);
+  font-size:13px;
+  margin:0;
+}
+
+.fx-device-control-text span {
+  color:var(--fx-muted);
+  font-size:11.5px;
+  line-height:1.45;
+  display:block;
+  margin-top:2px;
+}
+
+.fx-device-control.is-danger .fx-device-control-text p {
+  color:var(--fx-danger, #c0392b);
+}
+
+/* A segmented control: three short words, one of them pressed. */
+.fx-choice {
+  border:1px solid var(--fx-line);
+  border-radius:8px;
+  background:var(--fx-panel);
+  flex:none;
+  display:flex;
+  overflow:hidden;
+}
+
+.fx-choice-item {
+  border:0;
+  padding:6px 12px;
+  color:var(--fx-muted);
+  background:transparent;
+  font-size:12px;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background 120ms ease, color 120ms ease;
+}
+
+.fx-choice-item + .fx-choice-item {
+  border-left:1px solid var(--fx-line);
+}
+
+.fx-choice-item:hover {
+  color:var(--fx-text);
+  background:color-mix(in srgb, var(--fx-text) 6%, transparent);
+}
+
+.fx-choice-item[aria-pressed="true"] {
+  color:var(--fx-accent-contrast, #fff);
+  background:var(--fx-accent);
+}
+
+.fx-choice-item:focus-visible {
+  outline:2px solid var(--fx-accent);
+  outline-offset:-2px;
+}
+
 .fx-device-placeholder {
   text-align:center;
   color:var(--fx-muted);
@@ -10993,6 +11082,50 @@ a {
     }
 
   }
+.fx-mobile-controls {
+  border-top:1px solid var(--fx-line);
+  margin:14px 0 2px;
+  padding-top:12px;
+}
+
+.fx-mobile-control {
+  padding:10px 0;
+}
+
+.fx-mobile-control + .fx-mobile-control {
+  border-top:1px solid var(--fx-line);
+}
+
+.fx-mobile-control > p {
+  color:var(--fx-text);
+  font-size:13.5px;
+  font-weight:500;
+  margin:0;
+}
+
+.fx-mobile-control > span {
+  font-size:11.5px;
+  line-height:1.45;
+  display:block;
+  margin-top:1px;
+}
+
+.fx-mobile-control.is-danger > p {
+  color:var(--fx-danger, #c0392b);
+}
+
+/* The segmented control needs every pixel here: three labels plus padding. */
+.fx-mobile-control .fx-choice {
+  width:100%;
+  margin-top:8px;
+}
+
+.fx-mobile-control .fx-choice-item {
+  flex:1;
+  min-height:34px;
+  padding:0;
+}
+
 .fx-mobile-facts {
   gap:1px;
   margin:0;
