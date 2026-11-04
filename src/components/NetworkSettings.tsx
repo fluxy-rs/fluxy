@@ -1,13 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
-import {
-  Check,
-  Copy,
-  LoaderCircle,
-  Network,
-  RotateCcw,
-  ShieldAlert,
-  Wifi,
-} from "lucide-solid";
+import { Check, Copy, LoaderCircle, Network, RotateCcw, ShieldAlert, Wifi } from "lucide-solid";
 import type { InterfaceOptionView } from "../bindings";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
@@ -54,8 +46,7 @@ export function NetworkSettings() {
   const [failure, setFailure] = createSignal<string | null>(null);
   let applyTrigger: HTMLButtonElement | undefined;
 
-  const isDown = () =>
-    network().state === "unavailable" || network().state === "stopped";
+  const isDown = () => network().state === "unavailable" || network().state === "stopped";
 
   /** The interface the runtime is bound to, matched by platform index. */
   const activeOption = createMemo(() => {
@@ -70,9 +61,7 @@ export function NetworkSettings() {
 
   const selectedOption = createMemo(() => {
     const name = interfaceName();
-    return (
-      network().interface_options.find((option) => option.name === name) ?? null
-    );
+    return network().interface_options.find((option) => option.name === name) ?? null;
   });
 
   /** True while the panel proposes something the runtime has not applied. */
@@ -205,10 +194,8 @@ export function NetworkSettings() {
   }
 
   const kindKey = (kind: string) => KIND_KEYS[kind] ?? "network.kindOther";
-  const sourceKey = (source: string) =>
-    SOURCE_KEYS[source] ?? "network.sourceFirstAvailable";
-  const isCurrent = (option: InterfaceOptionView) =>
-    option.index === network().interface_index;
+  const sourceKey = (source: string) => SOURCE_KEYS[source] ?? "network.sourceFirstAvailable";
+  const isCurrent = (option: InterfaceOptionView) => option.index === network().interface_index;
   const isSelected = (option: InterfaceOptionView) =>
     mode() === "manual" && option.name === interfaceName();
 
@@ -230,9 +217,7 @@ export function NetworkSettings() {
       </header>
 
       <div class="fx-network-banner">
-        <span
-          class={["fx-status-pill", isDown() ? "is-danger" : "is-ready"].join(" ")}
-        >
+        <span class={["fx-status-pill", isDown() ? "is-danger" : "is-ready"].join(" ")}>
           <Network size={13} aria-hidden="true" />
           {network().interface ?? t("network.none")}
         </span>
@@ -241,9 +226,7 @@ export function NetworkSettings() {
           {" · "}
           {t(sourceKey(network().selection_source))}
           {" · "}
-          {network().interface_pinned
-            ? t("network.pinnedNote")
-            : t("network.unpinnedNote")}
+          {network().interface_pinned ? t("network.pinnedNote") : t("network.unpinnedNote")}
         </span>
       </div>
 
@@ -259,9 +242,7 @@ export function NetworkSettings() {
             </p>
             <p>{t("network.guidancePick")}</p>
             <Show when={failure()}>
-              {(message) => (
-                <p>{t("network.guidanceError", { message: message() })}</p>
-              )}
+              {(message) => <p>{t("network.guidanceError", { message: message() })}</p>}
             </Show>
             <Show when={network().detail}>
               {(detail) => <p class="fx-network-detail">{detail()}</p>}
@@ -301,9 +282,7 @@ export function NetworkSettings() {
           </button>
         </div>
         <p class="fx-field-hint">
-          {mode() === "auto"
-            ? t("network.modeAutoHint")
-            : t("network.modeManualHint")}
+          {mode() === "auto" ? t("network.modeAutoHint") : t("network.modeManualHint")}
         </p>
       </div>
 
@@ -335,19 +314,13 @@ export function NetworkSettings() {
                       <span class="fx-chip">{t("network.interfaceRecommended")}</span>
                     </Show>
                     <Show when={option.default_route}>
-                      <span class="fx-chip">
-                        {t("network.interfaceDefaultRoute")}
-                      </span>
+                      <span class="fx-chip">{t("network.interfaceDefaultRoute")}</span>
                     </Show>
                     <Show when={option.virtual_adapter}>
-                      <span class="fx-chip is-warn">
-                        {t("network.interfaceVirtual")}
-                      </span>
+                      <span class="fx-chip is-warn">{t("network.interfaceVirtual")}</span>
                     </Show>
                     <Show when={!option.up}>
-                      <span class="fx-chip is-warn">
-                        {t("network.interfaceDown")}
-                      </span>
+                      <span class="fx-chip is-warn">{t("network.interfaceDown")}</span>
                     </Show>
                     <span class="fx-interface-index">
                       {t("network.interfaceIndex", { index: option.index })}
@@ -361,10 +334,7 @@ export function NetworkSettings() {
                       {(value) => (
                         <span class="fx-numeric">
                           {value}
-                          <Show when={value.includes("%")}>
-                            {" "}
-                            {t("network.addressLinkLocal")}
-                          </Show>
+                          <Show when={value.includes("%")}> {t("network.addressLinkLocal")}</Show>
                         </span>
                       )}
                     </For>
@@ -385,11 +355,7 @@ export function NetworkSettings() {
               when={option().addresses.length > 1}
               fallback={<p class="fx-numeric">{address() ?? t("network.none")}</p>}
             >
-              <div
-                class="fx-choice-row"
-                role="group"
-                aria-label={t("network.addressLabel")}
-              >
+              <div class="fx-choice-row" role="group" aria-label={t("network.addressLabel")}>
                 <For each={option().addresses}>
                   {(value, index) => (
                     <button
@@ -450,13 +416,7 @@ export function NetworkSettings() {
           }}
           disabled={!dirty() || applying()}
           onClick={() => setConfirmOpen(true)}
-          icon={
-            applying() ? (
-              <LoaderCircle size={14} class="fx-spin" />
-            ) : (
-              <Check size={14} />
-            )
-          }
+          icon={applying() ? <LoaderCircle size={14} class="fx-spin" /> : <Check size={14} />}
         >
           {t("network.apply")}
         </Button>
@@ -471,23 +431,13 @@ export function NetworkSettings() {
         returnFocus={applyTrigger}
         footer={
           <>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-              disabled={applying()}
-            >
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={applying()}>
               {t("common.cancel")}
             </Button>
             <Button
               onClick={() => void apply()}
               disabled={applying()}
-              icon={
-                applying() ? (
-                  <LoaderCircle size={14} class="fx-spin" />
-                ) : (
-                  <Check size={14} />
-                )
-              }
+              icon={applying() ? <LoaderCircle size={14} class="fx-spin" /> : <Check size={14} />}
             >
               {t("network.confirmAction")}
             </Button>

@@ -36,9 +36,7 @@ export class EngineApiError extends Error {
   }
 }
 
-type CommandResult<T> =
-  | { status: "ok"; data: T }
-  | { status: "error"; error: IpcError };
+type CommandResult<T> = { status: "ok"; data: T } | { status: "error"; error: IpcError };
 
 function unwrap<T>(result: CommandResult<T>): T {
   if (result.status === "ok") {
@@ -56,10 +54,7 @@ export async function takeOpenChatDevice(): Promise<string | null> {
 }
 
 export function isDesktopRuntime(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    "__TAURI_INTERNALS__" in window
-  );
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 export async function getEngineStatus(): Promise<EngineStatusView> {
@@ -78,10 +73,7 @@ export async function startPairing(deviceId: string): Promise<PairingChallengeVi
   return unwrap(await commands.pairStart(deviceId));
 }
 
-export async function confirmPairing(
-  challengeId: string,
-  accepted: boolean,
-): Promise<void> {
+export async function confirmPairing(challengeId: string, accepted: boolean): Promise<void> {
   unwrap(await commands.pairConfirm(challengeId, accepted));
 }
 
@@ -120,10 +112,7 @@ export async function openChat(deviceId: string): Promise<void> {
   unwrap(await commands.chatOpen(deviceId));
 }
 
-export async function sendChatMessage(
-  deviceId: string,
-  text: string,
-): Promise<ChatMessageView> {
+export async function sendChatMessage(deviceId: string, text: string): Promise<ChatMessageView> {
   return unwrap(await commands.chatSend(deviceId, text));
 }
 
@@ -166,30 +155,21 @@ export async function setDeviceAutoAccept(
   unwrap(await commands.deviceSetAutoAccept(deviceId, policy));
 }
 
-export async function pickFile(
-  title: string | null,
-): Promise<RegisteredFileView | null> {
+export async function pickFile(title: string | null): Promise<RegisteredFileView | null> {
   return unwrap(await commands.pickFile(title));
 }
 
 /** Pick one folder and register it for a batch send. */
-export async function pickFolder(
-  title: string | null,
-): Promise<RegisteredFolderView | null> {
+export async function pickFolder(title: string | null): Promise<RegisteredFolderView | null> {
   return unwrap(await commands.pickFolder(title));
 }
 
 /** Queue one transfer per file of a registered folder. */
-export async function startFolder(
-  deviceId: string,
-  folderId: string,
-): Promise<TransferSummary[]> {
+export async function startFolder(deviceId: string, folderId: string): Promise<TransferSummary[]> {
   return unwrap(await commands.startFolder(deviceId, folderId));
 }
 
-export async function pickFiles(
-  title: string | null,
-): Promise<RegisteredFileView[]> {
+export async function pickFiles(title: string | null): Promise<RegisteredFileView[]> {
   return unwrap(await commands.pickFiles(title));
 }
 
@@ -200,9 +180,7 @@ export async function startTransfers(
   return unwrap(await commands.startTransfers(deviceId, fileIds));
 }
 
-export async function setTransferConcurrency(
-  limit: number,
-): Promise<SettingsSnapshot> {
+export async function setTransferConcurrency(limit: number): Promise<SettingsSnapshot> {
   return unwrap(await commands.setTransferConcurrency(limit));
 }
 
@@ -239,11 +217,7 @@ export async function pickSourceFile(): Promise<RegisteredFileView | null> {
  * Copy a received file into the platform's public downloads (mobile only).
  * Returns the URI the platform handed back.
  */
-export async function exportFile(
-  path: string,
-  name: string,
-  mime: string,
-): Promise<string> {
+export async function exportFile(path: string, name: string, mime: string): Promise<string> {
   return invoke<string>("plugin:fluxy-mobile|fs_export", { path, name, mime });
 }
 
@@ -261,9 +235,7 @@ export async function appLogTail(limit = 200): Promise<string[]> {
 
 /** Whether Android lets the app use the local network (mobile only). */
 export async function localNetworkGranted(): Promise<boolean> {
-  const state = await invoke<{ granted: boolean }>(
-    "plugin:fluxy-mobile|local_network_granted",
-  );
+  const state = await invoke<{ granted: boolean }>("plugin:fluxy-mobile|local_network_granted");
   return state.granted;
 }
 
@@ -288,9 +260,7 @@ export async function storageAvailable(): Promise<number> {
 }
 
 /** Choose where received files land. An empty value restores the default. */
-export async function setReceiveDir(
-  directory: string | null,
-): Promise<SettingsSnapshot> {
+export async function setReceiveDir(directory: string | null): Promise<SettingsSnapshot> {
   return unwrap(await commands.setReceiveDir(directory));
 }
 
@@ -316,9 +286,7 @@ export async function setNotifications(enabled: boolean): Promise<SettingsSnapsh
  * is on the backend reads the clipboard every 300 ms and offers a stable,
  * locally-authored value to online trusted devices.
  */
-export async function setAutoClipboard(
-  enabled: boolean,
-): Promise<SettingsSnapshot> {
+export async function setAutoClipboard(enabled: boolean): Promise<SettingsSnapshot> {
   return unwrap(await commands.setAutoClipboard(enabled));
 }
 
@@ -334,10 +302,7 @@ export async function registerFile(path: string): Promise<RegisteredFileView> {
   return unwrap(await commands.registerFile(path));
 }
 
-export async function startTransfer(
-  deviceId: string,
-  fileId: string,
-): Promise<TransferSummary> {
+export async function startTransfer(deviceId: string, fileId: string): Promise<TransferSummary> {
   return unwrap(await commands.startTransfer(deviceId, fileId));
 }
 

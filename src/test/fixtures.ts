@@ -25,14 +25,12 @@ export function makeStatus(overrides: Partial<EngineStatusView> = {}): EngineSta
     trusted_device_count: 1,
     dev_loopback: false,
     platform: "windows",
-  identity_fingerprint: "00".repeat(32),
+    identity_fingerprint: "00".repeat(32),
     ...overrides,
   };
 }
 
-export function makeSettings(
-  overrides: Partial<SettingsSnapshot> = {},
-): SettingsSnapshot {
+export function makeSettings(overrides: Partial<SettingsSnapshot> = {}): SettingsSnapshot {
   return {
     device_name: "Local Device",
     listen_port: 53000,
@@ -43,17 +41,14 @@ export function makeSettings(
     notifications: true,
     auto_accept_transfers: false,
     autostart: false,
-    autostart_location:
-      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Fluxy",
+    autostart_location: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Fluxy",
     receive_dir: "C:\\Users\\test\\AppData\\Roaming\\fluxy\\received",
     dev_loopback: false,
     ...overrides,
   };
 }
 
-export function makeNetwork(
-  overrides: Partial<NetworkStatusView> = {},
-): NetworkStatusView {
+export function makeNetwork(overrides: Partial<NetworkStatusView> = {}): NetworkStatusView {
   return {
     state: "discovering",
     detail: "mDNS discovery is active on the selected LAN interface.",
@@ -142,9 +137,7 @@ export function makeConversation(
   };
 }
 
-export function makeMessage(
-  overrides: Partial<ChatMessageView> = {},
-): ChatMessageView {
+export function makeMessage(overrides: Partial<ChatMessageView> = {}): ChatMessageView {
   return {
     message_id: "message-1",
     device_id: "peer-1",
@@ -161,9 +154,7 @@ export function makeMessage(
   };
 }
 
-export function makeShare(
-  overrides: Partial<ClipboardShareView> = {},
-): ClipboardShareView {
+export function makeShare(overrides: Partial<ClipboardShareView> = {}): ClipboardShareView {
   return {
     offer_id: "offer-1",
     device_id: "peer-1",
@@ -190,9 +181,7 @@ export function makeRegisteredFile(
   };
 }
 
-export function makeTransfer(
-  overrides: Partial<TransferSummary> = {},
-): TransferSummary {
+export function makeTransfer(overrides: Partial<TransferSummary> = {}): TransferSummary {
   return {
     transfer_id: "transfer-1",
     device_id: "peer-1",
@@ -235,9 +224,7 @@ export function makeSnapshot(overrides: Partial<AppSnapshot> = {}): AppSnapshot 
   };
 }
 
-export function makePairing(
-  overrides: Partial<PairingChallenge> = {},
-): PairingChallenge {
+export function makePairing(overrides: Partial<PairingChallenge> = {}): PairingChallenge {
   return {
     challenge_id: "challenge-1",
     peer_device_id: "peer-1",

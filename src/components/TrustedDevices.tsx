@@ -62,7 +62,8 @@ export function TrustedDevices() {
                 <div class="fx-trust-main">
                   <strong>{peer.name}</strong>
                   <span class="fx-trust-meta">
-                    {peer.platform} · {t("trust.pairedAt", {
+                    {peer.platform} ·{" "}
+                    {t("trust.pairedAt", {
                       date: formatDate(peer.paired_at_ms, locale()),
                     })}
                   </span>
@@ -100,13 +101,7 @@ export function TrustedDevices() {
               variant="danger"
               onClick={() => void remove()}
               disabled={removing()}
-              icon={
-                removing() ? (
-                  <LoaderCircle size={14} class="fx-spin" />
-                ) : (
-                  <Trash2 size={14} />
-                )
-              }
+              icon={removing() ? <LoaderCircle size={14} class="fx-spin" /> : <Trash2 size={14} />}
             >
               {t("trust.removeConfirm")}
             </Button>

@@ -36,11 +36,7 @@ export function SettingsRow(props: {
  * A row that goes somewhere. The whole line is the target - a phone-sized hit
  * area instead of a few words on the right - and the chevron says so.
  */
-export function SettingsLinkRow(props: {
-  label: string;
-  description?: string;
-  href: string;
-}) {
+export function SettingsLinkRow(props: { label: string; description?: string; href: string }) {
   return (
     <a class="fx-setting-row fx-setting-link" href={props.href}>
       <div class="fx-setting-copy">

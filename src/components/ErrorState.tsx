@@ -11,8 +11,7 @@ export function ErrorState(props: {
   onRetry: () => void;
 }) {
   const { t } = useI18n();
-  const desktopFailure = () =>
-    !props.desktop || props.failure?.code === "desktop_runtime";
+  const desktopFailure = () => !props.desktop || props.failure?.code === "desktop_runtime";
   const details = () =>
     errorDetails({
       code: props.failure?.code ?? "unknown",
@@ -55,11 +54,7 @@ export function ErrorState(props: {
           <Button onClick={props.onRetry} icon={<RefreshCw size={14} />}>
             {t("error.retry")}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => void copyDetails()}
-            icon={<Copy size={14} />}
-          >
+          <Button variant="outline" onClick={() => void copyDetails()} icon={<Copy size={14} />}>
             {t("error.copyDetails")}
           </Button>
         </div>
@@ -68,10 +63,7 @@ export function ErrorState(props: {
   );
 }
 
-export function ErrorBanner(props: {
-  failure: EngineFailure | null;
-  onRetry: () => void;
-}) {
+export function ErrorBanner(props: { failure: EngineFailure | null; onRetry: () => void }) {
   const { t } = useI18n();
   return (
     <div class="fx-error-banner" role="alert">

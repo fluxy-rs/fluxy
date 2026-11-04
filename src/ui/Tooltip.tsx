@@ -1,8 +1,4 @@
-import {
-  Tooltip as NeutTooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@neut/ui";
+import { Tooltip as NeutTooltip, TooltipContent, TooltipTrigger } from "@neut/ui";
 import type { JSX } from "solid-js";
 import { Button } from "./Button";
 

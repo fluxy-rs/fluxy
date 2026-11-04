@@ -58,17 +58,7 @@ if (!skipAdvisories) {
 step("decoder fuzz", () =>
   run(
     "cargo",
-    [
-      "test",
-      "-q",
-      "-p",
-      "fluxy-core",
-      "--release",
-      "--test",
-      "decoder_fuzz",
-      "--",
-      "--nocapture",
-    ],
+    ["test", "-q", "-p", "fluxy-core", "--release", "--test", "decoder_fuzz", "--", "--nocapture"],
     { env: { ...process.env, FLUXY_FUZZ_ITERATIONS: fuzzIterations } },
   ),
 );

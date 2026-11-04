@@ -1,11 +1,7 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { ChatWorkspace } from "./ChatWorkspace";
-import {
-  makeConversation,
-  makeMessage,
-  makeSnapshot,
-} from "../test/fixtures";
+import { makeConversation, makeMessage, makeSnapshot } from "../test/fixtures";
 import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
@@ -47,9 +43,7 @@ describe("ChatWorkspace", () => {
     fireEvent.input(textarea, { target: { value: "  New message  " } });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
 
-    await waitFor(() =>
-      expect(engine.sendChat).toHaveBeenCalledWith("peer-1", "New message"),
-    );
+    await waitFor(() => expect(engine.sendChat).toHaveBeenCalledWith("peer-1", "New message"));
     await waitFor(() => expect(textarea).toHaveValue(""));
   });
 
@@ -69,9 +63,7 @@ describe("ChatWorkspace", () => {
 
     fireEvent.input(textarea, { target: { value: "send now" } });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
-    await waitFor(() =>
-      expect(sendChat).toHaveBeenCalledWith("peer-1", "send now"),
-    );
+    await waitFor(() => expect(sendChat).toHaveBeenCalledWith("peer-1", "send now"));
   });
 
   it("keeps the draft and recovers the composer when sending fails", async () => {
@@ -118,15 +110,9 @@ describe("ChatWorkspace", () => {
 
     renderWithEngine(() => <ChatWorkspace />, engine);
 
-    expect(
-      screen.getByText("连接已断开，消息未送达；可以重试。"),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "重试发送给 Peer One 的消息" }),
-    );
-    await waitFor(() =>
-      expect(retryChat).toHaveBeenCalledWith("peer-1", "failed-1"),
-    );
+    expect(screen.getByText("连接已断开，消息未送达；可以重试。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试发送给 Peer One 的消息" }));
+    await waitFor(() => expect(retryChat).toHaveBeenCalledWith("peer-1", "failed-1"));
   });
 
   it("replaces the composer with an offline hint", () => {

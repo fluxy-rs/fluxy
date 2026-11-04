@@ -1,9 +1,5 @@
 import { Show, createEffect, createSignal, on } from "solid-js";
-import {
-  FolderOpen,
-  Check,
-  LoaderCircle,
-} from "lucide-solid";
+import { FolderOpen, Check, LoaderCircle } from "lucide-solid";
 import { SettingsRow } from "./SettingsRow";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
@@ -77,9 +73,7 @@ export function LocalDeviceSettings() {
     setSavingNotifications(true);
     try {
       await engine.setNotifications(next);
-      toast.success(
-        next ? t("settings.notificationsEnabled") : t("settings.notificationsMuted"),
-      );
+      toast.success(next ? t("settings.notificationsEnabled") : t("settings.notificationsMuted"));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("settings.notificationsFailed", { message }));
@@ -93,9 +87,7 @@ export function LocalDeviceSettings() {
     setSavingAutoAccept(true);
     try {
       await engine.setAutoAccept(next);
-      toast.success(
-        next ? t("settings.autoAcceptOn") : t("settings.autoAcceptOff"),
-      );
+      toast.success(next ? t("settings.autoAcceptOn") : t("settings.autoAcceptOff"));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("settings.autoAcceptFailed", { message }));
@@ -120,17 +112,12 @@ export function LocalDeviceSettings() {
     }
   }
 
-
   async function toggleAutostart() {
     const next = !settings().autostart;
     setSavingAutostart(true);
     try {
       await engine.setAutostart(next);
-      toast.success(
-        next
-          ? t("settings.autostartEnabled")
-          : t("settings.autostartDisabled"),
-      );
+      toast.success(next ? t("settings.autostartEnabled") : t("settings.autostartDisabled"));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("settings.autostartFailed", { message }));
@@ -195,13 +182,7 @@ export function LocalDeviceSettings() {
             <Button
               type="submit"
               disabled={!dirty() || savingName()}
-              icon={
-                savingName() ? (
-                  <LoaderCircle size={14} class="fx-spin" />
-                ) : (
-                  <Check size={14} />
-                )
-              }
+              icon={savingName() ? <LoaderCircle size={14} class="fx-spin" /> : <Check size={14} />}
             >
               {t("settings.deviceNameSave")}
             </Button>

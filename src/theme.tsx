@@ -35,15 +35,11 @@ function readPreference(): ThemePreference {
 }
 
 function prefersDark(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
+  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 export function ThemeProvider(props: ParentProps) {
-  const [preference, setPreferenceSignal] =
-    createSignal<ThemePreference>(readPreference());
+  const [preference, setPreferenceSignal] = createSignal<ThemePreference>(readPreference());
   const [systemDark, setSystemDark] = createSignal(prefersDark());
 
   const resolved = (): ResolvedTheme => {
@@ -65,11 +61,7 @@ export function ThemeProvider(props: ParentProps) {
 
   const cycle = () =>
     setPreference(
-      preference() === "system"
-        ? "light"
-        : preference() === "light"
-          ? "dark"
-          : "system",
+      preference() === "system" ? "light" : preference() === "light" ? "dark" : "system",
     );
 
   createEffect(() => {
@@ -90,9 +82,7 @@ export function ThemeProvider(props: ParentProps) {
   });
 
   return (
-    <ThemeContext.Provider
-      value={{ preference, resolved, setPreference, cycle }}
-    >
+    <ThemeContext.Provider value={{ preference, resolved, setPreference, cycle }}>
       {props.children}
     </ThemeContext.Provider>
   );

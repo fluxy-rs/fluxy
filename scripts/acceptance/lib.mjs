@@ -19,9 +19,7 @@ export function sleep(ms) {
 
 export function defaultBinary(release = false) {
   const profile = release ? "release" : "debug";
-  return isWindows
-    ? "target/" + profile + "/fluxy-cli.exe"
-    : "target/" + profile + "/fluxy-cli";
+  return isWindows ? "target/" + profile + "/fluxy-cli.exe" : "target/" + profile + "/fluxy-cli";
 }
 
 export function formatBytes(bytes) {
@@ -166,7 +164,10 @@ export class CliProcess {
     const line = candidates.find((candidate) => candidate.includes("status=")) || candidates[0];
     if (!line) return {};
     const map = {};
-    for (const token of line.slice(line.indexOf(prefix) + prefix.length).trim().split(/\s+/)) {
+    for (const token of line
+      .slice(line.indexOf(prefix) + prefix.length)
+      .trim()
+      .split(/\s+/)) {
       const at = token.indexOf("=");
       if (at > 0) map[token.slice(0, at)] = token.slice(at + 1);
     }
@@ -325,7 +326,10 @@ export function fieldFromText(text, key) {
 }
 
 export function tempDir(prefix) {
-  const base = join(tmpdir(), prefix + "-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6));
+  const base = join(
+    tmpdir(),
+    prefix + "-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6),
+  );
   mkdirSync(base, { recursive: true });
   return base;
 }
@@ -350,15 +354,7 @@ export async function pairPeers(binary, dirs, options = {}) {
     }
     const client = new CliProcess(
       binary,
-      [
-        "--data-dir",
-        dirs.sender,
-        "pair",
-        addr,
-        "--fingerprint",
-        fingerprint,
-        "--dev-loopback",
-      ],
+      ["--data-dir", dirs.sender, "pair", addr, "--fingerprint", fingerprint, "--dev-loopback"],
       { label: "pair" },
     );
     const clientCode = await client.waitForExit(60000);

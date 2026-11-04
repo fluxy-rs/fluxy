@@ -97,6 +97,10 @@ jobs:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
       - run: bun run check
+      # Formatting is a gate, not a preference: a pull request that leaves the
+      # tree unformatted would otherwise be normalised by the next person to
+      # run `bun run format`, burying their real change in whitespace.
+      - run: bun run check:format
       - run: bun run check:security
       - run: bun run check:docs
       - run: bun run check:versions

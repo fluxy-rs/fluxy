@@ -107,11 +107,9 @@ const env = {
   ANDROID_HOME: androidHome,
   ANDROID_SDK_ROOT: androidHome,
   NDK_HOME: ndkHome,
-  PATH: [
-    join(javaHome, "bin"),
-    join(androidHome, "platform-tools"),
-    process.env.PATH ?? "",
-  ].join(isWindows ? ";" : ":"),
+  PATH: [join(javaHome, "bin"), join(androidHome, "platform-tools"), process.env.PATH ?? ""].join(
+    isWindows ? ";" : ":",
+  ),
 };
 
 const flavor = release ? "release" : "debug";
@@ -205,7 +203,9 @@ for (const library of libraries) {
       .map((line) => line.trim().split(/\s+/).at(-1)),
   );
   const ok = aligns.size === 1 && aligns.has("0x4000");
-  console.log(`${library}: LOAD align ${[...aligns].join(",") || "none"} ${ok ? "OK (16 KB)" : "NOT 16 KB"}`);
+  console.log(
+    `${library}: LOAD align ${[...aligns].join(",") || "none"} ${ok ? "OK (16 KB)" : "NOT 16 KB"}`,
+  );
   if (!ok) bad += 1;
 }
 if (bad > 0) fail(`${bad} native libraries are not 16 KB aligned`);

@@ -61,11 +61,7 @@ export function PairingDialog() {
               </Button>
               <Button
                 onClick={() => void engine.pairConfirm()}
-                disabled={
-                  !acknowledged() ||
-                  expired() ||
-                  engine.pairingBusy()
-                }
+                disabled={!acknowledged() || expired() || engine.pairingBusy()}
                 icon={
                   engine.pairingBusy() ? (
                     <LoaderCircle size={14} class="fx-spin" />

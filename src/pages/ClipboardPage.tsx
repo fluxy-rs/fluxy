@@ -1,10 +1,4 @@
-import {
-  For,
-  Show,
-  createEffect,
-  createSignal,
-  onCleanup,
-} from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -26,10 +20,7 @@ import { useI18n } from "../i18n";
 import { EmptyState } from "../components/EmptyState";
 import { Button, toast } from "../ui";
 import { formatClock, shortId } from "../lib/format";
-import type {
-  ClipboardReceivePolicy,
-  ClipboardShareView,
-} from "../bindings";
+import type { ClipboardReceivePolicy, ClipboardShareView } from "../bindings";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -73,8 +64,7 @@ export function ClipboardPage() {
   const timer = window.setInterval(() => setNow(Date.now()), 1000);
   onCleanup(() => window.clearInterval(timer));
 
-  const trusted = () =>
-    (snapshot().peers ?? []).filter((peer) => peer.trusted);
+  const trusted = () => (snapshot().peers ?? []).filter((peer) => peer.trusted);
   const onlineTrusted = () => trusted().filter((peer) => peer.online);
   const selectedPeer = () =>
     onlineTrusted().find((peer) => peer.device_id === selectedId()) ?? null;
@@ -113,25 +103,17 @@ export function ClipboardPage() {
   });
 
   createEffect(() => {
-    const expired = pendingIncoming().some(
-      (share) => share.expires_at_ms <= now(),
-    );
+    const expired = pendingIncoming().some((share) => share.expires_at_ms <= now());
     if (expired) void engine.refresh();
   });
 
   function peerName(deviceId: string): string {
-    return (
-      trusted().find((peer) => peer.device_id === deviceId)?.name ??
-      shortId(deviceId, 16)
-    );
+    return trusted().find((peer) => peer.device_id === deviceId)?.name ?? shortId(deviceId, 16);
   }
 
   function remaining(share: ClipboardShareView): string {
     if (share.state === "expired") return t("clipboard.expired");
-    const seconds = Math.max(
-      0,
-      Math.ceil((share.expires_at_ms - now()) / 1000),
-    );
+    const seconds = Math.max(0, Math.ceil((share.expires_at_ms - now()) / 1000));
     return seconds > 0
       ? t("clipboard.expiresIn", { seconds: String(seconds) })
       : t("clipboard.expired");
@@ -152,17 +134,12 @@ export function ClipboardPage() {
     }
   }
 
-  async function updatePolicy(
-    deviceId: string,
-    policy: ClipboardReceivePolicy,
-  ) {
+  async function updatePolicy(deviceId: string, policy: ClipboardReceivePolicy) {
     if (policyBusy()) return;
     setPolicyBusy(deviceId);
     try {
       await engine.setClipboardPolicy(deviceId, policy);
-      toast.success(
-        t("clipboard.policySaved", { name: peerName(deviceId) }),
-      );
+      toast.success(t("clipboard.policySaved", { name: peerName(deviceId) }));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("clipboard.actionFailed", { message }));
@@ -176,11 +153,7 @@ export function ClipboardPage() {
     setSavingAutoSend(true);
     try {
       await engine.setAutoClipboard(next);
-      toast.success(
-        next
-          ? t("clipboard.autoSendEnabled")
-          : t("clipboard.autoSendDisabled"),
-      );
+      toast.success(next ? t("clipboard.autoSendEnabled") : t("clipboard.autoSendDisabled"));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("clipboard.actionFailed", { message }));
@@ -194,9 +167,7 @@ export function ClipboardPage() {
     setPendingAction(share.offer_id);
     try {
       await engine.acceptClipboard(share.device_id, share.offer_id);
-      toast.success(
-        t("clipboard.acceptedToast", { name: peerName(share.device_id) }),
-      );
+      toast.success(t("clipboard.acceptedToast", { name: peerName(share.device_id) }));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("clipboard.actionFailed", { message }));
@@ -210,9 +181,7 @@ export function ClipboardPage() {
     setPendingAction(share.offer_id);
     try {
       await engine.rejectClipboard(share.device_id, share.offer_id);
-      toast.success(
-        t("clipboard.rejectedToast", { name: peerName(share.device_id) }),
-      );
+      toast.success(t("clipboard.rejectedToast", { name: peerName(share.device_id) }));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       toast.error(t("clipboard.actionFailed", { message }));
@@ -248,9 +217,7 @@ export function ClipboardPage() {
                 <h2 id="clipboard-send">{t("clipboard.sendTitle")}</h2>
                 <p>{t("clipboard.sendBody")}</p>
               </div>
-              <span class="fx-status-pill is-pending">
-                {t("clipboard.manualSend")}
-              </span>
+              <span class="fx-status-pill is-pending">{t("clipboard.manualSend")}</span>
             </header>
             <Show
               when={onlineTrusted().length > 0}
@@ -264,9 +231,7 @@ export function ClipboardPage() {
               }
             >
               <div class="fx-clipboard-peers">
-                <p class="fx-clipboard-field-label">
-                  {t("clipboard.chooseDevice")}
-                </p>
+                <p class="fx-clipboard-field-label">{t("clipboard.chooseDevice")}</p>
                 <ul class="fx-peer-choice-list">
                   <For each={onlineTrusted()}>
                     {(peer) => (
@@ -280,20 +245,13 @@ export function ClipboardPage() {
                           onClick={() => setSelectedId(peer.device_id)}
                           aria-pressed={selectedId() === peer.device_id}
                         >
-                          <span
-                            class="fx-status-dot is-ready"
-                            aria-hidden="true"
-                          />
+                          <span class="fx-status-dot is-ready" aria-hidden="true" />
                           <span class="fx-peer-choice-main">
                             <strong>{peer.name}</strong>
                             <span>{peer.platform}</span>
                           </span>
                           <Show when={selectedId() === peer.device_id}>
-                            <Check
-                              size={15}
-                              class="fx-peer-choice-check"
-                              aria-hidden="true"
-                            />
+                            <Check size={15} class="fx-peer-choice-check" aria-hidden="true" />
                           </Show>
                         </button>
                       </li>
@@ -309,17 +267,9 @@ export function ClipboardPage() {
                 <Button
                   onClick={() => void shareCurrent()}
                   disabled={!selectedPeer() || sending()}
-                  icon={
-                    sending() ? (
-                      <LoaderCircle size={15} class="fx-spin" />
-                    ) : (
-                      <Send size={15} />
-                    )
-                  }
+                  icon={sending() ? <LoaderCircle size={15} class="fx-spin" /> : <Send size={15} />}
                 >
-                  {sending()
-                    ? t("clipboard.sending")
-                    : t("clipboard.sendButton")}
+                  {sending() ? t("clipboard.sending") : t("clipboard.sendButton")}
                 </Button>
               </div>
             </Show>
@@ -335,18 +285,13 @@ export function ClipboardPage() {
             </header>
             <Show
               when={history().length > 0}
-              fallback={
-                <p class="fx-note">{t("clipboard.historyEmpty")}</p>
-              }
+              fallback={<p class="fx-note">{t("clipboard.historyEmpty")}</p>}
             >
               <ul class="fx-clipboard-history">
                 <For each={history()}>
                   {(share) => (
                     <li class="fx-clipboard-history-row">
-                      <span
-                        class="fx-clipboard-history-icon"
-                        aria-hidden="true"
-                      >
+                      <span class="fx-clipboard-history-icon" aria-hidden="true">
                         {share.direction === "sent" ? (
                           <ArrowUpRight size={14} />
                         ) : (
@@ -367,10 +312,8 @@ export function ClipboardPage() {
                           {share.preview || t("clipboard.previewEmpty")}
                         </span>
                         <span class="fx-numeric fx-muted">
-                          {t(
-                            `clipboard.direction.${share.direction}`,
-                          )}{" "}
-                          · {formatBytes(share.size_bytes)}
+                          {t(`clipboard.direction.${share.direction}`)} ·{" "}
+                          {formatBytes(share.size_bytes)}
                         </span>
                       </span>
                       <span class="fx-clipboard-history-meta">
@@ -380,9 +323,7 @@ export function ClipboardPage() {
                         >
                           {t(`clipboard.state.${share.state}`)}
                         </span>
-                        <time class="fx-numeric">
-                          {formatClock(share.created_at_ms, locale())}
-                        </time>
+                        <time class="fx-numeric">{formatClock(share.created_at_ms, locale())}</time>
                       </span>
                     </li>
                   )}
@@ -406,9 +347,7 @@ export function ClipboardPage() {
             </header>
             <Show
               when={pendingIncoming().length > 0}
-              fallback={
-                <p class="fx-note">{t("clipboard.incomingEmpty")}</p>
-              }
+              fallback={<p class="fx-note">{t("clipboard.incomingEmpty")}</p>}
             >
               <ul class="fx-clipboard-incoming">
                 <For each={pendingIncoming()}>
@@ -422,25 +361,16 @@ export function ClipboardPage() {
                             {remaining(share)}
                           </span>
                         </div>
-                        <span
-                          class={`fx-state ${share.state}`}
-                        >
+                        <span class={`fx-state ${share.state}`}>
                           {t(`clipboard.state.${share.state}`)}
                         </span>
                       </div>
                       <p class="fx-clipboard-preview">{share.preview}</p>
                       <div class="fx-clipboard-meta">
                         <span>{formatBytes(share.size_bytes)}</span>
-                        <span>
-                          {t("clipboard.previewLabel")}
-                        </span>
+                        <span>{t("clipboard.previewLabel")}</span>
                       </div>
-                      <Show
-                        when={
-                          share.state === "offered" &&
-                          share.expires_at_ms > now()
-                        }
-                      >
+                      <Show when={share.state === "offered" && share.expires_at_ms > now()}>
                         <div class="fx-clipboard-actions">
                           <Button
                             size="xs"
@@ -448,10 +378,7 @@ export function ClipboardPage() {
                             disabled={pendingAction() === share.offer_id}
                             icon={
                               pendingAction() === share.offer_id ? (
-                                <LoaderCircle
-                                  size={13}
-                                  class="fx-spin"
-                                />
+                                <LoaderCircle size={13} class="fx-spin" />
                               ) : (
                                 <Check size={13} />
                               )
@@ -494,9 +421,7 @@ export function ClipboardPage() {
             <p class="fx-note">{t("clipboard.policyBody")}</p>
             <Show
               when={trusted().length > 0}
-              fallback={
-                <p class="fx-note">{t("clipboard.policyEmpty")}</p>
-              }
+              fallback={<p class="fx-note">{t("clipboard.policyEmpty")}</p>}
             >
               <ul class="fx-policy-list">
                 <For each={trusted()}>
@@ -521,20 +446,12 @@ export function ClipboardPage() {
                               type="button"
                               class="fx-policy-option"
                               classList={{
-                                "is-active":
-                                  peer.clipboard_policy === option.value,
+                                "is-active": peer.clipboard_policy === option.value,
                                 "is-auto": option.value === "auto",
                               }}
-                              aria-pressed={
-                                peer.clipboard_policy === option.value
-                              }
+                              aria-pressed={peer.clipboard_policy === option.value}
                               disabled={policyBusy() !== null}
-                              onClick={() =>
-                                void updatePolicy(
-                                  peer.device_id,
-                                  option.value,
-                                )
-                              }
+                              onClick={() => void updatePolicy(peer.device_id, option.value)}
                             >
                               {t(option.label)}
                             </button>
@@ -543,10 +460,8 @@ export function ClipboardPage() {
                       </div>
                       <p class="fx-policy-hint">
                         {t(
-                          policyOptions.find(
-                            (option) =>
-                              option.value === peer.clipboard_policy,
-                          )?.description ?? "clipboard.policyAskBody",
+                          policyOptions.find((option) => option.value === peer.clipboard_policy)
+                            ?.description ?? "clipboard.policyAskBody",
                         )}
                       </p>
                     </li>
@@ -554,14 +469,8 @@ export function ClipboardPage() {
                 </For>
               </ul>
             </Show>
-            <Show
-              when={trusted().some(
-                (peer) => peer.clipboard_policy === "auto",
-              )}
-            >
-              <p class="fx-policy-warning">
-                {t("clipboard.policyWarning")}
-              </p>
+            <Show when={trusted().some((peer) => peer.clipboard_policy === "auto")}>
+              <p class="fx-policy-warning">{t("clipboard.policyWarning")}</p>
             </Show>
             <div class="fx-field">
               <button

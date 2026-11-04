@@ -1,0 +1,28 @@
+# Everything is stored and checked out as LF.
+#
+# This is a cross-platform project and the toolchain does not agree on line
+# endings: cargo fmt and biome both want LF, and a Windows checkout with
+# core.autocrlf=true hands them CRLF instead. Setting eol=lf here overrides
+# core.autocrlf, so the working copy on every platform matches what is stored.
+#
+# Without this, biome reported 11 000 formatting errors on a tree that was
+# already correctly formatted - every one of them a CR at the end of a line.
+* text=auto eol=lf
+
+# Binary files: never touched, never diffed.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.apk binary
+*.so binary
+*.dll binary
+*.dylib binary
+*.exe binary

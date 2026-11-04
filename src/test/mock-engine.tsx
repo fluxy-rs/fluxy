@@ -10,11 +10,7 @@ import type {
   SettingsSnapshot,
   TransferSummary,
 } from "../bindings";
-import {
-  EngineContext,
-  type EngineContextValue,
-  type PairingChallenge,
-} from "../state/engine";
+import { EngineContext, type EngineContextValue, type PairingChallenge } from "../state/engine";
 import {
   makeMessage,
   makeNetwork,
@@ -32,9 +28,7 @@ export type MockEngineOptions = Partial<EngineContextValue>;
  * accessors and actions they exercise; every other action is a spy that
  * resolves with a harmless fixture.
  */
-export function createMockEngine(
-  options: MockEngineOptions = {},
-): EngineContextValue {
+export function createMockEngine(options: MockEngineOptions = {}): EngineContextValue {
   const snapshot = options.snapshot ?? (() => null as AppSnapshot | null);
   const base: EngineContextValue = {
     snapshot,
@@ -73,31 +67,19 @@ export function createMockEngine(
     setClipboardPolicy: vi.fn(async () => {}),
     acceptClipboard: vi.fn(async (): Promise<ClipboardShareView> => makeShare()),
     rejectClipboard: vi.fn(async (): Promise<ClipboardShareView> => makeShare()),
-    pickFile: vi.fn(async (): Promise<RegisteredFileView | null> =>
-      makeRegisteredFile(),
-    ),
-    registerFile: vi.fn(async (): Promise<RegisteredFileView> =>
-      makeRegisteredFile(),
-    ),
+    pickFile: vi.fn(async (): Promise<RegisteredFileView | null> => makeRegisteredFile()),
+    registerFile: vi.fn(async (): Promise<RegisteredFileView> => makeRegisteredFile()),
     startTransfer: vi.fn(async (): Promise<TransferSummary> => makeTransfer()),
-    pickFiles: vi.fn(async (): Promise<RegisteredFileView[]> => [
-      makeRegisteredFile(),
-    ]),
+    pickFiles: vi.fn(async (): Promise<RegisteredFileView[]> => [makeRegisteredFile()]),
     pickFolder: vi.fn(async () => null),
     startFolder: vi.fn(async (): Promise<TransferSummary[]> => [makeTransfer()]),
     startTransfers: vi.fn(async (): Promise<TransferSummary[]> => [makeTransfer()]),
-    setTransferConcurrency: vi.fn(
-      async (): Promise<SettingsSnapshot> => makeSettings(),
+    setTransferConcurrency: vi.fn(async (): Promise<SettingsSnapshot> => makeSettings()),
+    setDeviceName: vi.fn(async (): Promise<SettingsSnapshot> => makeSettings()),
+    setAutoAccept: vi.fn(async (enabled: boolean) =>
+      makeSettings({ auto_accept_transfers: enabled }),
     ),
-    setDeviceName: vi.fn(
-      async (): Promise<SettingsSnapshot> => makeSettings(),
-    ),
-    setAutoAccept: vi.fn(
-      async (enabled: boolean) => makeSettings({ auto_accept_transfers: enabled }),
-    ),
-    setNotifications: vi.fn(
-      async (): Promise<SettingsSnapshot> => makeSettings(),
-    ),
+    setNotifications: vi.fn(async (): Promise<SettingsSnapshot> => makeSettings()),
     nearbyPeers: vi.fn(async () => []),
     pairManual: vi.fn(
       async (address: string): Promise<PairingChallenge> => ({
@@ -119,19 +101,11 @@ export function createMockEngine(
     openSourceFile: vi.fn(async () => null),
     systemInsets: vi.fn(async () => ({ top: 0, bottom: 0 })),
     setChromeColor: vi.fn(async () => undefined),
-    setReceiveDir: vi.fn(
-      async (): Promise<SettingsSnapshot> => makeSettings(),
-    ),
+    setReceiveDir: vi.fn(async (): Promise<SettingsSnapshot> => makeSettings()),
     pickReceiveDir: vi.fn(async () => null),
-    setAutoClipboard: vi.fn(
-      async (): Promise<SettingsSnapshot> => makeSettings(),
-    ),
-    setAutostart: vi.fn(
-      async (): Promise<SettingsSnapshot> => makeSettings(),
-    ),
-    setNetworkSelection: vi.fn(async (): Promise<NetworkStatusView> =>
-      makeNetwork(),
-    ),
+    setAutoClipboard: vi.fn(async (): Promise<SettingsSnapshot> => makeSettings()),
+    setAutostart: vi.fn(async (): Promise<SettingsSnapshot> => makeSettings()),
+    setNetworkSelection: vi.fn(async (): Promise<NetworkStatusView> => makeNetwork()),
     clearDrop: vi.fn(),
     respondTransfer: vi.fn(async (): Promise<TransferSummary> => makeTransfer()),
     controlTransfer: vi.fn(async (): Promise<TransferSummary> => makeTransfer()),
@@ -141,12 +115,6 @@ export function createMockEngine(
   return { ...base, ...options };
 }
 
-export function MockEngineProvider(
-  props: ParentProps<{ engine: EngineContextValue }>,
-) {
-  return (
-    <EngineContext.Provider value={props.engine}>
-      {props.children}
-    </EngineContext.Provider>
-  );
+export function MockEngineProvider(props: ParentProps<{ engine: EngineContextValue }>) {
+  return <EngineContext.Provider value={props.engine}>{props.children}</EngineContext.Provider>;
 }

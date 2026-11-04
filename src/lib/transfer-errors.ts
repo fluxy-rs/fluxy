@@ -9,9 +9,7 @@ import { catalogs, type Locale } from "../i18n";
  * drift and an unknown code from a future peer degrades to the caller's
  * fallback instead of a raw key.
  */
-export function failureReasonKey(
-  code: string | null | undefined,
-): string | null {
+export function failureReasonKey(code: string | null | undefined): string | null {
   if (!code) {
     return null;
   }

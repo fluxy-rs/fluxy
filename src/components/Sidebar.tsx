@@ -26,11 +26,7 @@ export function Sidebar() {
 
   const status = () => engine.snapshot()?.status;
   const engineState = () =>
-    engine.loading()
-      ? "is-pending"
-      : engine.snapshot()
-        ? "is-ready"
-        : "is-offline";
+    engine.loading() ? "is-pending" : engine.snapshot() ? "is-ready" : "is-offline";
 
   async function copyDeviceId() {
     const id = status()?.device_id;
@@ -51,19 +47,43 @@ export function Sidebar() {
             rounded background, so the slot around it stays bare. */}
         <svg viewBox="0 0 128 128" role="img" aria-label="Fluxy">
           <defs>
-            <linearGradient id="fluxy-brand-bg" x1="10" y1="6" x2="120" y2="124" gradientUnits="userSpaceOnUse">
+            <linearGradient
+              id="fluxy-brand-bg"
+              x1="10"
+              y1="6"
+              x2="120"
+              y2="124"
+              gradientUnits="userSpaceOnUse"
+            >
               <stop stop-color="#1B324B" />
               <stop offset=".55" stop-color="#102137" />
               <stop offset="1" stop-color="#0C1529" />
             </linearGradient>
-            <linearGradient id="fluxy-brand-flow" x1="20" y1="41" x2="108" y2="87" gradientUnits="userSpaceOnUse">
+            <linearGradient
+              id="fluxy-brand-flow"
+              x1="20"
+              y1="41"
+              x2="108"
+              y2="87"
+              gradientUnits="userSpaceOnUse"
+            >
               <stop stop-color="#70F4C5" />
               <stop offset=".45" stop-color="#4ADBDD" />
               <stop offset="1" stop-color="#688CFC" />
             </linearGradient>
           </defs>
           <rect x="2" y="2" width="124" height="124" rx="28" fill="url(#fluxy-brand-bg)" />
-          <rect x="3" y="3" width="122" height="122" rx="27" fill="none" stroke="#CBF8F8" stroke-opacity=".1" stroke-width="1.5" />
+          <rect
+            x="3"
+            y="3"
+            width="122"
+            height="122"
+            rx="27"
+            fill="none"
+            stroke="#CBF8F8"
+            stroke-opacity=".1"
+            stroke-width="1.5"
+          />
           <path
             d="M64 64 C53 45 45 42 37 42 C25 42 20 52 20 63 C20 75 26 85 38 85 C48 85 56 75 64 64 C72 53 80 43 90 43 C103 43 108 53 108 64 C108 76 102 85 90 85 C80 85 72 75 64 64 Z"
             fill="none"
@@ -109,7 +129,7 @@ export function Sidebar() {
           class="fx-rail-icon-button"
           aria-label={t("home.copyId")}
           title={`${status()?.device_name ?? ""} · ${
-            copied() ? t("common.copied") : status()?.device_id ?? ""
+            copied() ? t("common.copied") : (status()?.device_id ?? "")
           }`}
           onClick={() => void copyDeviceId()}
         >

@@ -17,14 +17,50 @@ import {
  * what people actually sort by, and `tone` gives the icon a colour without
  * making it decorative noise.
  */
-const VIDEO = new Set(["mp4", "mkv", "mov", "avi", "webm", "m4v", "wmv", "flv", "mpg", "mpeg", "ts"]);
+const VIDEO = new Set([
+  "mp4",
+  "mkv",
+  "mov",
+  "avi",
+  "webm",
+  "m4v",
+  "wmv",
+  "flv",
+  "mpg",
+  "mpeg",
+  "ts",
+]);
 const AUDIO = new Set(["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff"]);
 const IMAGE = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic", "avif", "tiff"]);
 const ARCHIVE = new Set(["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "zst"]);
 const SHEET = new Set(["xls", "xlsx", "csv", "ods"]);
 const CODE = new Set([
-  "rs", "ts", "tsx", "js", "jsx", "py", "go", "java", "kt", "c", "h", "cpp", "hpp",
-  "cs", "rb", "php", "swift", "sh", "ps1", "json", "toml", "yaml", "yml", "xml", "html", "css",
+  "rs",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "go",
+  "java",
+  "kt",
+  "c",
+  "h",
+  "cpp",
+  "hpp",
+  "cs",
+  "rb",
+  "php",
+  "swift",
+  "sh",
+  "ps1",
+  "json",
+  "toml",
+  "yaml",
+  "yml",
+  "xml",
+  "html",
+  "css",
 ]);
 const TEXT = new Set(["txt", "md", "log", "pdf", "doc", "docx", "rtf", "odt", "epub"]);
 

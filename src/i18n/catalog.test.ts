@@ -72,9 +72,7 @@ function errorCodes(): string[] {
     (match) => match[1],
   );
   if (codes.length < 10 || !codes.includes("disk_full")) {
-    throw new Error(
-      "could not read the error codes from crates/fluxy-core/src/error.rs",
-    );
+    throw new Error("could not read the error codes from crates/fluxy-core/src/error.rs");
   }
   return codes;
 }
@@ -87,9 +85,7 @@ const dynamicKeys = [
   "transfers.reason.invalid_manifest",
   "transfers.reason.invalid_batch",
   ...unionMembers("ClipboardShareState").map((state) => `clipboard.state.${state}`),
-  ...unionMembers("ClipboardDirection").map(
-    (direction) => `clipboard.direction.${direction}`,
-  ),
+  ...unionMembers("ClipboardDirection").map((direction) => `clipboard.direction.${direction}`),
   ...unionMembers("TransferState").map((state) => `transfers.state.${state}`),
 ];
 
@@ -122,9 +118,7 @@ describe("i18n catalog", () => {
       const zhVars = placeholders(zh[key] ?? "");
       const enVars = placeholders(en[key] ?? "");
       if (zhVars.join(",") !== enVars.join(",")) {
-        problems.push(
-          `${key} placeholders differ: zh[${zhVars}] en[${enVars}]`,
-        );
+        problems.push(`${key} placeholders differ: zh[${zhVars}] en[${enVars}]`);
       }
     }
     expect(problems).toEqual([]);
@@ -133,10 +127,7 @@ describe("i18n catalog", () => {
   it("resolves every key written in the source", () => {
     const missing = [...used.entries()]
       .filter(([key]) => !(key in zh) || !(key in en))
-      .map(
-        ([key, files]) =>
-          `${key} (used in ${[...new Set(files)].join(", ")})`,
-      );
+      .map(([key, files]) => `${key} (used in ${[...new Set(files)].join(", ")})`);
     expect(missing).toEqual([]);
   });
 
@@ -147,8 +138,7 @@ describe("i18n catalog", () => {
 
   it("has a failure reason for every protocol error code", () => {
     const missing = errorCodes().filter(
-      (code) => !(`transfers.reason.${code}` in zh) ||
-        !(`transfers.reason.${code}` in en),
+      (code) => !(`transfers.reason.${code}` in zh) || !(`transfers.reason.${code}` in en),
     );
     expect(missing).toEqual([]);
   });

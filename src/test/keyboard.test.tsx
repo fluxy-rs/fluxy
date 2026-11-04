@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { HashRouter, Route } from "@solidjs/router";
 import { createSignal } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
@@ -17,12 +11,7 @@ import { I18nProvider } from "../i18n";
 import { ThemeProvider } from "../theme";
 import type { PairingChallenge } from "../state/engine";
 import { createMockEngine, MockEngineProvider } from "./mock-engine";
-import {
-  makePairing,
-  makePeer,
-  makeSnapshot,
-  makeTransfer,
-} from "./fixtures";
+import { makePairing, makePeer, makeSnapshot, makeTransfer } from "./fixtures";
 import type { EngineContextValue } from "../state/engine";
 
 /**
@@ -32,10 +21,7 @@ import type { EngineContextValue } from "../state/engine";
  * completes the step. The parts that are genuine key events - the dialog focus
  * trap, Escape, and the chat composer - are driven with keydown.
  */
-function renderApp(
-  engine: Partial<EngineContextValue>,
-  hash = "#/",
-): ReturnType<typeof render> {
+function renderApp(engine: Partial<EngineContextValue>, hash = "#/"): ReturnType<typeof render> {
   window.location.hash = hash;
   const mock = createMockEngine(engine);
   return render(() => (
@@ -179,18 +165,13 @@ describe("keyboard main flow", () => {
     accept.focus();
     fireEvent.click(accept);
 
-    await waitFor(() =>
-      expect(respondTransfer).toHaveBeenCalledWith(offer.transfer_id, true),
-    );
+    await waitFor(() => expect(respondTransfer).toHaveBeenCalledWith(offer.transfer_id, true));
   });
 
   it("keeps the chat entry and composer on native controls", async () => {
     // The workspace is props-driven, so this asserts the controls themselves
     // rather than how the chat route happens to be mounted.
-    renderWithEngine(
-      () => <ChatWorkspace />,
-      createMockEngine({ snapshot: () => makeSnapshot() }),
-    );
+    renderWithEngine(() => <ChatWorkspace />, createMockEngine({ snapshot: () => makeSnapshot() }));
 
     const conversation = await screen.findByRole("button", { name: /Peer One/ });
     expect(conversation.tagName).toBe("BUTTON");

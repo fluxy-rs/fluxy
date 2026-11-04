@@ -8,14 +8,7 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
-import {
-  ChevronLeft,
-  MessageCircle,
-  Paperclip,
-  Send,
-  ShieldCheck,
-  WifiOff,
-} from "lucide-solid";
+import { ChevronLeft, MessageCircle, Paperclip, Send, ShieldCheck, WifiOff } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { Button, Textarea, toast } from "../ui";
@@ -131,8 +124,7 @@ export function ChatWorkspace(props: {
       }));
     return [...texts, ...files].sort((a, b) => a.at - b.at);
   });
-  const canSend = () =>
-    Boolean(selected()?.online) && !sending() && draft().trim().length > 0;
+  const canSend = () => Boolean(selected()?.online) && !sending() && draft().trim().length > 0;
 
   onMount(() => {
     const query = window.matchMedia("(max-width: 768px)");
@@ -147,7 +139,10 @@ export function ChatWorkspace(props: {
 
   createEffect(
     on(
-      () => conversations().map((item) => item.device_id).join("|"),
+      () =>
+        conversations()
+          .map((item) => item.device_id)
+          .join("|"),
       () => {
         const current = selectedId();
         if (current && !conversations().some((item) => item.device_id === current)) {
@@ -206,8 +201,7 @@ export function ChatWorkspace(props: {
       // Within a line or two of the tail counts as "following": the last
       // message can be taller than the viewport, and an exact comparison
       // would unpin on a fractional scroll position.
-      pinnedToBottom =
-        list.scrollHeight - list.scrollTop - list.clientHeight < 48;
+      pinnedToBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 48;
     };
     list.addEventListener("scroll", onScroll, { passive: true });
     onCleanup(() => list.removeEventListener("scroll", onScroll));
@@ -368,7 +362,9 @@ export function ChatWorkspace(props: {
                     />
                     <span class="fx-chat-conversation-main">
                       <strong>{displayName(peer.device_id, peer.name)}</strong>
-                      <span classList={{ "fx-chat-preview-file": lastPreview(peer.device_id).isFile }}>
+                      <span
+                        classList={{ "fx-chat-preview-file": lastPreview(peer.device_id).isFile }}
+                      >
                         {lastPreview(peer.device_id).label ?? t("chat.noMessages")}
                       </span>
                     </span>
@@ -467,8 +463,7 @@ export function ChatWorkspace(props: {
                               // the sender's copy is already theirs, and a file
                               // still moving cannot be handed to another app.
                               "is-openable":
-                                transfer.direction === "receive" &&
-                                transfer.state === "completed",
+                                transfer.direction === "receive" && transfer.state === "completed",
                             }}
                             onClick={() => {
                               if (
@@ -490,8 +485,7 @@ export function ChatWorkspace(props: {
                             <div class="fx-chat-file-body">
                               <p class="fx-chat-file-name">{transfer.file_name}</p>
                               <span class="fx-chat-file-meta">
-                                {formatBytes(transfer.bytes_total)} ·{" "}
-                                {transferLabel(transfer, t)}
+                                {formatBytes(transfer.bytes_total)} · {transferLabel(transfer, t)}
                                 <Show when={transfer.state === "transferring"}>
                                   {" · "}
                                   {percent()}%
@@ -616,4 +610,3 @@ export function ChatWorkspace(props: {
     </section>
   );
 }
-

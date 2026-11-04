@@ -12,10 +12,7 @@ import { Dialog } from "../ui";
  * one. But the desktop is exactly the device a phone wants to scan, so this
  * component lives on both surfaces and either side can be the one being read.
  */
-export function PairingQrDialog(props: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function PairingQrDialog(props: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const engine = useEngine();
   const { t } = useI18n();
   const [svg, setSvg] = createSignal("");
@@ -61,10 +58,7 @@ export function PairingQrDialog(props: {
       description={t("pairing.myQrBody")}
       width="sm"
     >
-      <Show
-        when={svg()}
-        fallback={<p class="fx-muted">{t("pairing.myQrUnavailable")}</p>}
-      >
+      <Show when={svg()} fallback={<p class="fx-muted">{t("pairing.myQrUnavailable")}</p>}>
         <div class="fx-qr" innerHTML={svg()} />
       </Show>
       <p class="fx-note fx-numeric fx-qr-address">

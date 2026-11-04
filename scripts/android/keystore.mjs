@@ -81,12 +81,9 @@ if (generated.status !== 0) fail("keytool refused to create the keystore");
 
 writeFileSync(
   properties,
-  [
-    `storeFile=${store.replace(/\\/g, "/")}`,
-    `password=${password}`,
-    `keyAlias=${alias}`,
-    "",
-  ].join("\n"),
+  [`storeFile=${store.replace(/\\/g, "/")}`, `password=${password}`, `keyAlias=${alias}`, ""].join(
+    "\n",
+  ),
 );
 
 console.log(`keystore: ${store}`);

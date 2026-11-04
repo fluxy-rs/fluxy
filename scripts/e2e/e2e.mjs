@@ -18,7 +18,12 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
 const IS_WINDOWS = process.platform === "win32";
-const DEFAULT_BIN = path.join(REPO_ROOT, "target", "debug", IS_WINDOWS ? "fluxy-cli.exe" : "fluxy-cli");
+const DEFAULT_BIN = path.join(
+  REPO_ROOT,
+  "target",
+  "debug",
+  IS_WINDOWS ? "fluxy-cli.exe" : "fluxy-cli",
+);
 const DEFAULT_TIMEOUT_MS = 30000;
 
 function parseArgs(argv) {
@@ -120,7 +125,12 @@ class CliProcess {
       await delay(50);
     }
     throw new Error(
-      "timed out waiting for " + label + "\nstdout:\n" + this.stdoutText + "\nstderr:\n" + this.stderrText,
+      "timed out waiting for " +
+        label +
+        "\nstdout:\n" +
+        this.stdoutText +
+        "\nstderr:\n" +
+        this.stderrText,
     );
   }
 
@@ -137,8 +147,16 @@ class CliProcess {
     }
     await this.stop();
     throw new Error(
-      "process timed out after " + timeoutMs + " ms: " + this.bin + " " + this.args.join(" ") +
-        "\nstdout:\n" + this.stdoutText + "\nstderr:\n" + this.stderrText,
+      "process timed out after " +
+        timeoutMs +
+        " ms: " +
+        this.bin +
+        " " +
+        this.args.join(" ") +
+        "\nstdout:\n" +
+        this.stdoutText +
+        "\nstderr:\n" +
+        this.stderrText,
     );
   }
 
@@ -245,11 +263,22 @@ function autoConfirm(proc) {
 }
 
 async function startServer(bin, dataDir) {
-  const proc = new CliProcess(bin, ["--data-dir", dataDir, "serve", "--listen", "127.0.0.1:0", "--dev-loopback"]);
+  const proc = new CliProcess(bin, [
+    "--data-dir",
+    dataDir,
+    "serve",
+    "--listen",
+    "127.0.0.1:0",
+    "--dev-loopback",
+  ]);
   const stopConfirm = autoConfirm(proc);
-  const listen = (await proc.waitFor("stdout", /^listen=(\S+)$/m, 20000, "server listen address"))[1];
+  const listen = (
+    await proc.waitFor("stdout", /^listen=(\S+)$/m, 20000, "server listen address")
+  )[1];
   const device = (await proc.waitFor("stdout", /^device=(\S+)$/m, 20000, "server device id"))[1];
-  const fingerprint = (await proc.waitFor("stdout", /^fingerprint=([0-9a-f]{64})$/m, 20000, "server fingerprint"))[1];
+  const fingerprint = (
+    await proc.waitFor("stdout", /^fingerprint=([0-9a-f]{64})$/m, 20000, "server fingerprint")
+  )[1];
   return { proc, stopConfirm, listen, device, fingerprint };
 }
 
@@ -282,13 +311,28 @@ async function localScenario(bin, options) {
       try {
         const pair = await runCli(
           bin,
-          ["--data-dir", clientDir, "pair", handle.listen, "--fingerprint", handle.fingerprint, "--dev-loopback"],
+          [
+            "--data-dir",
+            clientDir,
+            "pair",
+            handle.listen,
+            "--fingerprint",
+            handle.fingerprint,
+            "--dev-loopback",
+          ],
           { input: "yes\n" },
         );
         assert(pair.code === 0, "pairing exited with code " + pair.code, pair.stderr);
-        assert(/^paired device=(\S+) name=.* sas=\d{6}$/m.test(pair.stdout), "pairing output missing SAS", pair.stdout);
+        assert(
+          /^paired device=(\S+) name=.* sas=\d{6}$/m.test(pair.stdout),
+          "pairing output missing SAS",
+          pair.stdout,
+        );
         const pairedDevice = /^paired device=(\S+)/m.exec(pair.stdout)[1];
-        assert(pairedDevice === handle.device, "client paired " + pairedDevice + " but server is " + handle.device);
+        assert(
+          pairedDevice === handle.device,
+          "client paired " + pairedDevice + " but server is " + handle.device,
+        );
         // The one-shot pair command closes right after writing trust, so the
         // server records the pairing and then reports a benign control-stream
         // close. A later server restart proves the persisted trust.
@@ -301,24 +345,51 @@ async function localScenario(bin, options) {
     await step("trust persists across restart and chat delivers an ACK", async () => {
       const handle = await startServer(bin, serverDir);
       assert(handle.device === context.device, "device id changed across restart", handle.device);
-      assert(handle.fingerprint === context.fingerprint, "certificate fingerprint changed across restart", handle.fingerprint);
+      assert(
+        handle.fingerprint === context.fingerprint,
+        "certificate fingerprint changed across restart",
+        handle.fingerprint,
+      );
       try {
         const message = "m1-09-hello-" + Date.now();
-        const chat = await runCli(
-          bin,
-          ["--data-dir", clientDir, "chat", handle.listen, "--device", handle.device, "--message", message, "--dev-loopback"],
-        );
+        const chat = await runCli(bin, [
+          "--data-dir",
+          clientDir,
+          "chat",
+          handle.listen,
+          "--device",
+          handle.device,
+          "--message",
+          message,
+          "--dev-loopback",
+        ]);
         assert(chat.code === 0, "chat exited with code " + chat.code, chat.stderr);
-        assert(/^resumed device=/m.test(chat.stdout), "chat did not resume the paired trust", chat.stdout);
-        assert(/^ack message=\S+ delivered=true/m.test(chat.stdout), "chat did not receive a delivered ACK", chat.stdout);
+        assert(
+          /^resumed device=/m.test(chat.stdout),
+          "chat did not resume the paired trust",
+          chat.stdout,
+        );
+        assert(
+          /^ack message=\S+ delivered=true/m.test(chat.stdout),
+          "chat did not receive a delivered ACK",
+          chat.stdout,
+        );
         await handle.proc.waitFor("stdout", /^message: /m, 20000, "server chat message");
         assert(
           handle.proc.stdoutText.replace(/\r/g, "").includes("message: " + message + "\n"),
           "server did not receive the exact chat text",
           handle.proc.stdoutText,
         );
-        assert(!/SAS:/.test(handle.proc.stderrText), "resumed server asked for SAS again", handle.proc.stderrText);
-        assert(!/^paired device=/m.test(handle.proc.stdoutText), "resumed server performed a new pairing", handle.proc.stdoutText);
+        assert(
+          !/SAS:/.test(handle.proc.stderrText),
+          "resumed server asked for SAS again",
+          handle.proc.stderrText,
+        );
+        assert(
+          !/^paired device=/m.test(handle.proc.stdoutText),
+          "resumed server performed a new pairing",
+          handle.proc.stdoutText,
+        );
       } finally {
         await stopServer(handle);
       }
@@ -328,14 +399,26 @@ async function localScenario(bin, options) {
       const handle = await startServer(bin, serverDir);
       try {
         const text = "m1-09-clipboard-" + Date.now();
-        const clipboard = await runCli(
-          bin,
-          ["--data-dir", clientDir, "clipboard", handle.listen, "--device", handle.device, "--text", text, "--dev-loopback"],
-        );
+        const clipboard = await runCli(bin, [
+          "--data-dir",
+          clientDir,
+          "clipboard",
+          handle.listen,
+          "--device",
+          handle.device,
+          "--text",
+          text,
+          "--dev-loopback",
+        ]);
         assert(
           clipboard.code === 0,
           "clipboard exited with code " + clipboard.code,
-          "client stderr:\n" + clipboard.stderr + "\nserver stdout:\n" + handle.proc.stdoutText + "\nserver stderr:\n" + handle.proc.stderrText,
+          "client stderr:\n" +
+            clipboard.stderr +
+            "\nserver stdout:\n" +
+            handle.proc.stdoutText +
+            "\nserver stderr:\n" +
+            handle.proc.stderrText,
         );
         assert(
           /^clipboard-rejected .*code=cli_no_consent/m.test(clipboard.stdout),
@@ -352,22 +435,41 @@ async function localScenario(bin, options) {
       const handle = await startServer(bin, serverDir);
       try {
         const stranger = "00000000-0000-7000-8000-000000000001";
-        const chat = await runCli(
-          bin,
-          ["--data-dir", clientDir, "chat", handle.listen, "--device", stranger, "--message", "nope", "--dev-loopback"],
-        );
+        const chat = await runCli(bin, [
+          "--data-dir",
+          clientDir,
+          "chat",
+          handle.listen,
+          "--device",
+          stranger,
+          "--message",
+          "nope",
+          "--dev-loopback",
+        ]);
         assert(chat.code !== 0, "untrusted chat unexpectedly succeeded", chat.stdout);
-        assert(/not trusted|untrusted/i.test(chat.stderr), "untrusted chat error was not explicit", chat.stderr);
+        assert(
+          /not trusted|untrusted/i.test(chat.stderr),
+          "untrusted chat error was not explicit",
+          chat.stderr,
+        );
       } finally {
         await stopServer(handle);
       }
     });
 
     await step("loopback requires explicit dev mode", async () => {
-      const guard = await runCli(bin, ["--data-dir", guardDir, "serve", "--listen", "127.0.0.1:0"], {
-        timeoutMs: 20000,
-      });
-      assert(guard.code !== 0, "loopback serve without --dev-loopback unexpectedly succeeded", guard.stdout);
+      const guard = await runCli(
+        bin,
+        ["--data-dir", guardDir, "serve", "--listen", "127.0.0.1:0"],
+        {
+          timeoutMs: 20000,
+        },
+      );
+      assert(
+        guard.code !== 0,
+        "loopback serve without --dev-loopback unexpectedly succeeded",
+        guard.stdout,
+      );
       assert(
         /loopback listener requires --dev-loopback/.test(guard.stderr),
         "loopback guard message missing",
@@ -409,9 +511,13 @@ async function serveScenario(bin, options) {
   process.once("SIGINT", onSignal);
   process.once("SIGTERM", onSignal);
   try {
-    const listenAddr = (await proc.waitFor("stdout", /^listen=(\S+)$/m, 20000, "server listen address"))[1];
+    const listenAddr = (
+      await proc.waitFor("stdout", /^listen=(\S+)$/m, 20000, "server listen address")
+    )[1];
     const device = (await proc.waitFor("stdout", /^device=(\S+)$/m, 20000, "server device id"))[1];
-    const fingerprint = (await proc.waitFor("stdout", /^fingerprint=([0-9a-f]{64})$/m, 20000, "server fingerprint"))[1];
+    const fingerprint = (
+      await proc.waitFor("stdout", /^fingerprint=([0-9a-f]{64})$/m, 20000, "server fingerprint")
+    )[1];
     const port = listenAddr.slice(listenAddr.lastIndexOf(":") + 1);
     const connectHosts = devLoopback ? ["127.0.0.1"] : listLanAddresses();
     if (connectHosts.length === 0) {
@@ -426,7 +532,15 @@ async function serveScenario(bin, options) {
     process.stdout.write("FLUXY_E2E_SERVER device=" + device + "\n");
     process.stdout.write("FLUXY_E2E_SERVER fingerprint=" + fingerprint + "\n");
     log("run on the other host:");
-    log("  scripts/e2e/run-e2e.sh join --addr " + connectAddr + " --fingerprint " + fingerprint + " --device " + device + " --yes");
+    log(
+      "  scripts/e2e/run-e2e.sh join --addr " +
+        connectAddr +
+        " --fingerprint " +
+        fingerprint +
+        " --device " +
+        device +
+        " --yes",
+    );
     log("server running; press Ctrl+C to stop");
     await proc.waitForever();
     if (proc.exit && proc.exit.code !== 0) {
@@ -456,23 +570,61 @@ async function joinScenario(bin, options) {
     throw new Error("join mode requires --addr, --fingerprint, and --device");
   }
   const root = mkdtempSync(path.join(tmpdir(), "fluxy-e2e-join-"));
-  const dataDir = options["data-dir"] ? path.resolve(REPO_ROOT, options["data-dir"]) : path.join(root, "client");
+  const dataDir = options["data-dir"]
+    ? path.resolve(REPO_ROOT, options["data-dir"])
+    : path.join(root, "client");
   const devArgs = options["dev-loopback"] ? ["--dev-loopback"] : [];
   try {
-    const pair = await runCli(bin, ["--data-dir", dataDir, "pair", addr, "--fingerprint", fingerprint, ...devArgs], {
-      input: "yes\n",
-    });
+    const pair = await runCli(
+      bin,
+      ["--data-dir", dataDir, "pair", addr, "--fingerprint", fingerprint, ...devArgs],
+      {
+        input: "yes\n",
+      },
+    );
     assert(pair.code === 0, "remote pairing exited with code " + pair.code, pair.stderr);
-    assert(/^paired device=/m.test(pair.stdout), "remote pairing output missing device", pair.stdout);
+    assert(
+      /^paired device=/m.test(pair.stdout),
+      "remote pairing output missing device",
+      pair.stdout,
+    );
 
     const message = options.message || "m1-09-remote-" + Date.now();
-    const chat = await runCli(bin, ["--data-dir", dataDir, "chat", addr, "--device", device, "--message", message, ...devArgs]);
+    const chat = await runCli(bin, [
+      "--data-dir",
+      dataDir,
+      "chat",
+      addr,
+      "--device",
+      device,
+      "--message",
+      message,
+      ...devArgs,
+    ]);
     assert(chat.code === 0, "remote chat exited with code " + chat.code, chat.stderr);
-    assert(/^ack message=\S+ delivered=true/m.test(chat.stdout), "remote chat did not receive a delivered ACK", chat.stdout);
+    assert(
+      /^ack message=\S+ delivered=true/m.test(chat.stdout),
+      "remote chat did not receive a delivered ACK",
+      chat.stdout,
+    );
 
     const text = options.text || "m1-09-remote-clipboard-" + Date.now();
-    const clipboard = await runCli(bin, ["--data-dir", dataDir, "clipboard", addr, "--device", device, "--text", text, ...devArgs]);
-    assert(clipboard.code === 0, "remote clipboard exited with code " + clipboard.code, clipboard.stderr);
+    const clipboard = await runCli(bin, [
+      "--data-dir",
+      dataDir,
+      "clipboard",
+      addr,
+      "--device",
+      device,
+      "--text",
+      text,
+      ...devArgs,
+    ]);
+    assert(
+      clipboard.code === 0,
+      "remote clipboard exited with code " + clipboard.code,
+      clipboard.stderr,
+    );
     assert(
       /^clipboard-(rejected|applied)/m.test(clipboard.stdout),
       "remote clipboard did not reach a terminal state",
@@ -491,12 +643,20 @@ async function joinScenario(bin, options) {
 function usage() {
   process.stdout.write("usage: node scripts/e2e/e2e.mjs [local|serve|join] [options]\n");
   process.stdout.write("\n");
-  process.stdout.write("  local                 pair, chat, clipboard, restart, and reject on this host (default)\n");
-  process.stdout.write("  serve                 run a LAN server for a peer on another host (requires --yes)\n");
-  process.stdout.write("  join                  run against a remote LAN server (requires --addr/--fingerprint/--device/--yes)\n");
+  process.stdout.write(
+    "  local                 pair, chat, clipboard, restart, and reject on this host (default)\n",
+  );
+  process.stdout.write(
+    "  serve                 run a LAN server for a peer on another host (requires --yes)\n",
+  );
+  process.stdout.write(
+    "  join                  run against a remote LAN server (requires --addr/--fingerprint/--device/--yes)\n",
+  );
   process.stdout.write("\n");
   process.stdout.write("options:\n");
-  process.stdout.write("  --bin PATH            fluxy-cli binary (default target/debug/fluxy-cli)\n");
+  process.stdout.write(
+    "  --bin PATH            fluxy-cli binary (default target/debug/fluxy-cli)\n",
+  );
   process.stdout.write("  --no-build            skip cargo build -p fluxy-cli\n");
   process.stdout.write("  --keep                keep temporary data directories\n");
   process.stdout.write("  --data-dir PATH       serve/join data directory override\n");
@@ -504,7 +664,9 @@ function usage() {
   process.stdout.write("  --addr ADDR           join peer address\n");
   process.stdout.write("  --fingerprint HEX     join peer certificate fingerprint\n");
   process.stdout.write("  --device UUID         join peer device id\n");
-  process.stdout.write("  --dev-loopback        allow loopback addresses (local cross-host rehearsal)\n");
+  process.stdout.write(
+    "  --dev-loopback        allow loopback addresses (local cross-host rehearsal)\n",
+  );
 }
 
 async function main() {

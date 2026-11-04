@@ -1,11 +1,5 @@
 import { For, Show } from "solid-js";
-import {
-  Copy,
-  LifeBuoy,
-  MonitorSmartphone,
-  ShieldAlert,
-  Waypoints,
-} from "lucide-solid";
+import { Copy, LifeBuoy, MonitorSmartphone, ShieldAlert, Waypoints } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { Button, toast } from "../ui";
@@ -224,9 +218,7 @@ export function HelpPage() {
           </div>
           <div>
             <dt>{t("network.listenAddr")}</dt>
-            <dd class="fx-numeric">
-              {network().listen_addr ?? t("network.none")}
-            </dd>
+            <dd class="fx-numeric">{network().listen_addr ?? t("network.none")}</dd>
           </div>
           <div>
             <dt>{t("network.service")}</dt>

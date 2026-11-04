@@ -27,15 +27,10 @@ describe("SettingsPage", () => {
     // /settings/advanced; this page keeps what a user actually adjusts.
     // Appearance and language are now rows inside one panel, so they are
     // labelled spans rather than headings.
-    for (const heading of [
-      "本机设备名",
-      "接收",
-    ]) {
+    for (const heading of ["本机设备名", "接收"]) {
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     }
-    expect(
-      screen.getByRole("button", { name: "轮换本机身份" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "轮换本机身份" })).toBeInTheDocument();
   });
 
   it("applies the theme choice and remembers it", () => {
@@ -45,9 +40,7 @@ describe("SettingsPage", () => {
 
     expect(localStorage.getItem("fluxy.theme")).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(
-      screen.getByRole("button", { name: /深色/ }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /深色/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches the interface language", () => {

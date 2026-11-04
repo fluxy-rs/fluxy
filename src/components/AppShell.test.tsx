@@ -23,10 +23,7 @@ function renderShell(shellRequest: () => ShellRequest | null, clear: () => void)
         <MockEngineProvider engine={engine}>
           <HashRouter root={AppShell}>
             <Route path="/" component={HomePage} />
-            <Route
-              path="/help"
-              component={() => <div>HELP ROUTE</div>}
-            />
+            <Route path="/help" component={() => <div>HELP ROUTE</div>} />
           </HashRouter>
         </MockEngineProvider>
       </I18nProvider>
@@ -44,9 +41,7 @@ describe("AppShell", () => {
 
     setRequest({ type: "help_requested" });
 
-    await waitFor(() =>
-      expect(screen.getByText("HELP ROUTE")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("HELP ROUTE")).toBeInTheDocument());
     // The request is consumed so a later re-render does not navigate again.
     await waitFor(() => expect(clearShellRequest).toHaveBeenCalled());
   });

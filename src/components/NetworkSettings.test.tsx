@@ -50,32 +50,25 @@ describe("NetworkSettings", () => {
     fireEvent.click(screen.getByRole("button", { name: /切换并重绑/ }));
 
     await vi.waitFor(() =>
-      expect(engine.setNetworkSelection).toHaveBeenCalledWith(
-        "manual",
-        "Wi-Fi",
-        "10.0.0.5",
-      ),
+      expect(engine.setNetworkSelection).toHaveBeenCalledWith("manual", "Wi-Fi", "10.0.0.5"),
     );
   });
 
   it("turns a failed switch into actionable guidance", async () => {
-    renderPanel({}, {
-      setNetworkSelection: vi.fn(async (): Promise<NetworkStatusView> => {
-        throw new Error(
-          "network_unavailable: the chosen address 10.0.0.5 on Wi-Fi is gone",
-        );
-      }),
-    });
+    renderPanel(
+      {},
+      {
+        setNetworkSelection: vi.fn(async (): Promise<NetworkStatusView> => {
+          throw new Error("network_unavailable: the chosen address 10.0.0.5 on Wi-Fi is gone");
+        }),
+      },
+    );
 
     pick("Wi-Fi");
     fireEvent.click(screen.getByRole("button", { name: /切换并重绑/ }));
 
-    await vi.waitFor(() =>
-      expect(screen.getByText(/如何恢复/)).toBeInTheDocument(),
-    );
-    expect(
-      screen.getByText(/最近一次错误：network_unavailable/),
-    ).toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.getByText(/如何恢复/)).toBeInTheDocument());
+    expect(screen.getByText(/最近一次错误：network_unavailable/)).toBeInTheDocument();
     expect(screen.getByText(/选择一块网卡/)).toBeInTheDocument();
     // The proposed selection survives, so the user can retry or adjust it.
     expect(screen.getByRole("button", { name: "应用" })).toBeEnabled();
@@ -89,9 +82,7 @@ describe("NetworkSettings", () => {
     });
 
     expect(screen.getByText(/所选地址已不存在/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/the chosen address 10.0.0.5 on Wi-Fi is gone/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/the chosen address 10.0.0.5 on Wi-Fi is gone/)).toBeInTheDocument();
   });
 
   it("warns when the platform could not pin the socket", () => {

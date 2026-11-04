@@ -24,22 +24,22 @@ function Host(props: {
       </button>
       <Show when={!props.unmountWhenClosed || open()}>
         <Dialog
-        open={open()}
-        onOpenChange={(next) => {
-          setOpen(next);
-          props.onOpenChange?.(next);
-        }}
-        title="Dialog title"
-        dismissible={props.dismissible}
-        footer={
-          <>
-            <Button variant="outline" onClick={close}>
-              cancel
-            </Button>
-            <Button onClick={close}>confirm</Button>
-          </>
-        }
-      >
+          open={open()}
+          onOpenChange={(next) => {
+            setOpen(next);
+            props.onOpenChange?.(next);
+          }}
+          title="Dialog title"
+          dismissible={props.dismissible}
+          footer={
+            <>
+              <Button variant="outline" onClick={close}>
+                cancel
+              </Button>
+              <Button onClick={close}>confirm</Button>
+            </>
+          }
+        >
           <label>
             acknowledge
             <input type="checkbox" />
@@ -93,9 +93,7 @@ describe("Dialog", () => {
 
   it("returns focus to the trigger it captured", async () => {
     const trigger = renderDialog();
-    await waitFor(() =>
-      expect(surface().contains(document.activeElement)).toBe(true),
-    );
+    await waitFor(() => expect(surface().contains(document.activeElement)).toBe(true));
 
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -104,9 +102,7 @@ describe("Dialog", () => {
 
   it("returns focus when the parent unmounts the dialog", async () => {
     const trigger = renderDialog({ unmountWhenClosed: true });
-    await waitFor(() =>
-      expect(surface().contains(document.activeElement)).toBe(true),
-    );
+    await waitFor(() => expect(surface().contains(document.activeElement)).toBe(true));
 
     fireEvent.click(screen.getByRole("button", { name: "cancel" }));
 
