@@ -69,7 +69,7 @@ export function AdvancedSettingsPage() {
   }
 
   return (
-    <div class="fx-page">
+    <div class="fx-page fx-page-narrow">
       <header class="fx-page-head">
         <div>
           <a class="fx-back-link" href="/settings">
