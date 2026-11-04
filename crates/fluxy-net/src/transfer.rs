@@ -2013,12 +2013,22 @@ mod tests {
 
         // In-flight chunks may still land; once they do, progress must freeze.
         tokio::time::sleep(Duration::from_millis(120)).await;
-        let frozen = poll_store
-            .resume_plan(transfer_id, &manifest)
-            .unwrap()
-            .unwrap()
-            .checkpoint
-            .blocks_done();
+        let Some(frozen_plan) = poll_store.resume_plan(transfer_id, &manifest).unwrap() else {
+            // The pause lost the race: the last block arrived first, so the
+            // transfer completed and completion removes the checkpoint. That
+            // is the right outcome - there is nothing left to resume - and
+            // the freezing assertions below have nothing to observe.
+            let Ok((result, _sink)) = timeout(Duration::from_secs(30), handle).await.unwrap()
+            else {
+                panic!("the receive task should not have been cancelled");
+            };
+            assert!(
+                result.is_ok(),
+                "a transfer that finished before the pause should have succeeded",
+            );
+            return;
+        };
+        let frozen = frozen_plan.checkpoint.blocks_done();
         tokio::time::sleep(Duration::from_millis(200)).await;
         let still = poll_store
             .resume_plan(transfer_id, &manifest)
