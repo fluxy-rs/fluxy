@@ -2230,8 +2230,8 @@ impl TransferRuntime {
     }
 
     /// Path a finished receive ended up at: the batch sub-directory when the
-    /// offer carried one, otherwise the receive root.
-    #[cfg(target_os = "android")]
+    /// offer carried one, otherwise the receive root. Used by the Android
+    /// export step and by "open with the default app" on both platforms.
     fn received_path(&self, record: &Arc<TransferRecord>) -> Option<PathBuf> {
         let offer = lock(&record.offer).clone()?;
         let root = match offer.sink_dir {
@@ -2241,6 +2241,80 @@ impl TransferRuntime {
         Some(root.join(&offer.file_name))
     }
 
+    /// Where a completed receive ended up, for "open with the default app".
+    /// Open a completed receive with whatever the desktop associates with it.
+    ///
+    /// Android is not wired yet: the file there is reached through a
+    /// MediaStore/SAF URI rather than a path, so the Kotlin side has to resolve
+    /// it. Until then this reports the limitation instead of failing silently.
+    pub(crate) fn open_received(&self, transfer_id: &str) -> Result<(), crate::contract::IpcError> {
+        let id = Uuid::parse_str(transfer_id)
+            .map_err(|_| crate::contract::IpcError::internal("the transfer id is not a uuid"))?;
+        let path = self
+            .received_file_path(id)
+            .map_err(|failure| crate::contract::IpcError::internal(failure.message))?;
+
+        #[cfg(target_os = "android")]
+        {
+            let _ = path;
+            return Err(crate::contract::IpcError::internal(
+                "opening a received file is not supported on this platform yet",
+            ));
+        }
+
+        #[cfg(target_os = "windows")]
+        let spawned = std::process::Command::new("cmd")
+            .args(["/C", "start", ""])
+            .arg(&path)
+            .spawn();
+
+        #[cfg(target_os = "macos")]
+        let spawned = std::process::Command::new("open").arg(&path).spawn();
+
+        #[cfg(all(unix, not(target_os = "macos")))]
+        let spawned = std::process::Command::new("xdg-open").arg(&path).spawn();
+
+        spawned
+            .map(|_| ())
+            .map_err(|error| crate::contract::IpcError::internal(error.to_string()))
+    }
+
+    fn received_file_path(&self, transfer_id: Uuid) -> Result<PathBuf, TransferFailure> {
+        let record = lock(&self.records)
+            .get(&transfer_id)
+            .cloned()
+            .ok_or_else(|| TransferFailure {
+                code: "invalid_file_id".to_string(),
+                code_number: 3003,
+                message: "unknown transfer".to_string(),
+                retryable: false,
+            })?;
+        if record.direction != TransferDirection::Receive
+            || *lock(&record.state) != TransferState::Completed
+        {
+            return Err(TransferFailure {
+                code: "invalid_state".to_string(),
+                code_number: 3004,
+                message: "only a completed receive can be opened".to_string(),
+                retryable: false,
+            });
+        }
+        let path = self.received_path(&record).ok_or_else(|| TransferFailure {
+            code: "invalid_file_id".to_string(),
+            code_number: 3003,
+            message: "no received file to open".to_string(),
+            retryable: false,
+        })?;
+        if !path.exists() {
+            return Err(TransferFailure {
+                code: "file_access".to_string(),
+                code_number: 3001,
+                message: "the received file is gone".to_string(),
+                retryable: false,
+            });
+        }
+        Ok(path)
+    }
     /// On Android a finished receive is copied into the public downloads so the
     /// user can find it, then the sandbox copy is removed and the export is
     /// recorded next to the app data. Both steps are best effort: a failed export

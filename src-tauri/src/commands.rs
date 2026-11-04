@@ -735,6 +735,16 @@ pub fn transfer_respond(
     state.transfer.respond(&transfer_id, accepted)
 }
 
+/// Open a completed receive with the platform's default application.
+///
+/// The path never crosses the IPC boundary: the frontend names a transfer, and
+/// the runtime decides whether it is openable and where it sits.
+#[tauri::command]
+#[specta::specta]
+pub fn transfer_open(state: State<'_, AppState>, transfer_id: String) -> Result<(), IpcError> {
+    state.transfer.open_received(&transfer_id)
+}
+
 /// Pause, resume, cancel, or retry one transfer.
 #[tauri::command]
 #[specta::specta]
@@ -803,6 +813,7 @@ pub fn specta_builder() -> Builder<Wry> {
             set_network_selection,
             transfer_respond,
             transfer_control,
+            transfer_open,
             transfers_list
         ])
 }

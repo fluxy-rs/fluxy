@@ -340,6 +340,11 @@ export async function respondTransfer(
   return unwrap(await commands.transferRespond(transferId, accepted));
 }
 
+/// Open a completed receive in whatever the OS associates with it.
+export async function openReceived(transferId: string): Promise<void> {
+  unwrap(await commands.transferOpen(transferId));
+}
+
 export async function controlTransfer(
   transferId: string,
   action: TransferAction,

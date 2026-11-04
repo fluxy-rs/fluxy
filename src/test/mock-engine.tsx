@@ -54,6 +54,7 @@ export function createMockEngine(
     shellRequest: () => null,
     clearShellRequest: vi.fn(),
     incomingOffer: () => null,
+    openReceivedTransfer: vi.fn(),
     transferBusy: () => null,
     transferError: () => null,
     dragActive: () => false,

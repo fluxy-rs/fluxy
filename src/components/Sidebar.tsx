@@ -120,14 +120,14 @@ export function Sidebar() {
       </div>
 
       <div class="fx-rail-foot">
-        <span
-          class={`fx-status-dot ${engineState()}`}
-          title={engine.loading()
+        <span class={`fx-status-dot ${engineState()}`} aria-hidden="true" />
+        <span class="fx-rail-state">
+          {engine.loading()
             ? t("status.connecting")
             : engine.snapshot()
               ? t("status.ready")
               : t("status.offline")}
-        />
+        </span>
       </div>
 
       <Show when={qrOpen()}>

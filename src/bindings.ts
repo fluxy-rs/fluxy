@@ -157,6 +157,13 @@ export const commands = {
 	transferRespond: (transferId: string, accepted: boolean) => typedError<TransferSummary, IpcError>(__TAURI_INVOKE("transfer_respond", { transferId, accepted })),
 	/**  Pause, resume, cancel, or retry one transfer. */
 	transferControl: (transferId: string, action: TransferAction) => typedError<TransferSummary, IpcError>(__TAURI_INVOKE("transfer_control", { transferId, action })),
+	/**
+	 *  Open a completed receive with the platform's default application.
+	 * 
+	 *  The path never crosses the IPC boundary: the frontend names a transfer, and
+	 *  the runtime decides whether it is openable and where it sits.
+	 */
+	transferOpen: (transferId: string) => typedError<null, IpcError>(__TAURI_INVOKE("transfer_open", { transferId })),
 	transfersList: () => typedError<TransferSummary[], IpcError>(__TAURI_INVOKE("transfers_list")),
 };
 

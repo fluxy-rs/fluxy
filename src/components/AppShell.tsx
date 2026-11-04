@@ -9,7 +9,6 @@ import { LoadingState } from "./LoadingState";
 import { PairingDialog } from "./PairingDialog";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
-import { Topbar } from "./Topbar";
 import { ToastOutlet, toast } from "../ui";
 import { IncomingOfferDialog } from "./IncomingOfferDialog";
 
@@ -93,7 +92,6 @@ export function AppShell(props: ParentProps) {
         </a>
         <Sidebar />
         <div class="fx-workspace">
-          <Topbar />
           <main
             id="main"
             class="fx-content"
