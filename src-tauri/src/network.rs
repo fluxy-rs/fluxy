@@ -166,6 +166,7 @@ impl NearbyPeer {
             trusted: false,
             online: true,
             clipboard_policy: ClipboardReceivePolicy::Ask,
+            auto_accept: crate::contract::DeviceAutoAccept::Inherit,
             paired_at_ms: 0,
             last_seen_ms: Some(self.last_seen_ms),
             addresses: self.addresses.iter().map(ToString::to_string).collect(),

@@ -7,7 +7,7 @@ use tokio::sync::broadcast::error::RecvError;
 
 use crate::contract::{
     AppEvent, AppSnapshot, AppState, ChatMessageView, ClipboardReceivePolicy, ClipboardShareView,
-    EngineEvent, EngineStatusView, IpcError, NearbyPeerView, NetworkStatusView,
+    DeviceAutoAccept, EngineEvent, EngineStatusView, IpcError, NearbyPeerView, NetworkStatusView,
     PairingChallengeView, RegisteredFileView, RegisteredFolderView, SettingsSnapshot,
     SubscriptionInfo, SystemInsets, TransferAction, TransferSummary,
 };
@@ -735,6 +735,20 @@ pub fn transfer_respond(
     state.transfer.respond(&transfer_id, accepted)
 }
 
+/// Set or clear a device's automatic acceptance of incoming files.
+///
+/// `Inherit` is a real value, not a reset: it means the global setting decides,
+/// which is how a user who never touched this device keeps behaving.
+#[tauri::command]
+#[specta::specta]
+pub fn device_set_auto_accept(
+    state: State<'_, AppState>,
+    device_id: String,
+    policy: DeviceAutoAccept,
+) -> Result<(), IpcError> {
+    state.device_set_auto_accept(&device_id, policy)
+}
+
 /// Open a completed receive with the platform's default application.
 ///
 /// The path never crosses the IPC boundary: the frontend names a transfer, and
@@ -814,6 +828,7 @@ pub fn specta_builder() -> Builder<Wry> {
             transfer_respond,
             transfer_control,
             transfer_open,
+            device_set_auto_accept,
             transfers_list
         ])
 }

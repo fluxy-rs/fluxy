@@ -21,7 +21,7 @@ use fluxy_core::transfer::{
     BatchEntry, BatchPlan, CheckpointStore, Manifest, ManifestCache, ManifestOptions,
     TransferControl, sanitize_root_name, validate_relative_path,
 };
-use fluxy_core::{ErrorCode, Identity};
+use fluxy_core::{AutoAcceptPolicy, ErrorCode, Identity};
 use fluxy_net::session::{
     BatchEntryWire, ControlSender, SessionEvent, TransferMessage, TransferOfferDraft,
 };
@@ -447,9 +447,19 @@ pub struct TransferRuntime {
 }
 
 impl TransferRuntime {
-    /// Whether incoming offers should be accepted without asking the user.
-    fn auto_accept(&self) -> bool {
-        lock(&self.engine).config().auto_accept_transfers
+    /// Whether an offer from this peer is accepted without asking.
+    ///
+    /// Two levels: the per-device policy wins when it has been set, and
+    /// `Inherit` - the default for a freshly paired device - falls back to the
+    /// global switch. Someone who never opens the device page keeps exactly the
+    /// behaviour the settings page describes.
+    fn auto_accept(&self, device_id: Uuid) -> bool {
+        let engine = lock(&self.engine);
+        match engine.auto_accept_policy(&device_id) {
+            Some(AutoAcceptPolicy::Auto) => true,
+            Some(AutoAcceptPolicy::Ask) => false,
+            _ => engine.config().auto_accept_transfers,
+        }
     }
 
     pub fn new(engine: Arc<Mutex<Engine>>, hub: Arc<EventHub>) -> Arc<Self> {
@@ -1839,7 +1849,7 @@ impl TransferRuntime {
         self.insert(record.clone());
         // A sender that offers is already a trusted peer, so a user who asked
         // for unattended receiving should not have to click accept every time.
-        if self.auto_accept() {
+        if self.auto_accept(device_id) {
             tracing::info!(file = %record.file_name, "auto-accepting the offered transfer");
             self.emit_offer(&record);
             self.accept(record);

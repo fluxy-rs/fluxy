@@ -119,6 +119,7 @@ export function makePeer(overrides: Partial<PeerSummary> = {}): PeerSummary {
     os_version: "Windows 11 Pro (26H2)",
     online: true,
     clipboard_policy: "ask",
+    auto_accept: "inherit",
     paired_at_ms: NOW - 60_000,
     last_seen_ms: NOW,
     addresses: ["192.168.1.21:53001"],

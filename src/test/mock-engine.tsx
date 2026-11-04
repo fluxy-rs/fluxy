@@ -55,6 +55,7 @@ export function createMockEngine(
     clearShellRequest: vi.fn(),
     incomingOffer: () => null,
     openReceivedTransfer: vi.fn(),
+    setDeviceAutoAccept: vi.fn(),
     transferBusy: () => null,
     transferError: () => null,
     dragActive: () => false,

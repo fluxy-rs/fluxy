@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
+  DeviceAutoAccept,
   commands,
   type AppEventEnvelope,
   type AppSnapshot,
@@ -156,6 +157,13 @@ export async function setClipboardPolicy(
   policy: ClipboardReceivePolicy,
 ): Promise<void> {
   unwrap(await commands.clipboardSetPolicy(deviceId, policy));
+}
+
+export async function setDeviceAutoAccept(
+  deviceId: string,
+  policy: DeviceAutoAccept,
+): Promise<void> {
+  unwrap(await commands.deviceSetAutoAccept(deviceId, policy));
 }
 
 export async function pickFile(

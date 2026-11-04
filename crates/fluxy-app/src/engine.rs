@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use fluxy_core::{ClipboardPolicy, Error, Identity, IdentityStore, TrustEntry, TrustStore};
+use fluxy_core::{
+    AutoAcceptPolicy, ClipboardPolicy, Error, Identity, IdentityStore, TrustEntry, TrustStore,
+};
 use fluxy_net::TlsIdentity;
 
 use crate::config::{AppConfig, AppPaths};
@@ -126,6 +128,22 @@ impl Engine {
 
     pub fn clipboard_policy(&self, device_id: &uuid::Uuid) -> Option<ClipboardPolicy> {
         self.trust.clipboard_policy(device_id)
+    }
+
+    pub fn auto_accept_policy(&self, device_id: &uuid::Uuid) -> Option<AutoAcceptPolicy> {
+        self.trust.auto_accept_policy(device_id)
+    }
+
+    pub fn set_auto_accept_policy(
+        &mut self,
+        device_id: &uuid::Uuid,
+        policy: AutoAcceptPolicy,
+    ) -> Result<Option<AutoAcceptPolicy>, Error> {
+        let previous = self.trust.set_auto_accept_policy(device_id, policy);
+        if previous.is_some() {
+            self.trust.save(&self.paths.trust_file)?;
+        }
+        Ok(previous)
     }
 
     pub fn set_clipboard_policy(
@@ -385,6 +403,7 @@ mod tests {
             cert_fingerprint: [2; 32],
             paired_at_ms: 1,
             clipboard_policy: fluxy_core::ClipboardPolicy::Ask,
+            auto_accept: fluxy_core::AutoAcceptPolicy::Inherit,
         });
         engine.trust.save(&paths.trust_file).unwrap();
         assert_eq!(engine.status().trusted_device_count, 1);

@@ -20,6 +20,21 @@ pub enum ClipboardPolicy {
     Reject,
 }
 
+/// Whether an incoming file offer from this peer is accepted without asking.
+///
+/// Two levels, and the device one is optional on purpose. `Inherit` means the
+/// global "accept transfers automatically" setting decides, so a user who wants
+/// one behaviour everywhere sets it once and never revisits the device. Setting
+/// `Auto` or `Ask` here overrides the global switch for this peer alone.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoAcceptPolicy {
+    #[default]
+    Inherit,
+    Auto,
+    Ask,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TrustEntry {
     pub device_id: Uuid,
@@ -30,6 +45,9 @@ pub struct TrustEntry {
     pub paired_at_ms: i64,
     #[serde(default)]
     pub clipboard_policy: ClipboardPolicy,
+    /// Per-device override for automatic acceptance of incoming files.
+    #[serde(default)]
+    pub auto_accept: AutoAcceptPolicy,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +146,22 @@ impl TrustStore {
             .map(|entry| std::mem::replace(&mut entry.clipboard_policy, policy))
     }
 
+    pub fn auto_accept_policy(&self, device_id: &Uuid) -> Option<AutoAcceptPolicy> {
+        self.entries.get(device_id).map(|entry| entry.auto_accept)
+    }
+
+    /// Change the automatic-acceptance policy of an existing trust entry.
+    /// Returns the previous policy, or `None` when the device is not trusted.
+    pub fn set_auto_accept_policy(
+        &mut self,
+        device_id: &Uuid,
+        policy: AutoAcceptPolicy,
+    ) -> Option<AutoAcceptPolicy> {
+        self.entries
+            .get_mut(device_id)
+            .map(|entry| std::mem::replace(&mut entry.auto_accept, policy))
+    }
+
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -154,6 +188,7 @@ mod tests {
             cert_fingerprint: [2; 32],
             paired_at_ms: 1,
             clipboard_policy: ClipboardPolicy::Ask,
+            auto_accept: AutoAcceptPolicy::Inherit,
         }
     }
 

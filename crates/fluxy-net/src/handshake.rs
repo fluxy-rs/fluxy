@@ -166,6 +166,9 @@ impl PeerSession {
             cert_fingerprint: self.cert_fingerprint,
             paired_at_ms: now_ms(),
             clipboard_policy: fluxy_core::ClipboardPolicy::Ask,
+            // A fresh pairing inherits the global switch; the user can
+            // override it per device afterwards.
+            auto_accept: fluxy_core::AutoAcceptPolicy::Inherit,
         }
     }
 }

@@ -1720,6 +1720,7 @@ mod tests {
             cert_fingerprint: [2; 32],
             paired_at_ms: 1,
             clipboard_policy: fluxy_core::ClipboardPolicy::Ask,
+            auto_accept: fluxy_core::AutoAcceptPolicy::Inherit,
         }
     }
 
