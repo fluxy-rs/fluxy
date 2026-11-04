@@ -404,13 +404,7 @@ impl Notifier {
         self.send_inner(kind, title, body, None);
     }
 
-    fn send_with_extra(
-        &self,
-        kind: &'static str,
-        title: &str,
-        body: &str,
-        extra: (&str, String),
-    ) {
+    fn send_with_extra(&self, kind: &'static str, title: &str, body: &str, extra: (&str, String)) {
         self.send_inner(kind, title, body, Some(extra));
     }
 
@@ -590,7 +584,7 @@ mod tests {
     #[test]
     fn a_muted_notifier_still_records_the_attempt_but_dispatches_nothing() {
         let notifier = Notifier::default();
-        notifier.notify_chat("Peer");
+        notifier.notify_chat("01a16178-6c4a-74f4-9a07-b7dd459a0b11", "Peer");
         notifier.set_enabled(false);
         notifier.notify_transfer_failed("device-1", "Peer", "report.bin");
         assert_eq!(notifier.attempts(), vec!["chat", "transfer_failed"]);

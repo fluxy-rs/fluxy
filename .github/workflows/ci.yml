@@ -35,12 +35,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       # tauri-build embeds the frontend, so the bundle directory has to exist
-      # before any cargo command compiles the shell crate.
+      # before any cargo command compiles the shell crate. Only the Vite half is
+      # needed here: a full `tauri build` would recompile the whole shell for
+      # every platform just to throw the artefacts away, and it drags in the
+      # platform bundler toolchain this job does not otherwise require.
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: bun run build:vite
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -61,7 +64,10 @@ jobs:
       - run: bun run check:docs
       - run: bun run check:versions
       - run: bun run test:frontend
-      - run: bun run build
+      # The frontend bundle, not the app bundle: this job has no WebKitGTK, and
+      # `tauri build` here failed with "Package glib-2.0 was not found". The
+      # shell packaging is covered by the rust and bundle jobs.
+      - run: bun run build:vite
 
   e2e:
     name: E2E (${{ matrix.os }})
@@ -107,7 +113,10 @@ jobs:
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      # Same reasoning as the web job: the APK build runs beforeBuildCommand
+      # itself, and a plain `tauri build` would need a Linux WebKitGTK stack
+      # this image does not carry.
+      - run: bun run build:vite
       - name: Build the debug APK
         run: |
           export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
