@@ -42,7 +42,13 @@ ignore = [
 # Unicode-3.0 covers unicode-ident and friends; MPL-2.0 is file-level copyleft
 # and is used unmodified through the CSS parser stack; Apache-2.0 WITH
 # LLVM-exception comes from windows-sys transitively.
+#
+# AGPL-3.0-only is our own licence. Listing it here is what lets the check pass
+# for the workspace members themselves; it also means an AGPL dependency would
+# be accepted, which is sound for an AGPL project and would not be for an MIT
+# one.
 allow = [
+    "AGPL-3.0-only",
     "MIT",
     "MIT-0",
     "Apache-2.0",
