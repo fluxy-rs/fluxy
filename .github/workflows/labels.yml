@@ -72,14 +72,17 @@ jobs:
             const current = (context.payload.pull_request.labels || []).map((label) => label.name);
             const stale = current.filter((name) => typeOnly.includes(name) && name !== wanted);
 
-            if (stale.length > 0) {
-              await github.rest.issues.removeLabels({
+            // Octokit has removeLabel (one) and removeAllLabels (everything), not
+            // a removeLabels. Removing one at a time also keeps the path labels
+            // that the sibling job owns.
+            for (const name of stale) {
+              await github.rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
-                labels: stale,
+                name,
               });
-              core.info("dropped stale type labels: " + stale.join(", "));
+              core.info("dropped stale type label: " + name);
             }
 
             if (!current.includes(wanted)) {
