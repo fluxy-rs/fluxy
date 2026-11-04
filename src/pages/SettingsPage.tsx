@@ -61,7 +61,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div class="fx-page">
+    <div class="fx-page fx-page-narrow">
       <header class="fx-page-head">
         <div>
           <h1>{t("settings.title")}</h1>

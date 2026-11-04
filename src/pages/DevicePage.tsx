@@ -119,7 +119,8 @@ export function DevicePage() {
   }
 
   return (
-    <section class="fx-devices">
+    <>
+      <section class="fx-devices">
       <aside class="fx-device-list" aria-label={t("devices.listAria")}>
         <header class="fx-device-list-head">
           <h2>{t("devices.title")}</h2>
@@ -348,6 +349,8 @@ export function DevicePage() {
         )}
       </Show>
 
+      </section>
+
       <Dialog
         open={confirmRemove() !== null}
         onOpenChange={(open) => {
@@ -375,6 +378,6 @@ export function DevicePage() {
           </>
         }
       />
-    </section>
+    </>
   );
 }
