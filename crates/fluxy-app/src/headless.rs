@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 use fluxy_core::files::{
     DesktopFileAccessManager, FileAccessManager, FileError, FileReference, FileSource,
@@ -714,7 +714,7 @@ mod tests {
         handle
             .set_times(
                 std::fs::FileTimes::new()
-                    .set_modified(SystemTime::now() + std::time::Duration::from_secs(2)),
+                    .set_modified(std::time::SystemTime::now() + Duration::from_secs(2)),
             )
             .unwrap();
         drop(handle);
