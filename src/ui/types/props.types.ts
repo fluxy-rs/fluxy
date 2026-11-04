@@ -41,26 +41,19 @@ export type ResolvedProps<TProps, TDefault extends ValidComponent> = (
     : TDefault
 ) extends infer TComp
   ? TComp extends ValidComponent
-    ? Omit<TProps, "component"> &
-        ComponentProps<TComp> & { component?: ValidComponent }
+    ? Omit<TProps, "component"> & ComponentProps<TComp> & { component?: ValidComponent }
     : TProps & { component?: ValidComponent }
   : never;
 
-export type HTMLAttributes<T extends ValidComponent> = Omit<
-  ComponentProps<T>,
-  keyof BaseProps
-> &
+export type HTMLAttributes<T extends ValidComponent> = Omit<ComponentProps<T>, keyof BaseProps> &
   BaseProps;
 
-type PolymorphicProp<
-  T extends ValidComponent,
-  Enable extends boolean,
-> = Enable extends true ? { component?: T } : EmptyObject;
+type PolymorphicProp<T extends ValidComponent, Enable extends boolean> = Enable extends true
+  ? { component?: T }
+  : EmptyObject;
 
 export type PolymorphicProps<
   T extends ValidComponent,
   O = EmptyObject,
   EnableAs extends boolean = true,
-> = O &
-  Omit<DynamicProps<T>, keyof O | "component"> &
-  PolymorphicProp<T, EnableAs>;
+> = O & Omit<DynamicProps<T>, keyof O | "component"> & PolymorphicProp<T, EnableAs>;

@@ -17,9 +17,21 @@ export const Switch = (props: SwitchProps) => {
     "classList",
   ]);
 
-  const [internalChecked, setInternalChecked] = createSignal(
-    local.defaultChecked ?? false,
-  );
+  const [internalChecked, setInternalChecked] = createSignal(local.defaultChecked ?? false);
+
+  // Copied from @neut/ui; the library wires clicks only.
+  //
+  // A span with role="switch" and tabindex is a real control as far as ARIA is
+  // concerned, and ARIA says Space and Enter activate it. Without this, a
+  // keyboard user can reach the switch and then do nothing with it.
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (local.disabled) return;
+    if (event.key !== " " && event.key !== "Enter") return;
+    // Space scrolls the page by default, and Enter may submit a form the
+    // switch happens to sit in.
+    event.preventDefault();
+    handleClick();
+  };
 
   const handleClick = () => {
     if (local.disabled) return;
@@ -52,13 +64,10 @@ export const Switch = (props: SwitchProps) => {
       class={clsx(classes.switch, local.class)}
       classList={local.classList}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       {...others}
     >
-      <span
-        data-slot="switch-thumb"
-        class={classes.thumb}
-        data-checked={checked()}
-      />
+      <span data-slot="switch-thumb" class={classes.thumb} data-checked={checked()} />
       <input
         id={local.id}
         tabIndex={-1}
