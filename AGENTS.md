@@ -330,6 +330,51 @@ Three habits this rules out, all of them already in this repository's history:
 git config core.hooksPath .githooks
 ```
 
+## Pull requests: one purpose, split into commits
+
+A pull request answers exactly one question. The test is to write its
+description first, in one sentence, without "and". If the sentence needs a
+second clause starting with "also", it is two pull requests.
+
+```text
+make CI green                       one thing
+add file-type icons to transfers    one thing
+make CI green and add file icons    two things
+```
+
+"It touches three files" is not a reason to split. "It fixes three unrelated
+problems" is. The unit is the reason, not the diff size.
+
+**Inside that one purpose, commits are steps.** A reviewer reads them one at a
+time and should be able to follow the argument: this was broken, here is the
+proof, here is the repair. One commit that changes forty files is not a step,
+it is a cliff — there is nowhere to stop and agree.
+
+Split by what can be understood and reverted on its own. A refactor that makes
+the fix possible is its own commit, ahead of the fix. A test that proves a bug
+comes before the repair that makes it pass, so the failing run stays in the
+history rather than being described in prose.
+
+### When something unrelated turns up mid-task
+
+Another branch, another pull request. Not a convenience commit tacked onto the
+current one, and not "I was already in the file". The cost of the extra PR is a
+few minutes; the cost of a mixed one is a reviewer who cannot reject half of it.
+
+### When the second change depends on the first
+
+Stack them rather than merging the two purposes:
+
+```powershell
+git switch -c feat/the-second-thing feat/the-first-thing
+# ...edit...
+git push -u origin feat/the-second-thing
+gh pr create --base feat/the-first-thing
+```
+
+The second pull request shows only its own diff. Once the first lands and its
+branch is deleted, GitHub retargets the second at `main` on its own.
+
 ## Gates before calling something done
 
 ```powershell
