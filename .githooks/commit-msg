@@ -1,0 +1,45 @@
+#!/bin/sh
+#
+# Enforces the commit shape described in AGENTS.md, section
+# "Commits: conventional, and saying why".
+#
+# Enabled per clone with: git config core.hooksPath .githooks
+
+msg_file="$1"
+subject=$(sed -n '1p' "$msg_file")
+
+# Machine-written subjects are not ours to police.
+case "$subject" in
+  "Merge "*|"Revert "*|fixup!*|squash!*) exit 0 ;;
+esac
+
+fail() {
+  echo "commit-msg: $1" >&2
+  echo "" >&2
+  echo "  <type>(<scope>): <what changed>" >&2
+  echo "" >&2
+  echo "  <why it was needed>" >&2
+  echo "" >&2
+  echo "  types: feat fix perf refactor test docs build ci chore revert" >&2
+  exit 1
+}
+
+if ! printf '%s' "$subject" | grep -Eq '^(feat|fix|perf|refactor|test|docs|build|ci|chore|revert)(\([a-z0-9._-]+\))?!?: .+'; then
+  fail "missing or unknown type prefix in: $subject"
+fi
+
+if [ "${#subject}" -gt 72 ]; then
+  fail "subject is ${#subject} characters; keep it within 72"
+fi
+
+case "$subject" in
+  *.) fail "subject ends with a full stop, drop it" ;;
+esac
+
+# The body carries the reason. Blank lines and the comment trailer do not count.
+body=$(sed -n '2,$p' "$msg_file" | grep -Ev '^[[:space:]]*(#|$)' | head -n 1)
+if [ -z "$body" ]; then
+  fail "body is empty; say why the change exists, not what it changed"
+fi
+
+exit 0

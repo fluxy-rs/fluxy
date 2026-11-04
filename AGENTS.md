@@ -273,17 +273,79 @@ Three things this protects against, all of which have bitten this project:
 Running the gates on the branch before opening the PR is part of the job, not
 something the reviewer does.
 
+## Commits: conventional, and saying why
+
+Every commit message follows Conventional Commits, no exceptions:
+
+```text
+<type>(<scope>): <what changed>
+
+<why it was needed>
+```
+
+The subject is imperative, lower case, no trailing full stop, and fits in 72
+characters. `fix(ci): stop the workflow failing before it tests anything` -
+not `Fixed CI`, not `update ci.yml`.
+
+| Type | Use it for |
+| --- | --- |
+| `feat` | a capability a user can see |
+| `fix` | behaviour that was wrong |
+| `perf` | measurably faster or lighter |
+| `refactor` | same behaviour, different shape |
+| `test` | tests and fixtures only |
+| `docs` | prose, comments, this file |
+| `build` | dependencies, packaging, release plumbing |
+| `ci` | workflows, gates, tooling |
+| `chore` | anything else that touches no product code |
+
+The scope names the area in lower case: `ci`, `net`, `transfer`, `desktop`,
+`test`, or a crate. It is optional; the type is not.
+
+**The body is not optional.** It states why the change exists — what was broken,
+what it cost, what was ruled out. "Update the file" is not a reason: the diff
+already shows the file changed. A reader six months from now has the code and
+the diff, and neither explains motive.
+
+```text
+fix(net): recognise lo0 as loopback
+
+macOS reports no interface type through getifaddrs, so lo0 arrives as
+InterfaceKind::Other. is_loopback only accepted the kind or the name "lo",
+which is the Linux spelling, so the macOS job failed on "every machine has a
+loopback interface".
+```
+
+Three habits this rules out, all of them already in this repository's history:
+
+- A subject with no prefix, which makes `git log --oneline` useless for
+  scanning.
+- A body that restates the diff: it costs a line and buys nothing.
+- One commit holding several unrelated changes. Split them so a reviewer can
+  reject one without unpicking the others.
+
+`.githooks/commit-msg` enforces the shape. Enable it once per clone:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
 ## Gates before calling something done
 
 ```powershell
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+cargo test --workspace --exclude udp-chaos
 bun run check
 bun run test:frontend
 bun run check:security
 bun run check:docs
 ```
+
+`udp-chaos` is excluded here for the same reason it is excluded in CI: its
+fault-injection cases assert on chat latency and on reconnect timing, which a
+shared machine does not hold steady. Run `cargo test -p udp-chaos` alone when
+you touch the transport.
 
 Bindings come from `FLUXY_EXPORT_BINDINGS=1 cargo run -q -p fluxy`; never edit
 `src/bindings.ts` by hand. UI copy lives in `src/i18n/index.tsx` only, with zh and
