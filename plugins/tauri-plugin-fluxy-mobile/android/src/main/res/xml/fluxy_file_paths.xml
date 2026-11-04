@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What a received file may be handed to another app from.
+
+  Android 7 forbids a file:// Uri leaving the process, so opening a download with
+  the system's viewer needs a content:// Uri, and that means a FileProvider. Only
+  the receive directory is exposed: nothing else in the app's storage is
+  reachable this way.
+-->
+<paths>
+    <external-path name="fluxy_downloads" path="Download/Fluxy/" />
+    <external-files-path name="fluxy_external" path="Download/Fluxy/" />
+    <files-path name="fluxy_internal" path="Download/Fluxy/" />
+</paths>

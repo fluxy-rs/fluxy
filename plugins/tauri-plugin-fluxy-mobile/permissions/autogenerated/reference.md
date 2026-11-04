@@ -22,6 +22,7 @@ Every Fluxy mobile bridge command.
 - `allow-discovery-peers`
 - `allow-open-chat`
 - `allow-notify-chat`
+- `allow-open-file`
 
 ## Permission Table
 
@@ -470,6 +471,32 @@ Enables the open_chat command without any pre-configured scope.
 <td>
 
 Denies the open_chat command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fluxy-mobile:allow-open-file`
+
+</td>
+<td>
+
+Enables the open_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fluxy-mobile:deny-open-file`
+
+</td>
+<td>
+
+Denies the open_file command without any pre-configured scope.
 
 </td>
 </tr>

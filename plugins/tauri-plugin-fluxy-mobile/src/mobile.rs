@@ -99,6 +99,20 @@ impl<R: Runtime> FluxyMobile<R> {
             .map_err(|error| error.to_string())
     }
 
+    /// Hand a received file to the system viewer.
+    ///
+    /// A path, not a Uri: the Kotlin side serves it through the FileProvider
+    /// and grants the receiving app read access to that one file.
+    pub async fn open_file(&self, path: String) -> Result<(), String> {
+        #[derive(serde::Serialize)]
+        struct Target {
+            path: String,
+        }
+        self.0
+            .run_mobile_plugin::<()>("openFile", Target { path })
+            .map_err(|error| error.to_string())
+    }
+
     /// Default device name: the user's name for the phone, else brand + model.
     pub async fn device_name(&self) -> Result<String, String> {
         #[derive(serde::Deserialize)]

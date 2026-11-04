@@ -755,8 +755,11 @@ pub fn device_set_auto_accept(
 /// the runtime decides whether it is openable and where it sits.
 #[tauri::command]
 #[specta::specta]
-pub fn transfer_open(state: State<'_, AppState>, transfer_id: String) -> Result<(), IpcError> {
-    state.transfer.open_received(&transfer_id)
+pub async fn transfer_open(
+    state: State<'_, AppState>,
+    transfer_id: String,
+) -> Result<(), IpcError> {
+    state.transfer.open_received(&transfer_id).await
 }
 
 /// Pause, resume, cancel, or retry one transfer.

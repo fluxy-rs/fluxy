@@ -244,6 +244,22 @@ async fn foreground_start<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     }
 }
 
+/// Hand a received file to whatever app handles its type.
+/// Desktop builds open it directly, so this is the mobile-only path.
+#[tauri::command]
+async fn open_file<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), String> {
+    #[cfg(mobile)]
+    {
+        let handle = app.state::<FluxyMobile<R>>();
+        handle.open_file(path).await
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (app, path);
+        Ok(())
+    }
+}
+
 /// Release the foreground slot.
 #[tauri::command]
 async fn foreground_stop<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
@@ -446,6 +462,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             shared_files,
             foreground_start,
             foreground_stop,
+            open_file,
             discovery_start,
             discovery_stop,
             discovery_peers
