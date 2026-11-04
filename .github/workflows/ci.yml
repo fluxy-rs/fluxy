@@ -14,10 +14,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A pull request that only edits Markdown has nothing for cargo or vitest to
+  # check, and running the matrix anyway costs twenty minutes of runner time to
+  # learn nothing.
+  #
+  # The filter asks "is every changed file documentation?" rather than "did
+  # anything change in a code path?" - a path somebody forgot to list then runs
+  # the gates instead of silently skipping them, which is the failure that would
+  # actually matter.
+  #
+  # Pushes are never filtered: once a change lands on main the full matrix runs
+  # regardless of what it touched.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            docs_only:
+              - "**/*.md"
+              - "docs/**"
+
   # The regression matrix the release needs: the same gates on all three
   # desktop platforms. A platform is only "green" if this job is green for it.
   rust:
     name: Rust (${{ matrix.os }})
+    needs: changes
+    # Skipped rather than absent: a required check that never reports leaves the
+    # pull request blocked, while one reported as skipped counts as passed.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -55,6 +87,8 @@ jobs:
 
   web:
     name: Web
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +108,8 @@ jobs:
 
   e2e:
     name: E2E (${{ matrix.os }})
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
