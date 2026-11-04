@@ -307,7 +307,6 @@ impl StartupBackend for WindowsStartup {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
 
     fn exe() -> PathBuf {
         if cfg!(windows) {
@@ -362,6 +361,9 @@ mod tests {
     #[cfg(windows)]
     mod windows {
         use super::*;
+        // Only this module needs it; importing it one level up made Linux and
+        // macOS clippy fail with "unused import".
+        use std::sync::Mutex;
 
         #[derive(Default)]
         struct FakeRunner {
