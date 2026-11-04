@@ -17,6 +17,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
+import androidx.core.content.FileProvider
 import java.io.File
 
 @InvokeArg
@@ -311,6 +312,55 @@ class FluxyMobilePlugin(private val host: Activity) : Plugin(host) {
         runCatching { TransferService.start(host) }
             .onSuccess { invoke.resolve() }
             .onFailure { invoke.reject(it.message ?: "the transfer service could not start") }
+    }
+
+    /**
+     * Open a received file in whatever app handles its type.
+     *
+     * A file:// Uri cannot leave the process on Android 7 and later, so the
+     * file is served through the FileProvider declared in the manifest. The
+     * grant is per-intent: the receiving app gets read access to that one file
+     * and nothing else.
+     */
+    @Command
+    fun openFile(invoke: Invoke) {
+        val path = invoke.parseArgs(OpenFileArgs::class.java).path
+        if (path.isBlank()) {
+            invoke.reject("no path to open")
+            return
+        }
+        // Two kinds of target arrive here. A content:// Uri comes from the
+        // MediaStore export and is already shareable; a plain path is a receive
+        // that stayed in the sandbox and needs the FileProvider.
+        val uri = if (path.startsWith("content://")) {
+            Uri.parse(path)
+        } else {
+            val file = File(path)
+            if (!file.isFile) {
+                invoke.reject("the file is no longer there")
+                return
+            }
+            FileProvider.getUriForFile(
+                host,
+                host.packageName + ".fluxy.files",
+                file,
+            )
+        }
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, host.contentResolver.getType(uri) ?: "*/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            host.startActivity(intent)
+        }
+            .onSuccess { invoke.resolve() }
+            .onFailure { invoke.reject(it.message ?: "no app can open that file") }
+    }
+
+    @InvokeArg
+    internal class OpenFileArgs {
+        lateinit var path: String
     }
 
     /** Release the foreground slot once nothing is moving. */

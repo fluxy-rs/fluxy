@@ -2257,36 +2257,71 @@ impl TransferRuntime {
     /// Android is not wired yet: the file there is reached through a
     /// MediaStore/SAF URI rather than a path, so the Kotlin side has to resolve
     /// it. Until then this reports the limitation instead of failing silently.
-    pub(crate) fn open_received(&self, transfer_id: &str) -> Result<(), crate::contract::IpcError> {
+    pub(crate) async fn open_received(
+        &self,
+        transfer_id: &str,
+    ) -> Result<(), crate::contract::IpcError> {
         let id = Uuid::parse_str(transfer_id)
             .map_err(|_| crate::contract::IpcError::internal("the transfer id is not a uuid"))?;
+
+        // Android hands the file to another app, which has to go through a
+        // content:// Uri and therefore the platform bridge; the other three
+        // spawn the system opener.
+        #[cfg(target_os = "android")]
+        {
+            use tauri::Manager;
+            let app = self
+                .app
+                .lock()
+                .ok()
+                .and_then(|slot| slot.clone())
+                .ok_or_else(|| {
+                    crate::contract::IpcError::internal("the app handle is not attached yet")
+                })?;
+            let handle = app.state::<tauri_plugin_fluxy_mobile::FluxyMobile<tauri::Wry>>();
+            // The export is checked first on purpose. A receive that left the
+            // sandbox for MediaStore has had its original deleted, so
+            // received_file_path would fail before we ever got here - the
+            // content URI is the only address that still resolves. The path
+            // is the fallback for a receive that was never exported.
+            if let Some(uri) = Self::exported_uri(&app, id) {
+                return handle
+                    .open_file(uri)
+                    .await
+                    .map_err(crate::contract::IpcError::internal);
+            }
+            let path = self
+                .received_file_path(id)
+                .map_err(|failure| crate::contract::IpcError::internal(failure.message))?;
+            return handle
+                .open_file(path.to_string_lossy().into_owned())
+                .await
+                .map_err(crate::contract::IpcError::internal);
+        }
+
+        #[cfg(not(target_os = "android"))]
         let path = self
             .received_file_path(id)
             .map_err(|failure| crate::contract::IpcError::internal(failure.message))?;
 
-        #[cfg(target_os = "android")]
+        #[cfg(not(target_os = "android"))]
         {
-            let _ = path;
-            return Err(crate::contract::IpcError::internal(
-                "opening a received file is not supported on this platform yet",
-            ));
+            #[cfg(target_os = "windows")]
+            let spawned = std::process::Command::new("cmd")
+                .args(["/C", "start", ""])
+                .arg(&path)
+                .spawn();
+
+            #[cfg(target_os = "macos")]
+            let spawned = std::process::Command::new("open").arg(&path).spawn();
+
+            #[cfg(all(unix, not(target_os = "macos")))]
+            let spawned = std::process::Command::new("xdg-open").arg(&path).spawn();
+
+            spawned
+                .map(|_| ())
+                .map_err(|error| crate::contract::IpcError::internal(error.to_string()))
         }
-
-        #[cfg(target_os = "windows")]
-        let spawned = std::process::Command::new("cmd")
-            .args(["/C", "start", ""])
-            .arg(&path)
-            .spawn();
-
-        #[cfg(target_os = "macos")]
-        let spawned = std::process::Command::new("open").arg(&path).spawn();
-
-        #[cfg(all(unix, not(target_os = "macos")))]
-        let spawned = std::process::Command::new("xdg-open").arg(&path).spawn();
-
-        spawned
-            .map(|_| ())
-            .map_err(|error| crate::contract::IpcError::internal(error.to_string()))
     }
 
     fn received_file_path(&self, transfer_id: Uuid) -> Result<PathBuf, TransferFailure> {
@@ -2378,6 +2413,16 @@ impl TransferRuntime {
                 }
             }
         });
+    }
+
+    /// The content URI an exported receive was given, when it was exported.
+    #[cfg(target_os = "android")]
+    fn exported_uri(app: &tauri::AppHandle<tauri::Wry>, transfer_id: Uuid) -> Option<String> {
+        use tauri::Manager;
+        let dir = app.path().app_data_dir().ok()?.join("exports");
+        let bytes = std::fs::read(dir.join(format!("{transfer_id}.json"))).ok()?;
+        let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+        value.get("uri")?.as_str().map(str::to_string)
     }
 
     /// Write the export trail the mobile plan asks for: one small JSON per

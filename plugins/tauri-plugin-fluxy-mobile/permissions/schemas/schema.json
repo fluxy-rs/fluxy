@@ -499,6 +499,18 @@
           "markdownDescription": "Denies the open_chat command without any pre-configured scope."
         },
         {
+          "description": "Enables the open_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-file",
+          "markdownDescription": "Enables the open_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-file",
+          "markdownDescription": "Denies the open_file command without any pre-configured scope."
+        },
+        {
           "description": "Enables the secret_get command without any pre-configured scope.",
           "type": "string",
           "const": "allow-secret-get",
@@ -571,10 +583,10 @@
           "markdownDescription": "Denies the system_insets command without any pre-configured scope."
         },
         {
-          "description": "Every Fluxy mobile bridge command.\n#### This default permission set includes:\n\n- `allow-secret-get`\n- `allow-secret-set`\n- `allow-keystore-available`\n- `allow-fs-pick-source`\n- `allow-fs-open-source`\n- `allow-fs-export`\n- `allow-storage-available`\n- `allow-shared-files`\n- `allow-foreground-start`\n- `allow-foreground-stop`\n- `allow-system-insets`\n- `allow-set-chrome-color`\n- `allow-local-network-info`\n- `allow-discovery-start`\n- `allow-discovery-stop`\n- `allow-discovery-peers`\n- `allow-open-chat`\n- `allow-notify-chat`",
+          "description": "Every Fluxy mobile bridge command.\n#### This default permission set includes:\n\n- `allow-secret-get`\n- `allow-secret-set`\n- `allow-keystore-available`\n- `allow-fs-pick-source`\n- `allow-fs-open-source`\n- `allow-fs-export`\n- `allow-storage-available`\n- `allow-shared-files`\n- `allow-foreground-start`\n- `allow-foreground-stop`\n- `allow-system-insets`\n- `allow-set-chrome-color`\n- `allow-local-network-info`\n- `allow-discovery-start`\n- `allow-discovery-stop`\n- `allow-discovery-peers`\n- `allow-open-chat`\n- `allow-notify-chat`\n- `allow-open-file`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Every Fluxy mobile bridge command.\n#### This default permission set includes:\n\n- `allow-secret-get`\n- `allow-secret-set`\n- `allow-keystore-available`\n- `allow-fs-pick-source`\n- `allow-fs-open-source`\n- `allow-fs-export`\n- `allow-storage-available`\n- `allow-shared-files`\n- `allow-foreground-start`\n- `allow-foreground-stop`\n- `allow-system-insets`\n- `allow-set-chrome-color`\n- `allow-local-network-info`\n- `allow-discovery-start`\n- `allow-discovery-stop`\n- `allow-discovery-peers`\n- `allow-open-chat`\n- `allow-notify-chat`"
+          "markdownDescription": "Every Fluxy mobile bridge command.\n#### This default permission set includes:\n\n- `allow-secret-get`\n- `allow-secret-set`\n- `allow-keystore-available`\n- `allow-fs-pick-source`\n- `allow-fs-open-source`\n- `allow-fs-export`\n- `allow-storage-available`\n- `allow-shared-files`\n- `allow-foreground-start`\n- `allow-foreground-stop`\n- `allow-system-insets`\n- `allow-set-chrome-color`\n- `allow-local-network-info`\n- `allow-discovery-start`\n- `allow-discovery-stop`\n- `allow-discovery-peers`\n- `allow-open-chat`\n- `allow-notify-chat`\n- `allow-open-file`"
         }
       ]
     }
