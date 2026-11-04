@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128" role="img" aria-label="Fluxy — Windows app icon"><title>Fluxy — Windows app icon</title><defs><linearGradient id="win-flow" x1="12" y1="36" x2="120" y2="99" gradientUnits="userSpaceOnUse"><stop stop-color="#5CEEC6"/><stop offset=".47" stop-color="#26BFCD"/><stop offset="1" stop-color="#6790FF"/></linearGradient></defs>
+<g transform="translate(64 64) scale(1.13 1.28) translate(-64 -64)">
+<path d="M64 64 C53 45 45 42 37 42 C25 42 20 52 20 63 C20 75 26 85 38 85 C48 85 56 75 64 64 C72 53 80 43 90 43 C103 43 108 53 108 64 C108 76 102 85 90 85 C80 85 72 75 64 64 Z" transform="translate(0 1.5)" fill="none" stroke="#061629" stroke-opacity=".16" stroke-width="15.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M64 64 C53 45 45 42 37 42 C25 42 20 52 20 63 C20 75 26 85 38 85 C48 85 56 75 64 64 C72 53 80 43 90 43 C103 43 108 53 108 64 C108 76 102 85 90 85 C80 85 72 75 64 64 Z" fill="none" stroke="#14354B" stroke-width="14.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M64 64 C53 45 45 42 37 42 C25 42 20 52 20 63 C20 75 26 85 38 85 C48 85 56 75 64 64 C72 53 80 43 90 43 C103 43 108 53 108 64 C108 76 102 85 90 85 C80 85 72 75 64 64 Z" fill="none" stroke="url(#win-flow)" stroke-width="11.5" stroke-linecap="round" stroke-linejoin="round"/>
+</g></svg>

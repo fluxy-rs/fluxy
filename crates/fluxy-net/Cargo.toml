@@ -1,0 +1,39 @@
+[package]
+name = "fluxy-net"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+fluxy-sysinfo = { path = "../fluxy-sysinfo" }
+fluxy-core.workspace = true
+fluxy-proto.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+bytes.workspace = true
+quinn.workspace = true
+rustls.workspace = true
+rcgen.workspace = true
+rustls-pki-types.workspace = true
+blake3.workspace = true
+getrandom.workspace = true
+rand_core.workspace = true
+mdns-sd.workspace = true
+if-addrs.workspace = true
+default-net.workspace = true
+socket2.workspace = true
+hex.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock"] }
+
+[dev-dependencies]
+tempfile.workspace = true

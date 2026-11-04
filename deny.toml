@@ -1,0 +1,72 @@
+# cargo-deny configuration (M5-03).
+#
+# Three concerns, each with a deliberate policy:
+#   advisories - a known vulnerability is a release blocker unless it is listed
+#                in ignore with a reason, so the list below is empty on purpose.
+#   licenses   - everything linked into the shipped binaries must be compatible
+#                with redistribution under our own license terms.
+#   bans       - duplicate and wildcard dependency problems are surfaced, not
+#                hidden, because they are usually the first sign of a dependency
+#                that was added carelessly.
+
+[graph]
+targets = [
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "aarch64-apple-darwin" },
+    { triple = "x86_64-unknown-linux-gnu" },
+]
+all-features = true
+
+[advisories]
+# A run fails on any advisory at this level or above.
+version = 2
+yanked = "deny"
+# Five crates are flagged "unmaintained" upstream. None of them has a
+# vulnerability advisory, and none has a usable upgrade in the dependency graph
+# this release pins. Each entry names its source chain, its target, and what
+# would have to move for it to disappear. The analysis lives in
+# docs/SECURITY_AUDIT.md so a release reviewer can re-check it against the graph.
+ignore = [
+    # proc-macro used by specta to generate the Tauri command bindings. It is
+    # compiled and then discarded: nothing of it ships inside the binary.
+    { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is a build-time proc-macro reached only through specta 2.0.0-rc.25; it is not linked into any shipped binary. Re-check when tauri-specta leaves the 2.0.0-rc line." },
+    # gtk3 / glib macro stack, Linux desktop builds only.
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error 1.0.4 is a build-time proc-macro pulled in by glib-macros 0.18 through the Linux gtk3 stack; it is absent from the Windows and macOS dependency graphs and never linked. Re-check when Tauri moves to gtk4/glib 0.19+." },
+    # D-Bus name types, merged into zbus 6; Linux notifications only.
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names 4.3.5 reaches Linux builds through notify-rust 4.18.2 (tauri-plugin-notification) and was merged into zbus 6.0. It ships in the Linux binary only. Re-check on the next tauri-plugin-notification release." },
+    { id = "RUSTSEC-2026-0370", reason = "zvariant 5.15.1 reaches Linux builds through notify-rust 4.18.2 and was merged into zbus 6.0 as the wire module. Linux binary only. Re-check on the next tauri-plugin-notification release." },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive 5.15.1 is the derive half of zvariant, same Linux-only notify-rust chain. Re-check with the rest of the zbus 6 migration." },
+]
+
+[licenses]
+# Unicode-3.0 covers unicode-ident and friends; MPL-2.0 is file-level copyleft
+# and is used unmodified through the CSS parser stack; Apache-2.0 WITH
+# LLVM-exception comes from windows-sys transitively.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "BSL-1.0",
+    "MPL-2.0",
+    "Unlicense",
+]
+# r-efi offers MIT, Apache-2.0, or LGPL-2.1-or-later; the first two are fine and
+# are what we rely on, so the LGPL arm is not a redistribution obligation.
+confidence-threshold = 0.92
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

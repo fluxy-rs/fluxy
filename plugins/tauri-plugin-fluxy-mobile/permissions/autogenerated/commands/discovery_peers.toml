@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-discovery-peers"
+description = "Enables the discovery_peers command without any pre-configured scope."
+commands.allow = ["discovery_peers"]
+
+[[permission]]
+identifier = "deny-discovery-peers"
+description = "Denies the discovery_peers command without any pre-configured scope."
+commands.deny = ["discovery_peers"]

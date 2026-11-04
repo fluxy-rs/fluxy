@@ -1,0 +1,24 @@
+# The whole bridge is this plugin, so one set covers every command. Listing
+# them here is what makes "fluxy-mobile:default" resolvable from a capability.
+[default]
+description = "Every Fluxy mobile bridge command."
+permissions = [
+  "allow-secret-get",
+  "allow-secret-set",
+  "allow-keystore-available",
+  "allow-fs-pick-source",
+  "allow-fs-open-source",
+  "allow-fs-export",
+  "allow-storage-available",
+  "allow-shared-files",
+  "allow-foreground-start",
+  "allow-foreground-stop",
+  "allow-system-insets",
+  "allow-set-chrome-color",
+  "allow-local-network-info",
+  "allow-discovery-start",
+  "allow-discovery-stop",
+  "allow-discovery-peers",
+  "allow-open-chat",
+  "allow-notify-chat",
+]

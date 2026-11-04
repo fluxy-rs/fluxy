@@ -1,0 +1,17 @@
+# Android 16 KB page size support (docs/MOBILE_PLAN.md 10.2).
+# Android 15+ can run 16 KB pages, and a native library whose LOAD segments are
+# only 4 KB aligned is rejected there. NDK r27 does not default to 16 KB, so the
+# linker flag is explicit. This file lives at the workspace root because cargo
+# reads it from the working directory, and Tauri runs cargo from here.
+
+[target.aarch64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,-z,common-page-size=16384"]
+
+[target.armv7-linux-androideabi]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,-z,common-page-size=16384"]
+
+[target.x86_64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,-z,common-page-size=16384"]
+
+[target.i686-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,-z,common-page-size=16384"]

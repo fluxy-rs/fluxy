@@ -1,0 +1,1 @@
+-keep class com.thep0y.fluxy.mobile.** { *; }

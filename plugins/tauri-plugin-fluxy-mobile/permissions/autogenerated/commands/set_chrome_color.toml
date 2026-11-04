@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-chrome-color"
+description = "Enables the set_chrome_color command without any pre-configured scope."
+commands.allow = ["set_chrome_color"]
+
+[[permission]]
+identifier = "deny-set-chrome-color"
+description = "Denies the set_chrome_color command without any pre-configured scope."
+commands.deny = ["set_chrome_color"]

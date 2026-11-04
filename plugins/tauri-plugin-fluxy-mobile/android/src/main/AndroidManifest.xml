@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Android 16 and later: without this, NsdManager refuses to register and
+         the LAN sockets are blocked. It is a runtime permission. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- TransferService holds a partial wake lock so a transfer keeps moving
+         while the screen is off; acquire() throws without this, which aborts
+         onStartCommand before the system is satisfied the FGS started. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <!-- Declared here so the generated app manifest does not have to carry
+             it: gen/android is regenerated and would lose the entry. -->
+        <service
+            android:name="com.thep0y.fluxy.mobile.TransferService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>

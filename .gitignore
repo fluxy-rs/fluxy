@@ -1,0 +1,26 @@
+node_modules
+dist
+target
+src-tauri/target
+.DS_Store
+*.log
+.fluxy-dev
+.fluxy-a
+.fluxy-b
+.soak
+.android-secrets
+*.jks
+
+# Local secrets: an API key lives here, never commit it.
+.env
+
+# Produced by `tauri android init`, and it holds gigabytes of Gradle output.
+# Hand edits belong in plugins/tauri-plugin-fluxy-mobile/android/AndroidManifest.xml;
+# anything written here is lost the next time the project is generated.
+src-tauri/gen/android
+
+# Gradle intermediates inside the vendored plugins; some artefact names exceed
+# the Windows path limit and make `git add` fail outright.
+plugins/*/android/build
+plugins/*/android/.tauri
+plugins/*/build

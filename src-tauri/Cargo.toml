@@ -1,0 +1,57 @@
+[package]
+name = "fluxy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Fluxy desktop application"
+
+[lib]
+name = "fluxy_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+uuid.workspace = true
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+specta.workspace = true
+specta-typescript.workspace = true
+tauri-specta.workspace = true
+tokio.workspace = true
+fluxy-app.workspace = true
+fluxy-core.workspace = true
+fluxy-proto.workspace = true
+fluxy-net.workspace = true
+if-addrs.workspace = true
+blake3.workspace = true
+quinn.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+fs2.workspace = true
+tauri-plugin-notification = "2"
+tauri-plugin-dialog = "2"
+
+
+# The platform clipboard is a desktop capability; Android provides its own
+# through the mobile plugin (docs/MOBILE_PLAN.md, ClipboardPort).
+tauri-plugin-fluxy-mobile = { path = "../plugins/tauri-plugin-fluxy-mobile" }
+tauri-plugin-barcode-scanner = { path = "../plugins/tauri-plugin-barcode-scanner" }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+arboard.workspace = true
+# A second launch must surface the running window instead of fighting it for
+# the UDP port and failing to bind. Desktop only - the crate has no Android
+# build, and Android already keeps one task per app.
+tauri-plugin-single-instance = "2"

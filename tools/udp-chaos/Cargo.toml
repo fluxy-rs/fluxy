@@ -1,0 +1,17 @@
+[package]
+name = "udp-chaos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+clap.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+fluxy-app = { path = "../../crates/fluxy-app", version = "0.2.0" }
+fluxy-core = { path = "../../crates/fluxy-core", version = "0.2.0" }
+fluxy-net = { path = "../../crates/fluxy-net", version = "0.2.0" }
+tempfile.workspace = true
+uuid.workspace = true

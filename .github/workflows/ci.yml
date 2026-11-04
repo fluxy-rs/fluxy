@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: ["0.2.X", "main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The regression matrix the release needs: the same gates on all three
+  # desktop platforms. A platform is only "green" if this job is green for it.
+  rust:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      # tauri-build embeds the frontend, so the bundle directory has to exist
+      # before any cargo command compiles the shell crate.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: Decoder fuzz (20k mutations)
+        run: cargo test -p fluxy-core --release --test decoder_fuzz
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run check:security
+      - run: bun run check:docs
+      - run: bun run check:versions
+      - run: bun run test:frontend
+      - run: bun run build
+
+  e2e:
+    name: E2E (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: End-to-end acceptance (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/e2e/run-e2e.sh local
+      - name: End-to-end acceptance (Windows)
+        if: runner.os == 'Windows'
+        run: pwsh -NoProfile -File scripts/e2e/run-e2e.ps1 local
+
+  # The Android track builds on demand and on tags: it needs an SDK, an NDK, and
+  # a Gradle download, which is too slow for every push.
+  android:
+    name: Android APK
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: NDK
+        run: sdkmanager --install 'ndk;27.0.12077973' 'platform-tools'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Build the debug APK
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+          bun x tauri android init
+          bun x tauri android build --debug --apk --target aarch64
+      - name: Check 16 KB alignment
+        run: |
+          set -e
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' | head -1)
+          mkdir -p /tmp/apk && unzip -o "$apk" -d /tmp/apk >/dev/null
+          readelf="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          for so in /tmp/apk/lib/*/*.so; do
+            echo "$so"
+            "$readelf" -lW "$so" | awk '$1 == "LOAD" { print "  align " $NF }'
+            "$readelf" -lW "$so" | awk '$1 == "LOAD" && $NF != "0x4000" { exit 1 }'
+          done
+  # Dependency and advisory policy is a release gate, and it needs the RustSec
+  # database, so it runs on demand and on tags rather than on every push.
+  audit:
+    name: Dependency audit
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - run: cargo deny check
+  # The packaging chain is slow and only matters for a release, so it runs on
+  # demand and on tags. --no-bundle checks that the shell and frontend package
+  # together without needing the signing or installer toolchains.
+  bundle:
+    name: Bundle (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun x tauri build --no-bundle

@@ -1,0 +1,24 @@
+[package]
+name = "fluxy-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+tracing.workspace = true
+fluxy-proto.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+ed25519-dalek.workspace = true
+rand_core.workspace = true
+getrandom.workspace = true
+blake3.workspace = true
+bytes.workspace = true
+rayon.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

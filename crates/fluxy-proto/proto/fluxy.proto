@@ -1,0 +1,242 @@
+syntax = "proto3";
+
+package fluxy.v1;
+
+// Wire kind values are append-only. Never reuse a number.
+enum MessageKind {
+  MESSAGE_KIND_UNSPECIFIED = 0;
+  HELLO = 1;
+  HELLO_ACK = 2;
+  CAPABILITIES = 3;
+  PAIR_REQUEST = 4;
+  PAIR_REPLY = 5;
+  PAIR_CONFIRM = 6;
+  READY = 7;
+  PING = 8;
+  PONG = 9;
+  ERROR = 10;
+  CHAT_TEXT = 20;
+  MESSAGE_ACK = 21;
+  CLIPBOARD_OFFER = 30;
+  CLIPBOARD_TEXT = 31;
+  CLIPBOARD_ACK = 32;
+  TRANSFER_OFFER = 40;
+  TRANSFER_ACCEPT = 41;
+  TRANSFER_REJECT = 42;
+  TRANSFER_MANIFEST = 43;
+  CHUNK_REQUEST = 44;
+  CHUNK_ACK = 45;
+  TRANSFER_PROGRESS = 46;
+  TRANSFER_RESUME = 47;
+  TRANSFER_PAUSE = 48;
+  TRANSFER_CANCEL = 49;
+  TRANSFER_COMPLETE = 50;
+  TRANSFER_ERROR = 51;
+}
+
+message Envelope {
+  uint32 protocol_version = 1;
+  bytes message_id = 2;       // 16 bytes, UUIDv7
+  bytes source_device_id = 3; // 16 bytes
+  bytes session_id = 4;       // 16 bytes, zero for Hello/HelloAck
+  int64 created_at_ms = 5;
+  int32 kind = 6;             // MessageKind value, encoded as int32 on the wire
+  bytes payload = 7;          // message-specific protobuf bytes
+}
+
+message Hello {
+  uint32 protocol_version = 1;
+  bytes device_id = 2;
+  string name = 3;
+  string os = 4;
+  bytes cert_fingerprint = 5;
+  bytes nonce = 6;
+  bytes public_key = 7;
+  bytes transcript_signature = 8;
+  bool resuming = 9;
+
+  // Hardware identification, so a list of several peers is distinguishable.
+  // These are NOT part of the signed transcript: they are display hints, and
+  // an older peer simply ignores them. Empty means "not known".
+  string manufacturer = 10;
+  string model = 11;
+  string os_version = 12;
+}
+
+message HelloAck {
+  uint32 protocol_version = 1;
+  bytes device_id = 2;
+  string name = 3;
+  string os = 4;
+  bytes cert_fingerprint = 5;
+  bytes nonce = 6;
+  bytes transcript_signature = 7;
+  bytes public_key = 8;
+  bool resuming = 9;
+
+  // See Hello: display-only hints, outside the signed transcript.
+  string manufacturer = 10;
+  string model = 11;
+  string os_version = 12;
+}
+
+message PairRequest {
+  string sas = 1;
+  bool confirmed = 2;
+}
+
+message PairReply {
+  bool accepted = 1;
+  string sas = 2;
+  string message = 3;
+}
+
+message PairConfirm {
+  bool accepted = 1;
+}
+
+message Ready {
+  bool paired = 1;
+}
+
+message Capabilities {
+  uint32 max_control_frame = 1;
+  uint32 max_chunk_size = 2;
+  uint32 max_streams = 3;
+  repeated string features = 4;
+  uint32 clipboard_max_bytes = 5;
+}
+
+message ChatText {
+  string text = 1;
+  bool copy_hint = 2;
+  uint64 sequence = 3;
+}
+
+message MessageAck {
+  bytes message_id = 1;
+  bool delivered = 2;
+}
+
+message ClipboardOffer {
+  uint64 size_bytes = 1;
+  bytes digest = 2; // BLAKE3-256 of the UTF-8 text
+  string preview = 3; // bounded, display-only excerpt
+  uint64 sequence = 4;
+  uint64 ttl_ms = 5;
+  bytes origin_id = 6; // device UUID that first copied the text
+  uint32 hop = 7;      // 0 for a local share; forwarders increment, max 1
+}
+
+message ClipboardText {
+  bytes offer_id = 1;
+  string text = 2;
+  bytes digest = 3; // must match the offer digest
+}
+
+message ClipboardAck {
+  bytes offer_id = 1;
+  bool accepted = 2;
+  bool applied = 3;
+  string code = 4;
+  string message = 5;
+}
+
+message Error {
+  uint32 code = 1;
+  string message = 2;
+  bool retryable = 3;
+}
+
+message TransferManifest {
+  bytes transfer_id = 1;
+  uint32 block_size = 2;
+  uint64 file_size = 3;
+  repeated bytes block_hashes = 4;
+  bytes root_hash = 5;
+  bytes manifest_digest = 6;
+}
+
+message ChunkRequest {
+  bytes transfer_id = 1;
+  uint32 chunk_index = 2;
+}
+
+message ChunkAck {
+  bytes transfer_id = 1;
+  uint32 chunk_index = 2;
+  bool stored = 3;
+  string code = 4;
+}
+
+// One entry of a folder batch. Directories carry is_dir and no content; only
+// empty directories need an entry of their own, because a file's entry implies
+// its parent directories.
+message BatchEntry {
+  // Path relative to the batch root, '/'-separated, no leading or trailing
+  // slash, never ".", "..", or an absolute path.
+  string relative_path = 1;
+  uint64 size = 2;
+  int64 mtime_ms = 3;
+  bool is_dir = 4;
+}
+
+message TransferOffer {
+  bytes transfer_id = 1;
+  string file_name = 2;
+  uint64 file_size = 3;
+  uint32 block_size = 4;
+  bytes root_hash = 5;
+  bytes manifest_digest = 6;
+  uint32 total_files = 7;
+  uint64 total_bytes = 8;
+  // Full TransferManifest encoding so the receiver can validate every block
+  // before it accepts. The data stream repeats it; both copies must match.
+  bytes manifest = 9;
+  // Empty for a single-file offer. The first sub-transfer of a folder batch
+  // carries the whole entry list; later sub-transfers carry only the batch id
+  // and their own relative path, so a 10k-file batch is described once.
+  bytes batch_id = 10;
+  string root_name = 11;
+  string relative_path = 12;
+  repeated BatchEntry entries = 13;
+}
+
+message TransferAccept {
+  bytes transfer_id = 1;
+}
+
+message TransferReject {
+  bytes transfer_id = 1;
+  string code = 2;
+  string message = 3;
+}
+
+message TransferProgress {
+  bytes transfer_id = 1;
+  uint64 bytes_done = 2;
+  uint64 bytes_total = 3;
+}
+
+message TransferComplete {
+  bytes transfer_id = 1;
+}
+
+message TransferError {
+  bytes transfer_id = 1;
+  string code = 2;
+  string message = 3;
+  bool retryable = 4;
+}
+
+message TransferPause {
+  bytes transfer_id = 1;
+}
+
+message TransferCancel {
+  bytes transfer_id = 1;
+}
+
+message TransferResume {
+  bytes transfer_id = 1;
+}

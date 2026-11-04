@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-local-network-info"
+description = "Enables the local_network_info command without any pre-configured scope."
+commands.allow = ["local_network_info"]
+
+[[permission]]
+identifier = "deny-local-network-info"
+description = "Denies the local_network_info command without any pre-configured scope."
+commands.deny = ["local_network_info"]

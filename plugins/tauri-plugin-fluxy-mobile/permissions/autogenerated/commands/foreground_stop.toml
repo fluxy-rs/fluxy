@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-foreground-stop"
+description = "Enables the foreground_stop command without any pre-configured scope."
+commands.allow = ["foreground_stop"]
+
+[[permission]]
+identifier = "deny-foreground-stop"
+description = "Denies the foreground_stop command without any pre-configured scope."
+commands.deny = ["foreground_stop"]

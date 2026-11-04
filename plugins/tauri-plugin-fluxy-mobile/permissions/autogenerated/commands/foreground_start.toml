@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-foreground-start"
+description = "Enables the foreground_start command without any pre-configured scope."
+commands.allow = ["foreground_start"]
+
+[[permission]]
+identifier = "deny-foreground-start"
+description = "Denies the foreground_start command without any pre-configured scope."
+commands.deny = ["foreground_start"]
