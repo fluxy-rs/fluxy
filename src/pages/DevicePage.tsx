@@ -11,6 +11,7 @@ import {
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { Button, Dialog, toast } from "../ui";
+import { orderDevices } from "../lib/device-order";
 import { shortId } from "../lib/format";
 import type { ClipboardReceivePolicy, DeviceAutoAccept, PeerSummary } from "../bindings";
 
@@ -26,15 +27,20 @@ export function DevicePage() {
   const navigate = useNavigate();
 
   const peers = () => engine.snapshot()?.peers ?? [];
-  const trusted = createMemo(() =>
-    peers()
-      .filter((peer) => peer.trusted)
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  );
-  const nearby = createMemo(() =>
-    peers()
-      .filter((peer) => !peer.trusted)
-      .sort((a, b) => a.name.localeCompare(b.name)),
+
+  /// When this device last sent or received a message. Zero for a pairing that
+  /// has never been used, which the ordering below replaces with paired_at.
+  function lastMessageAt(deviceId: string): number {
+    return (
+      engine
+        .chatConversations()
+        .find((conversation) => conversation.device_id === deviceId)
+        ?.last_at_ms ?? 0
+    );
+  }
+
+  const ordered = createMemo(() =>
+    orderDevices(peers(), lastMessageAt, locale()),
   );
 
   const selected = createMemo(() => {
@@ -117,12 +123,12 @@ export function DevicePage() {
       <aside class="fx-device-list" aria-label={t("devices.listAria")}>
         <header class="fx-device-list-head">
           <h2>{t("devices.title")}</h2>
-          <span class="fx-count">{trusted().length}</span>
+          <span class="fx-count">{ordered().length}</span>
         </header>
 
         <div class="fx-device-list-body">
           <Show
-            when={trusted().length > 0}
+            when={ordered().length > 0}
             fallback={
               <div class="fx-device-list-empty">
                 <ShieldCheck size={18} aria-hidden="true" />
@@ -132,7 +138,7 @@ export function DevicePage() {
             }
           >
             <ul class="fx-device-rows">
-              <For each={trusted()}>
+              <For each={ordered()}>
                 {(peer) => (
                   <li>
                     <A
@@ -140,6 +146,7 @@ export function DevicePage() {
                       class="fx-device-row"
                       classList={{
                         "is-active": selected()?.device_id === peer.device_id,
+                        "is-unpaired": !peer.trusted,
                       }}
                     >
                       <span
@@ -149,9 +156,13 @@ export function DevicePage() {
                       />
                       <span class="fx-device-row-main">
                         <strong>{peer.name}</strong>
-                        <span>{deviceSubtitle(peer)}</span>
+                        <span>
+                          {peer.trusted
+                            ? deviceSubtitle(peer)
+                            : t("devices.unpaired")}
+                        </span>
                       </span>
-                      <Show when={peer.online}>
+                      <Show when={peer.trusted && peer.online}>
                         <ShieldCheck size={12} aria-label={t("devices.online")} />
                       </Show>
                     </A>
@@ -159,39 +170,6 @@ export function DevicePage() {
                 )}
               </For>
             </ul>
-          </Show>
-
-          <Show when={nearby().length > 0}>
-            <div class="fx-device-group">
-              <div class="fx-device-group-head">
-                <span>{t("devices.nearbyTitle")}</span>
-                <span class="fx-count">{nearby().length}</span>
-              </div>
-              <ul class="fx-device-rows">
-                <For each={nearby()}>
-                  {(peer) => (
-                    <li>
-                      <A
-                        href={`/devices/${peer.device_id}`}
-                        class="fx-device-row is-unpaired"
-                        classList={{
-                          "is-active": selected()?.device_id === peer.device_id,
-                        }}
-                      >
-                        <span
-                          class="fx-chat-presence is-online"
-                          aria-hidden="true"
-                        />
-                        <span class="fx-device-row-main">
-                          <strong>{peer.name}</strong>
-                          <span>{t("devices.unpaired")}</span>
-                        </span>
-                      </A>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </div>
           </Show>
         </div>
       </aside>
