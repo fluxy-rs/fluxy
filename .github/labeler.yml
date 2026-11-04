@@ -1,0 +1,46 @@
+# Path labels. Kept separate from the type labels in labels.yml: this file
+# only answers "which language does this touch", never "what kind of change".
+rust:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.rs"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "**/Cargo.toml"
+          - "rust-toolchain*"
+          - "deny.toml"
+
+typescript:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.ts"
+          - "**/*.tsx"
+          - "**/*.mjs"
+          - "**/*.js"
+          - "package.json"
+          - "bun.lock"
+          - "tsconfig*.json"
+          - "vite.config.*"
+          - "vitest.config.*"
+
+css:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/styles.css"
+
+kotlin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.kt"
+          - "**/*.gradle.kts"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"

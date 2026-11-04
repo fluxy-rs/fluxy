@@ -1,0 +1,93 @@
+name: Labels
+
+# Two dimensions, applied separately:
+#
+#   path  - which languages the diff touches, from .github/labeler.yml
+#   type  - fix / feat / test / ..., parsed from the conventional-commit prefix
+#           in the pull request title
+#
+# sync-labels stays off for the path labels: it would delete the type labels on
+# every push, since they never match a glob. Removals are therefore manual, which
+# is the right default for a dimension that is only ever wrong after a rename.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  path:
+    name: Path labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          sync-labels: false
+
+  type:
+    name: Type label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title || "";
+            // "fix(ci): ...", "feat!: ...", "test: ..."
+            const match = title.match(/^([a-z]+)(\([^)]*\))?!?:/);
+            if (!match) {
+              core.info("no conventional prefix in " + JSON.stringify(title) + "; leaving type labels alone");
+              return;
+            }
+
+            // The vocabulary this repository uses. chore and build have no label
+            // of their own, so they map onto the closest thing rather than leaving
+            // a pull request type-less.
+            const byPrefix = {
+              fix: "fix",
+              feat: "feat",
+              test: "test",
+              refactor: "refactor",
+              perf: "perf",
+              ci: "ci",
+              docs: "documentation",
+              chore: "ci",
+              build: "ci",
+              deps: "deps",
+            };
+
+            const wanted = byPrefix[match[1]];
+            if (!wanted) {
+              core.info(match[1] + " has no label; nothing applied");
+              return;
+            }
+
+            const typeOnly = ["fix", "feat", "test", "refactor", "perf", "ci", "deps"];
+            const current = (context.payload.pull_request.labels || []).map((label) => label.name);
+            const stale = current.filter((name) => typeOnly.includes(name) && name !== wanted);
+
+            if (stale.length > 0) {
+              await github.rest.issues.removeLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: stale,
+              });
+              core.info("dropped stale type labels: " + stale.join(", "));
+            }
+
+            if (!current.includes(wanted)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: [wanted],
+              });
+            }
+            core.info("type label: " + wanted);
