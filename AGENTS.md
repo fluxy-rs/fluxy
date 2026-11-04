@@ -245,6 +245,34 @@ So: a `ForegroundServiceDidNotStartInTimeException` does not always mean slow
 startup. Read what `onStartCommand` does *after* `startForeground` - any
 uncaught exception there produces the same message.
 
+## Branching: never commit to main
+
+`main` is protected by convention, not by GitHub settings. Nobody - human or
+agent - pushes to it directly. Every change, however small, goes through a
+branch and a pull request.
+
+```powershell
+git switch main
+git pull --ff-only
+git switch -c fix/transfer-offer-dismiss
+# ...edit, run the gates below, commit...
+git push -u origin fix/transfer-offer-dismiss
+gh pr create --base main --fill
+```
+
+Names say what the branch does: `fix/`, `feat/`, `docs/`, `chore/`, followed by
+a few words about the change. Avoid `wip`, `test`, or a person's name.
+
+Three things this protects against, all of which have bitten this project:
+
+- A broken commit on `main` cannot be verified against the release build.
+- Force-pushes to a shared branch erase other people's work with no review step.
+- The gates in the next section are a checklist for a pull request, not for a
+  push nobody reads.
+
+Running the gates on the branch before opening the PR is part of the job, not
+something the reviewer does.
+
 ## Gates before calling something done
 
 ```powershell

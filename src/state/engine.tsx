@@ -41,6 +41,7 @@ import {
   registerFile as registerFileCommand,
   rejectClipboard as rejectClipboardCommand,
   removeTrust as removeTrustCommand,
+  openReceived as openReceivedCommand,
   respondTransfer as respondTransferCommand,
   setDeviceName as setDeviceNameCommand,
   pairManual as pairManualCommand,
@@ -205,6 +206,7 @@ export type EngineContextValue = {
     address: string | null,
   ) => Promise<NetworkStatusView>;
   clearDrop: () => void;
+  openReceivedTransfer: (transferId: string) => Promise<void>;
   respondTransfer: (transferId: string, accepted: boolean) => Promise<TransferSummary>;
   controlTransfer: (transferId: string, action: TransferAction) => Promise<TransferSummary>;
   clearTransferError: () => void;
@@ -1241,6 +1243,11 @@ export function EngineProvider(props: ParentProps) {
     setDrop(null);
   }
 
+  /// Hand a completed receive to the OS so its default application opens it.
+  async function openReceivedTransfer(transferId: string): Promise<void> {
+    await openReceivedCommand(transferId);
+  }
+
   async function respondTransfer(
     transferId: string,
     accepted: boolean,
@@ -1359,6 +1366,7 @@ export function EngineProvider(props: ParentProps) {
     setAutostart,
         setNetworkSelection,
         clearDrop,
+        openReceivedTransfer,
         respondTransfer,
         controlTransfer,
         clearTransferError,

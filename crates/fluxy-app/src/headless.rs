@@ -703,7 +703,22 @@ mod tests {
         );
 
         // A changed source invalidates the cached entry.
+        //
+        // The identity the cache compares is (size, mtime in milliseconds), and
+        // rewriting 8192 bytes takes well under a millisecond on a fast runner,
+        // so the two writes could carry the same timestamp and the second pass
+        // would answer Hit. Push the mtime forward explicitly rather than
+        // sleeping and hoping.
         std::fs::write(&source, vec![2_u8; 8192]).unwrap();
+        let handle = std::fs::File::options().write(true).open(&source).unwrap();
+        handle
+            .set_times(
+                std::fs::FileTimes::new()
+                    .set_modified(std::time::SystemTime::now() + Duration::from_secs(2)),
+            )
+            .unwrap();
+        drop(handle);
+
         let third = driver.manifest_for(&source, DEFAULT_BLOCK_SIZE).unwrap();
         assert_eq!(third.status, CacheStatus::Miss);
         assert_ne!(third.manifest.root_hash, first.manifest.root_hash);

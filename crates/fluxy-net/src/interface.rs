@@ -144,7 +144,19 @@ pub struct InterfaceInfo {
 
 impl InterfaceInfo {
     pub fn is_loopback(&self) -> bool {
-        self.kind == InterfaceKind::Loopback || self.name.eq_ignore_ascii_case("lo")
+        if self.kind == InterfaceKind::Loopback {
+            return true;
+        }
+        // macOS and the BSDs report no interface type through getifaddrs, so
+        // lo0 arrives as InterfaceKind::Other. Fall back to the two facts that
+        // do survive everywhere: the name and the address.
+        let name = self.name.to_ascii_lowercase();
+        if name == "lo" || name == "lo0" {
+            return true;
+        }
+        self.addresses
+            .iter()
+            .any(|address| address.address.is_loopback())
     }
 
     pub fn is_tunnel(&self) -> bool {

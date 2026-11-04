@@ -10,7 +10,6 @@ import {
 } from "solid-js";
 import {
   ChevronLeft,
-  File as FileIcon,
   MessageCircle,
   Paperclip,
   Send,
@@ -22,6 +21,7 @@ import { useI18n } from "../i18n";
 import { Button, Textarea, toast } from "../ui";
 import type { ChatMessageView, TransferSummary } from "../bindings";
 import { formatBytes, formatClock } from "../lib/format";
+import { fileKind } from "../lib/file-kind";
 import { failureReason } from "../lib/transfer-errors";
 
 /// Sending a file from the conversation instead of the transfers page: the two
@@ -460,9 +460,32 @@ export function ChatWorkspace(props: {
                           class="fx-chat-message"
                           classList={{ "is-sent": transfer.direction === "send" }}
                         >
-                          <div class="fx-chat-file">
-                            <span class="fx-chat-file-icon">
-                              <FileIcon size={18} aria-hidden="true" />
+                          <div
+                            class="fx-chat-file"
+                            classList={{
+                              // Only a received, finished file is worth opening:
+                              // the sender's copy is already theirs, and a file
+                              // still moving cannot be handed to another app.
+                              "is-openable":
+                                transfer.direction === "receive" &&
+                                transfer.state === "completed",
+                            }}
+                            onClick={() => {
+                              if (
+                                transfer.direction === "receive" &&
+                                transfer.state === "completed"
+                              ) {
+                                void engine.openReceivedTransfer(transfer.transfer_id);
+                              }
+                            }}
+                          >
+                            <span
+                              class={`fx-chat-file-icon is-${fileKind(transfer.file_name).tone}`}
+                            >
+                              {(() => {
+                                const Icon = fileKind(transfer.file_name).icon;
+                                return <Icon size={18} aria-hidden="true" />;
+                              })()}
                             </span>
                             <div class="fx-chat-file-body">
                               <p class="fx-chat-file-name">{transfer.file_name}</p>

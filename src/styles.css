@@ -6840,24 +6840,11 @@ a {
 .fx-nav {
   gap:2px;
   margin-top:22px;
-  padding-left:9px;
   display:grid;
   position:relative
   }
 .fx-nav:before {
-  content:"";
-  background:var(--fx-rail-text);
-  width:1px;
-  position:absolute;
-  top:9px;
-  bottom:9px;
-  left:9px
-  }
-@supports (color:color-mix(in lab, red, red)) {
-  .fx-nav:before {
-    background:color-mix(in srgb, var(--fx-rail-text) 14%, transparent)
-    }
-
+  content:none
   }
 .fx-nav-link {
   min-height:34px;
@@ -7127,7 +7114,17 @@ a {
 
   }
 .fx-rail-foot {
-  font-size:10px
+  flex-direction:column;
+  font-size:10px;
+  gap:5px;
+  padding:12px 0 6px;
+  border-top:0
+  }
+.fx-rail-state {
+  color:var(--fx-rail-muted);
+  font-size:9.5px;
+  letter-spacing:.02em;
+  white-space:nowrap
   }
 .fx-rail-engine {
   align-items:center;
@@ -7143,18 +7140,51 @@ a {
   font-size:9.5px
   }
 .fx-workspace {
-  grid-template-rows:auto minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr);
   min-width:0;
   min-height:0;
   display:grid
   }
+.fx-window-controls {
+  display:flex;
+  align-items:stretch;
+  align-self:stretch;
+  margin:0 0 0 8px;
+}
+
+.fx-window-button {
+  display:grid;
+  place-items:center;
+  width:46px;
+  border:0;
+  color:var(--fx-muted);
+  background:transparent;
+  cursor:pointer;
+  transition:background 120ms ease, color 120ms ease
+}
+
+.fx-window-button:hover {
+  color:var(--fx-text);
+  background:color-mix(in srgb, var(--fx-text) 8%, transparent)
+}
+
+.fx-window-button.is-close:hover {
+  color:#fff;
+  background:#c42b1c
+}
+
+.fx-window-button:focus-visible {
+  outline:2px solid var(--fx-accent);
+  outline-offset:-2px
+}
+
 .fx-topbar {
   background:var(--fx-bg);
   justify-content:space-between;
   align-items:center;
-  gap:16px;
-  min-height:59px;
-  padding:12px 28px;
+  gap:12px;
+  min-height:46px;
+  padding:0 0 0 20px;
   display:flex
   }
 @supports (color:color-mix(in lab, red, red)) {
@@ -7224,7 +7254,7 @@ a {
   -webkit-overflow-scrolling:touch;
   min-width:0;
   min-height:0;
-  padding:28px 30px 44px;
+  padding:16px 16px 24px;
   overflow-y:auto
   }
 .fx-content-fixed {
@@ -11216,6 +11246,27 @@ a {
 .fx-chat-file-icon {
   border-radius:8px
   }
+.fx-chat-file.is-openable {
+  cursor:pointer
+}
+
+.fx-chat-file.is-openable:hover {
+  border-color:var(--fx-accent)
+}
+
+.fx-chat-file.is-openable:focus-visible {
+  outline:2px solid var(--fx-accent);
+  outline-offset:2px
+}
+
+.fx-chat-file-icon.is-video { color:#7c5cff; background:color-mix(in srgb, #7c5cff 14%, transparent) }
+.fx-chat-file-icon.is-audio { color:#e0803a; background:color-mix(in srgb, #e0803a 14%, transparent) }
+.fx-chat-file-icon.is-image { color:#2f9e6f; background:color-mix(in srgb, #2f9e6f 14%, transparent) }
+.fx-chat-file-icon.is-archive { color:#b8862b; background:color-mix(in srgb, #b8862b 14%, transparent) }
+.fx-chat-file-icon.is-sheet { color:#2f8f5b; background:color-mix(in srgb, #2f8f5b 14%, transparent) }
+.fx-chat-file-icon.is-code { color:#3d7fd4; background:color-mix(in srgb, #3d7fd4 14%, transparent) }
+.fx-chat-file-icon.is-text { color:#6b7f8a; background:color-mix(in srgb, #6b7f8a 14%, transparent) }
+
 .fx-chat-file-body {
   gap:3px;
   min-width:0;

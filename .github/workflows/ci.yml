@@ -35,15 +35,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       # tauri-build embeds the frontend, so the bundle directory has to exist
-      # before any cargo command compiles the shell crate.
+      # before any cargo command compiles the shell crate. Only the Vite half is
+      # needed here: a full `tauri build` would recompile the whole shell for
+      # every platform just to throw the artefacts away, and it drags in the
+      # platform bundler toolchain this job does not otherwise require.
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: bun run build:vite
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      # udp-chaos is left out on purpose: its fault-injection cases assert on
+      # timing and on the shape of the local network stack, and a shared runner
+      # does not provide either. It has its own job below.
+      - run: cargo test --workspace --exclude udp-chaos
       - name: Decoder fuzz (20k mutations)
         run: cargo test -p fluxy-core --release --test decoder_fuzz
 
@@ -61,7 +67,10 @@ jobs:
       - run: bun run check:docs
       - run: bun run check:versions
       - run: bun run test:frontend
-      - run: bun run build
+      # The frontend bundle, not the app bundle: this job has no WebKitGTK, and
+      # `tauri build` here failed with "Package glib-2.0 was not found". The
+      # shell packaging is covered by the rust and bundle jobs.
+      - run: bun run build:vite
 
   e2e:
     name: E2E (${{ matrix.os }})
@@ -83,6 +92,35 @@ jobs:
       - name: End-to-end acceptance (Windows)
         if: runner.os == 'Windows'
         run: pwsh -NoProfile -File scripts/e2e/run-e2e.ps1 local
+
+  # The UDP fault injection suite needs a network stack it controls: it asserts
+  # on chat latency while a transfer saturates the link, and on checkpointing
+  # after a forced reconnect. On a shared runner those assertions race the host,
+  # so it runs where someone has decided to wait for it rather than on every
+  # push.
+  chaos:
+    name: UDP fault injection
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun run build:vite
+      - run: cargo test -p udp-chaos
 
   # The Android track builds on demand and on tags: it needs an SDK, an NDK, and
   # a Gradle download, which is too slow for every push.
@@ -107,7 +145,10 @@ jobs:
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      # Same reasoning as the web job: the APK build runs beforeBuildCommand
+      # itself, and a plain `tauri build` would need a Linux WebKitGTK stack
+      # this image does not carry.
+      - run: bun run build:vite
       - name: Build the debug APK
         run: |
           export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
