@@ -17,7 +17,7 @@ export type NavItem = {
  * we say"; merging them made a paired device appear twice.
  */
 export const primaryNav: NavItem[] = [
-  { href: "/", key: "nav.devices", icon: Users },
+  { href: "/devices", key: "nav.devices", icon: Users },
   { href: "/chat", key: "nav.chat", icon: MessageCircle },
   { href: "/settings", key: "nav.settings", icon: Settings },
 ];
@@ -27,15 +27,13 @@ export const primaryNav: NavItem[] = [
  * destinations there.
  */
 export const mobileNav: NavItem[] = [
-  { href: "/", key: "nav.devices", icon: Users },
+  { href: "/devices", key: "nav.devices", icon: Users },
   { href: "/chat", key: "nav.chat", icon: MessageCircle },
   { href: "/settings", key: "nav.settings", icon: Settings },
 ];
 
 export function isActivePath(current: string, href: string): boolean {
-  if (href === "/") {
-    // The device section owns both the list and a selected device's details.
-    return current === "/" || current.startsWith("/devices");
-  }
-  return current.startsWith(href);
+  // The device section owns both the list and a selected device's details, so
+  // /devices matches itself and everything below it.
+  return current === href || current.startsWith(href + "/");
 }

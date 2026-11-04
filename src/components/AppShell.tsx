@@ -106,9 +106,7 @@ export function AppShell(props: ParentProps) {
               // overflow:hidden, so the page could not be dragged at all.
               "fx-content-fixed":
                 location.pathname.startsWith("/chat") ||
-                (deviceColumn() &&
-                  (location.pathname === "/" ||
-                    location.pathname.startsWith("/devices"))),
+                (deviceColumn() && location.pathname.startsWith("/devices")),
             }}
             tabindex="-1"
           >

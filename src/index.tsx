@@ -1,7 +1,7 @@
 /* @refresh reload */
 import { Show } from "solid-js";
 import { render } from "solid-js/web";
-import { HashRouter, Route } from "@solidjs/router";
+import { HashRouter, Navigate, Route } from "@solidjs/router";
 import { AppShell } from "./components/AppShell";
 import { I18nProvider } from "./i18n";
 import { EngineProvider, useEngine } from "./state/engine";
@@ -15,14 +15,13 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { AdvancedSettingsPage } from "./pages/AdvancedSettingsPage";
 import "./styles.css";
 
-/// On a phone the desktop home page (device grid, drag and drop) is the wrong
-/// entrance; the platform reports android and the send page becomes home.
-/// Desktop opens straight into the conversation workspace: the list of people
-/// you can talk to and the open thread, side by side. A phone still needs the
-/// device page first, because pairing has nowhere else to live there.
-/// Desktop opens on the device list - the one thing a new install has to do is
-/// pair. A phone keeps its own device page, because pairing there lives behind
-/// the header actions.
+/**
+ * The device section: a list on a desktop, the list-or-details page on a phone.
+ *
+ * Desktop opens here because the one thing a new install has to do is pair. A
+ * phone keeps its own device page, because pairing there lives behind the
+ * header actions.
+ */
 function RootPage() {
   const engine = useEngine();
   const mobile = () => engine.snapshot()?.status.platform === "android";
@@ -31,6 +30,18 @@ function RootPage() {
       <MobilePage />
     </Show>
   );
+}
+
+/**
+ * The root forwards to the device section.
+ *
+ * It used to *be* the device list, which left /devices - the address anyone
+ * would try first - as a blank page, because only /devices/:id existed. The
+ * list lives at /devices now, so a stale bookmark and the brand in the rail
+ * both land somewhere sensible.
+ */
+function HomeRedirect() {
+  return <Navigate href="/devices" />;
 }
 
 /// One device's details. Desktop shows it beside the list; a phone has no room
@@ -51,12 +62,13 @@ render(
       <I18nProvider>
         <EngineProvider>
           <HashRouter root={AppShell}>
-            <Route path="/" component={RootPage} />
+            <Route path="/" component={HomeRedirect} />
+            <Route path="/devices" component={RootPage} />
             <Route path="/devices/:deviceId" component={DeviceDetail} />
             <Route path="/send" component={MobilePage} />
             <Route path="/chat" component={ChatPage} />
             <Route path="/chat/:deviceId" component={ChatPage} />
-                <Route path="/clipboard" component={ClipboardPage} />
+            <Route path="/clipboard" component={ClipboardPage} />
             <Route path="/settings" component={SettingsPage} />
             <Route path="/settings/advanced" component={AdvancedSettingsPage} />
             <Route path="/help" component={HelpPage} />

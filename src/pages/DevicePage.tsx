@@ -111,7 +111,7 @@ export function DevicePage() {
     try {
       await engine.removeTrust(peer.device_id);
       setConfirmRemove(null);
-      navigate("/");
+      navigate("/devices");
       toast.success(t("devices.trustRemoved", { name: peer.name }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
