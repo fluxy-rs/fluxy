@@ -542,4 +542,29 @@ The two CLI modes behind it are `transfer-send` and `transfer-recv`. T-05
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
+
+This is the strictest licence that is still an open-source licence, chosen for
+one reason: **a modification has to stay open**. AGPL section 13 extends GPL
+section 12 to network use, so running a modified Fluxy as a service and letting
+others talk to it counts as distribution - the source has to be offered, under
+the same terms.
+
+**Commercial use.** AGPL does not forbid it; forbidding it would make this
+project "source-available" rather than open source, because the Open Source
+Definition requires that a licence place no restriction on fields of endeavour.
+What AGPL does forbid is commercial use that keeps the modifications closed.
+For a company that means publishing every change it makes under AGPL on the
+same server it runs, which is why in practice nobody takes this code and builds
+a closed product on it.
+
+If you need to do that - keep modifications private, or ship Fluxy inside a
+closed product - a separate commercial licence is the only route. Open an issue
+at <https://github.com/fluxy-rs/fluxy/issues> and describe the use.
+
+**Contributions.** Bug fixes and features belong here rather than in a fork:
+a pull request against `main` is easier to review, easier to carry forward,
+and keeps everyone on one implementation. See
+[AGENTS.md](AGENTS.md#pull-requests-one-purpose-split-into-commits) and
+[AGENTS.md](AGENTS.md#commits-conventional-and-saying-why) for the shape a
+contribution is expected to take.
