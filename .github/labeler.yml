@@ -1,46 +1,6 @@
-# Path labels. Kept separate from the type labels in labels.yml: this file
-# only answers "which language does this touch", never "what kind of change".
-rust:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "**/*.rs"
-          - "Cargo.toml"
-          - "Cargo.lock"
-          - "**/Cargo.toml"
-          - "rust-toolchain*"
-          - "deny.toml"
-
-typescript:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "**/*.ts"
-          - "**/*.tsx"
-          - "**/*.mjs"
-          - "**/*.js"
-          - "package.json"
-          - "bun.lock"
-          - "tsconfig*.json"
-          - "vite.config.*"
-          - "vitest.config.*"
-
-css:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/styles.css"
-
-kotlin:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "**/*.kt"
-          - "**/*.gradle.kts"
-
-ci:
-  - changed-files:
-      - any-glob-to-any-file:
-          - ".github/**"
-
-documentation:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "**/*.md"
-          - "docs/**"
+# Retired: the path rules moved into .github/workflows/labels.yml.
+#
+# actions/labeler removed the type labels even with sync-labels: false, so the
+# matching is done in the workflow where it can be read and tested. This file is
+# kept only so a future reader looking for the rules finds the pointer; it is no
+# longer loaded by anything.
