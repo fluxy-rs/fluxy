@@ -9,6 +9,11 @@ name: Labels
 # sync-labels stays off for the path labels: it would delete the type labels on
 # every push, since they never match a glob. Removals are therefore manual, which
 # is the right default for a dimension that is only ever wrong after a rename.
+#
+# Nothing here runs on close, and nothing removes a type label because of a
+# merge. The labels outlive the pull request on purpose: .github/release.yml
+# groups a release's notes by them, so a merged pull request that lost its
+# label would drop out of the changelog.
 
 on:
   pull_request:
