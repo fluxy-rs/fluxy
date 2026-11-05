@@ -1,4 +1,5 @@
 import { Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+import { Checkbox } from "../ui/checkbox";
 import { LoaderCircle, ShieldAlert, ShieldCheck } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
@@ -64,7 +65,7 @@ export function PairingDialog() {
                 disabled={!acknowledged() || expired() || engine.pairingBusy()}
                 icon={
                   engine.pairingBusy() ? (
-                    <LoaderCircle size={14} class="fx-spin" />
+                    <LoaderCircle size={14} class="animate-spin" />
                   ) : (
                     <ShieldCheck size={14} />
                   )
@@ -78,19 +79,19 @@ export function PairingDialog() {
           {/* One line, not two stacked cards: the pairing code is the thing to
               compare, and the two device names only need to say who is talking to
               whom. Two cards spent half a phone screen on four short strings. */}
-          <p class="fx-pair-pairline">
+          <p class="flex items-center gap-2 text-sm">
             <strong>{engine.snapshot()?.status.device_name}</strong>
-            <span class="fx-pair-arrow" aria-hidden="true">
+            <span class="text-muted-foreground" aria-hidden="true">
               ↔
             </span>
             <strong title={current().peer_name}>{current().peer_name}</strong>
-            <span class="fx-pair-platform">{current().peer_platform}</span>
+            <span class="text-xs text-muted-foreground">{current().peer_platform}</span>
           </p>
 
-          <div class="fx-sas-wrap">
-            <span class="fx-sas-label">{t("pairing.sasLabel")}</span>
+          <div class="flex flex-col items-center gap-1 rounded-lg bg-muted px-4 py-3">
+            <span class="text-label text-muted-foreground">{t("pairing.sasLabel")}</span>
             <output
-              class="fx-sas"
+              class="font-mono text-lg tracking-[0.3em]"
               aria-label={t("pairing.sasLabel")}
               aria-live="polite"
               aria-atomic="true"
@@ -99,36 +100,35 @@ export function PairingDialog() {
               <i aria-hidden="true" />
               <span>{current().sas.slice(3)}</span>
             </output>
-            <span class="fx-sas-expiry" classList={{ "is-expired": expired() }}>
+            <span class="text-label text-muted-foreground" classList={{ "is-expired": expired() }}>
               {expired()
                 ? t("pairing.expired")
                 : t("pairing.expiresIn", { time: clock(remaining()) })}
             </span>
           </div>
 
-          <div class="fx-pair-warning">
+          <div class="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
             <ShieldAlert size={17} aria-hidden="true" />
-            <p>{t("pairing.warning")}</p>
+            <p class="text-body-sm">{t("pairing.warning")}</p>
           </div>
 
-          <label class="fx-pair-check">
-            <input
-              type="checkbox"
+          <label class="flex items-center gap-2">
+            <Checkbox
               checked={acknowledged()}
               disabled={expired() || engine.pairingBusy()}
-              onChange={(event) => setAcknowledged(event.currentTarget.checked)}
+              onChange={(checked) => setAcknowledged(checked)}
             />
             <span>{t("pairing.acknowledge")}</span>
           </label>
 
           <Show when={engine.pairingError()}>
             {(error) => (
-              <p class="fx-pair-error" role="alert">
+              <p class="text-xs text-destructive" role="alert">
                 {t("pairing.requestFailed", { message: error().message })}
               </p>
             )}
           </Show>
-          <p class="fx-pair-footnote">{t("pairing.noAuto")}</p>
+          <p class="text-xs text-muted-foreground">{t("pairing.noAuto")}</p>
         </Dialog>
       )}
     </Show>

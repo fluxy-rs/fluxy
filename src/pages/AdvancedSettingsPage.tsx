@@ -5,6 +5,7 @@ import { LogPanel } from "../components/LogPanel";
 import { NetworkDiagnostics } from "../components/NetworkDiagnostics";
 import { NetworkSettings } from "../components/NetworkSettings";
 import { useI18n } from "../i18n";
+import { RoutedSheet } from "../components/RoutedSheet";
 import { Button, toast } from "../ui";
 import { copyText, errorDetails, eventName, shortId } from "../lib/format";
 
@@ -69,148 +70,172 @@ export function AdvancedSettingsPage() {
   }
 
   return (
-    <div class="fx-page fx-page-narrow">
-      <header class="fx-page-head">
-        <div>
-          <a class="fx-back-link" href="/settings">
-            <ArrowLeft size={15} aria-hidden="true" />
-            {t("settings.backToSettings")}
-          </a>
-          <h1>{t("settings.advancedTitle")}</h1>
-          <p>{t("settings.advancedBody")}</p>
-        </div>
-      </header>
-
-      <div class="fx-settings-grid">
-        <NetworkSettings />
-
-        <section class="fx-panel fx-panel-wide" aria-labelledby="identity-heading">
-          <header class="fx-panel-head">
-            <div>
-              <h2 id="identity-heading">{t("settings.identityTitle")}</h2>
-              <p>{t("settings.identityBody")}</p>
-            </div>
-          </header>
-          <dl class="fx-definition-list fx-definition-2col">
-            <div>
-              <dt>{t("settings.nameLabel")}</dt>
-              <dd>{status().device_name}</dd>
-            </div>
-            <div>
-              <dt>{t("settings.idLabel")}</dt>
-              <dd class="fx-numeric" title={status().device_id}>
-                {shortId(status().device_id, 24)}
-              </dd>
-            </div>
-            <div>
-              <dt>{t("settings.protocolLabel")}</dt>
-              <dd class="fx-numeric">v{status().protocol_version}</dd>
-            </div>
-            <div>
-              <dt>{t("settings.portLabel")}</dt>
-              <dd class="fx-numeric">
-                {status().listen_port === 0 ? t("home.systemAssigned") : status().listen_port}
-              </dd>
-            </div>
-            <div class="fx-definition-wide">
-              <dt>{t("settings.dataDirLabel")}</dt>
-              <dd class="fx-path">{status().data_dir}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <NetworkDiagnostics />
-
-        <section class="fx-panel" aria-labelledby="diagnostics-heading">
-          <header class="fx-panel-head">
-            <div>
-              <h2 id="diagnostics-heading">{t("settings.diagnosticsTitle")}</h2>
-              <p>{t("settings.diagnosticsBody")}</p>
-            </div>
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => void copyDiagnostics()}
-              icon={<Copy size={13} />}
+    <RoutedSheet title={t("settings.advancedTitle")}>
+      <div class="flex flex-col gap-4">
+        <header class="flex flex-col gap-1">
+          <div>
+            <a
+              class="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              href="/settings"
             >
-              {t("settings.copyDiagnostics")}
-            </Button>
-          </header>
-          <p class="fx-label">{t("home.thisDevice")}</p>
-          <dl class="fx-definition-list">
-            <div>
-              <dt>{t("home.deviceId")}</dt>
-              <dd class="fx-id-line">
-                <span class="fx-numeric">{shortId(snapshot().status.device_id, 22)}</span>
-                <button
-                  class="fx-inline-copy"
-                  type="button"
-                  aria-label={t("home.copyId")}
-                  onClick={() => void copyDeviceId()}
-                >
-                  <Show when={copiedId()} fallback={<Copy size={13} aria-hidden="true" />}>
-                    <span class="fx-copied-mark">{t("common.copied")}</span>
-                  </Show>
-                </button>
-              </dd>
-            </div>
-            <div>
-              <dt>{t("home.protocol")}</dt>
-              <dd class="fx-numeric">v{snapshot().status.protocol_version}</dd>
-            </div>
-            <div>
-              <dt>{t("home.listenPort")}</dt>
-              <dd class="fx-numeric">
-                {snapshot().status.listen_port === 0
-                  ? t("home.systemAssigned")
-                  : snapshot().status.listen_port}
-              </dd>
-            </div>
-            <div>
-              <dt>{t("home.discovery")}</dt>
-              <dd>{t("home.discoveryMdns")}</dd>
-            </div>
-            <div>
-              <dt>{t("home.events")}</dt>
-              <dd class="fx-numeric">{engine.eventCount()}</dd>
-            </div>
-            <div class="fx-definition-wide">
-              <dt>{t("home.dataDir")}</dt>
-              <dd class="fx-path">{snapshot().status.data_dir}</dd>
-            </div>
-            <div class="fx-definition-wide">
-              <dt>{t("home.protocol")} · loopback</dt>
-              <dd>
-                {snapshot().status.dev_loopback ? t("home.loopbackOn") : t("home.loopbackOff")}
-              </dd>
-            </div>
-            <div>
-              <dt>{t("settings.eventSeq")}</dt>
-              <dd class="fx-numeric">{engine.lastEvent()?.seq ?? snapshot().seq}</dd>
-            </div>
-            <div>
-              <dt>{t("settings.snapshotVersion")}</dt>
-              <dd class="fx-numeric">v{snapshot().snapshot_version}</dd>
-            </div>
-            <div>
-              <dt>{t("settings.lastEvent")}</dt>
-              <dd class="fx-numeric">
-                {engine.lastEvent() ? eventName(engine.lastEvent()!) : t("home.waitingEvent")}
-              </dd>
-            </div>
-          </dl>
-        </section>
+              <ArrowLeft size={15} aria-hidden="true" />
+              {t("settings.backToSettings")}
+            </a>
+            <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
+              {t("settings.advancedTitle")}
+            </h1>
+            <p class="text-body-sm text-muted-foreground">{t("settings.advancedBody")}</p>
+          </div>
+        </header>
 
-        <Show when={networkDenied()}>
-          <section class="fx-panel fx-panel-wide fx-banner-warning" aria-labelledby="lan-heading">
-            <h2 id="lan-heading">{t("settings.lanTitle")}</h2>
-            <p>{t("settings.lanBody")}</p>
-            <p class="fx-muted">{t("settings.lanFix")}</p>
+        <div class="flex flex-col gap-4">
+          <NetworkSettings />
+
+          <section
+            class="overflow-hidden rounded-lg border border-border bg-card"
+            aria-labelledby="identity-heading"
+          >
+            <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <div>
+                <h2 id="identity-heading" class="text-title font-[620] tracking-[-0.012em]">
+                  {t("settings.identityTitle")}
+                </h2>
+                <p class="text-body-sm text-muted-foreground">{t("settings.identityBody")}</p>
+              </div>
+            </header>
+            <dl class="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
+              <div>
+                <dt>{t("settings.nameLabel")}</dt>
+                <dd>{status().device_name}</dd>
+              </div>
+              <div>
+                <dt>{t("settings.idLabel")}</dt>
+                <dd class="font-mono text-xs" title={status().device_id}>
+                  {shortId(status().device_id, 24)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("settings.protocolLabel")}</dt>
+                <dd class="font-mono text-xs">v{status().protocol_version}</dd>
+              </div>
+              <div>
+                <dt>{t("settings.portLabel")}</dt>
+                <dd class="font-mono text-xs">
+                  {status().listen_port === 0 ? t("home.systemAssigned") : status().listen_port}
+                </dd>
+              </div>
+              <div class="col-span-2 flex flex-col gap-1">
+                <dt>{t("settings.dataDirLabel")}</dt>
+                <dd class="truncate font-mono text-xs text-muted-foreground">
+                  {status().data_dir}
+                </dd>
+              </div>
+            </dl>
           </section>
-        </Show>
 
-        <LogPanel />
+          <NetworkDiagnostics />
+
+          <section
+            class="overflow-hidden rounded-lg border border-border bg-card"
+            aria-labelledby="diagnostics-heading"
+          >
+            <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <div>
+                <h2 id="diagnostics-heading">{t("settings.diagnosticsTitle")}</h2>
+                <p class="text-body-sm text-muted-foreground">{t("settings.diagnosticsBody")}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => void copyDiagnostics()}
+                icon={<Copy size={13} />}
+              >
+                {t("settings.copyDiagnostics")}
+              </Button>
+            </header>
+            <p class="text-xs font-medium text-muted-foreground">{t("home.thisDevice")}</p>
+            <dl class="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
+              <div>
+                <dt>{t("home.deviceId")}</dt>
+                <dd class="flex items-center gap-2">
+                  <span class="font-mono text-xs">{shortId(snapshot().status.device_id, 22)}</span>
+                  <button
+                    class="rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    type="button"
+                    aria-label={t("home.copyId")}
+                    onClick={() => void copyDeviceId()}
+                  >
+                    <Show when={copiedId()} fallback={<Copy size={13} aria-hidden="true" />}>
+                      <span class="text-xs text-[var(--success)]">{t("common.copied")}</span>
+                    </Show>
+                  </button>
+                </dd>
+              </div>
+              <div>
+                <dt>{t("home.protocol")}</dt>
+                <dd class="font-mono text-xs">v{snapshot().status.protocol_version}</dd>
+              </div>
+              <div>
+                <dt>{t("home.listenPort")}</dt>
+                <dd class="font-mono text-xs">
+                  {snapshot().status.listen_port === 0
+                    ? t("home.systemAssigned")
+                    : snapshot().status.listen_port}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("home.discovery")}</dt>
+                <dd>{t("home.discoveryMdns")}</dd>
+              </div>
+              <div>
+                <dt>{t("home.events")}</dt>
+                <dd class="font-mono text-xs">{engine.eventCount()}</dd>
+              </div>
+              <div class="col-span-2 flex flex-col gap-1">
+                <dt>{t("home.dataDir")}</dt>
+                <dd class="truncate font-mono text-xs text-muted-foreground">
+                  {snapshot().status.data_dir}
+                </dd>
+              </div>
+              <div class="col-span-2 flex flex-col gap-1">
+                <dt>{t("home.protocol")} · loopback</dt>
+                <dd>
+                  {snapshot().status.dev_loopback ? t("home.loopbackOn") : t("home.loopbackOff")}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("settings.eventSeq")}</dt>
+                <dd class="font-mono text-xs">{engine.lastEvent()?.seq ?? snapshot().seq}</dd>
+              </div>
+              <div>
+                <dt>{t("settings.snapshotVersion")}</dt>
+                <dd class="font-mono text-xs">v{snapshot().snapshot_version}</dd>
+              </div>
+              <div>
+                <dt>{t("settings.lastEvent")}</dt>
+                <dd class="font-mono text-xs">
+                  {engine.lastEvent() ? eventName(engine.lastEvent()!) : t("home.waitingEvent")}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <Show when={networkDenied()}>
+            <section
+              class="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/5 px-4 py-3"
+              aria-labelledby="lan-heading"
+            >
+              <h2 id="lan-heading" class="text-sm font-semibold text-[var(--warning)]">
+                {t("settings.lanTitle")}
+              </h2>
+              <p class="mt-1 text-xs text-[var(--warning)]">{t("settings.lanBody")}</p>
+              <p class="text-xs text-muted-foreground">{t("settings.lanFix")}</p>
+            </section>
+          </Show>
+
+          <LogPanel />
+        </div>
       </div>
-    </div>
+    </RoutedSheet>
   );
 }

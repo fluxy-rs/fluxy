@@ -73,9 +73,9 @@ export function AppShell(props: ParentProps) {
 
   return (
     <TooltipProvider delay={420} closeDelay={100}>
-      <div class="fx-shell">
+      <div class="grid h-dvh grid-cols-1 overflow-hidden bg-background text-foreground md:grid-cols-[4rem_minmax(0,1fr)]">
         <a
-          class="fx-skip"
+          class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
           href="#main"
           onClick={(event) => {
             event.preventDefault();
@@ -85,10 +85,10 @@ export function AppShell(props: ParentProps) {
           {t("nav.skip")}
         </a>
         <Sidebar />
-        <div class="fx-workspace">
+        <div class="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)]">
           <main
             id="main"
-            class="fx-content"
+            class="relative min-h-0 min-w-0 overflow-y-auto p-4"
             classList={{
               // Sections that own the full height - the conversation workspace
               // and, on a desktop, the device list - must not scroll as a whole
@@ -98,7 +98,7 @@ export function AppShell(props: ParentProps) {
               // whether the Tauri bridge exists, which is equally true on
               // Android. Using it here locked the phone's device page to
               // overflow:hidden, so the page could not be dragged at all.
-              "fx-content-fixed":
+              "flex flex-col overflow-hidden":
                 location.pathname.startsWith("/chat") ||
                 (deviceColumn() && location.pathname.startsWith("/devices")),
             }}

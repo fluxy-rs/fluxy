@@ -25,8 +25,6 @@ export function Sidebar() {
   const [copied, setCopied] = createSignal(false);
 
   const status = () => engine.snapshot()?.status;
-  const engineState = () =>
-    engine.loading() ? "is-pending" : engine.snapshot() ? "is-ready" : "is-offline";
 
   async function copyDeviceId() {
     const id = status()?.device_id;
@@ -40,9 +38,18 @@ export function Sidebar() {
     }
   }
 
+  // The dot reflects the same three states the label does, so the two cannot
+  // disagree.
+  const statusDotClass = () =>
+    engine.loading()
+      ? "bg-[var(--warning)]"
+      : engine.snapshot()
+        ? "bg-[var(--success)]"
+        : "bg-[var(--destructive)]";
+
   return (
-    <aside class="fx-rail">
-      <div class="fx-rail-brand" title="Fluxy">
+    <aside class="hidden h-full w-16 shrink-0 flex-col items-center gap-3 bg-sidebar py-3 text-sidebar-foreground md:flex">
+      <div class="grid size-10 place-items-center" title="Fluxy">
         {/* The launcher icon itself, gradients and all. It carries its own
             rounded background, so the slot around it stays bare. */}
         <svg viewBox="0 0 128 128" role="img" aria-label="Fluxy">
@@ -95,14 +102,14 @@ export function Sidebar() {
         </svg>
       </div>
 
-      <nav class="fx-nav" aria-label={t("nav.primary")}>
+      <nav class="flex flex-col items-center gap-1" aria-label={t("nav.primary")}>
         {primaryNav.map((item) => {
           const Icon = item.icon;
           const active = () => isActivePath(location.pathname, item.href);
           return (
             <A
               href={item.href}
-              class="fx-nav-icon"
+              class="grid size-10 place-items-center rounded-lg text-[var(--sidebar-foreground)] transition-colors hover:bg-white/10 hover:text-[var(--sidebar-foreground)] aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground"
               classList={{ "is-active": active() }}
               aria-current={active() ? "page" : undefined}
               aria-label={t(item.key)}
@@ -114,10 +121,10 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div class="fx-rail-tools">
+      <div class="mt-auto flex flex-col items-center gap-1">
         <button
           type="button"
-          class="fx-rail-icon-button"
+          class="grid size-9 place-items-center rounded-lg text-[var(--sidebar-foreground)] transition-colors hover:bg-white/10 hover:text-[var(--sidebar-foreground)]"
           aria-label={t("pairing.myQrTitle")}
           title={t("pairing.myQrTitle")}
           onClick={() => setQrOpen(true)}
@@ -126,22 +133,25 @@ export function Sidebar() {
         </button>
         <button
           type="button"
-          class="fx-rail-icon-button"
+          class="grid size-9 place-items-center rounded-lg text-[var(--sidebar-foreground)] transition-colors hover:bg-white/10 hover:text-[var(--sidebar-foreground)]"
           aria-label={t("home.copyId")}
           title={`${status()?.device_name ?? ""} · ${
             copied() ? t("common.copied") : (status()?.device_id ?? "")
           }`}
           onClick={() => void copyDeviceId()}
         >
-          <span class="fx-rail-initial" aria-hidden="true">
+          <span
+            class="grid size-9 place-items-center rounded-full bg-white/10 text-xs font-semibold"
+            aria-hidden="true"
+          >
             {(status()?.device_name ?? "?").slice(0, 1).toUpperCase()}
           </span>
         </button>
       </div>
 
-      <div class="fx-rail-foot">
-        <span class={`fx-status-dot ${engineState()}`} aria-hidden="true" />
-        <span class="fx-rail-state">
+      <div class="mt-2 flex flex-col items-center gap-1 px-1">
+        <span class={`size-1.5 rounded-full ${statusDotClass()}`} aria-hidden="true" />
+        <span class="text-meta leading-none text-[var(--sidebar-foreground)]">
           {engine.loading()
             ? t("status.connecting")
             : engine.snapshot()

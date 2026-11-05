@@ -14,6 +14,7 @@ type Messages = Record<string, string>;
 const zh: Messages = {
   "app.lanOnly": "仅局域网",
   "nav.chat": "消息",
+  "nav.clipboard": "剪贴板",
   "nav.devices": "设备",
   "nav.settings": "设置",
   "nav.primary": "主导航",
@@ -549,6 +550,7 @@ const zh: Messages = {
 const en: Messages = {
   "app.lanOnly": "LAN only",
   "nav.chat": "Messages",
+  "nav.clipboard": "Clipboard",
   "nav.devices": "Devices",
   "nav.settings": "Settings",
   "nav.primary": "Primary navigation",

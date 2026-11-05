@@ -58,10 +58,13 @@ export function PairingQrDialog(props: { open: boolean; onOpenChange: (open: boo
       description={t("pairing.myQrBody")}
       width="sm"
     >
-      <Show when={svg()} fallback={<p class="fx-muted">{t("pairing.myQrUnavailable")}</p>}>
-        <div class="fx-qr" innerHTML={svg()} />
+      <Show
+        when={svg()}
+        fallback={<p class="text-xs text-muted-foreground">{t("pairing.myQrUnavailable")}</p>}
+      >
+        <div class="flex justify-center rounded-lg bg-white p-3" innerHTML={svg()} />
       </Show>
-      <p class="fx-note fx-numeric fx-qr-address">
+      <p class="text-center font-mono text-xs text-muted-foreground">
         {status()?.device_name} · {address()}
       </p>
     </Dialog>

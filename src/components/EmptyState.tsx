@@ -1,27 +1,27 @@
-import { Show, type JSX } from "solid-js";
+import type { JSX } from "solid-js";
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from "../ui/empty";
 
+/**
+ * The shared "nothing here yet" panel.
+ *
+ * A thin wrapper over the component library's Empty so every caller gets the
+ * same spacing and colours without repeating the composition. `body` is the
+ * sentence under the title; `note` is the smaller print below it.
+ */
 export function EmptyState(props: {
-  icon?: JSX.Element;
+  icon: JSX.Element;
   title: string;
-  body: string;
+  body?: string;
   note?: string;
   action?: JSX.Element;
 }) {
   return (
-    <section class="fx-empty">
-      <Show when={props.icon}>
-        <div class="fx-empty-icon" aria-hidden="true">
-          {props.icon}
-        </div>
-      </Show>
-      <h3>{props.title}</h3>
-      <p>{props.body}</p>
-      <Show when={props.note}>
-        <p class="fx-empty-note">{props.note}</p>
-      </Show>
-      <Show when={props.action}>
-        <div class="fx-empty-action">{props.action}</div>
-      </Show>
-    </section>
+    <Empty class="py-10">
+      <EmptyMedia variant="icon">{props.icon}</EmptyMedia>
+      <EmptyTitle>{props.title}</EmptyTitle>
+      {props.body ? <EmptyDescription>{props.body}</EmptyDescription> : null}
+      {props.note ? <p class="text-xs text-muted-foreground">{props.note}</p> : null}
+      {props.action}
+    </Empty>
   );
 }

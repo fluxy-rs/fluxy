@@ -25,22 +25,24 @@ export function HomePage() {
   const nearby = () => snapshot().peers.filter((peer) => !peer.trusted);
 
   return (
-    <div class="fx-page">
-      <header class="fx-page-head">
+    <div class="mx-auto flex w-full max-w-[60rem] flex-col gap-4">
+      <header class="flex items-end justify-between gap-4">
         <div>
-          <h1>{t("home.title")}</h1>
-          <p>{t("home.subtitle")}</p>
+          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
+            {t("home.title")}
+          </h1>
+          <p class="text-body-sm text-muted-foreground">{t("home.subtitle")}</p>
         </div>
-        <div class="fx-page-meta">
-          <span class="fx-meta-chip">
+        <div class="flex items-center gap-2">
+          <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
             <ShieldCheck size={14} aria-hidden="true" />
             {t("home.trustedCount", { count: peers().length })}
           </span>
-          <span class="fx-meta-chip">
+          <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
             <Wifi size={14} aria-hidden="true" />
             {t("home.nearbyCount", { count: nearby().length })}
           </span>
-          <div class="fx-home-qr">
+          <div class="flex justify-center p-4">
             <Button variant="outline" onClick={() => setQrOpen(true)} icon={<QrCode size={15} />}>
               {t("pairing.myQrTitle")}
             </Button>
@@ -56,7 +58,7 @@ export function HomePage() {
       {/* Trust management lives with the device list, not in Settings: who can
           reach you is the same question as who is around. Collapsed by default
           so it does not compete with the conversation. */}
-      <details class="fx-panel fx-disclosure">
+      <details class="rounded-lg border border-border bg-card">
         <summary>{t("devices.trustedTitle")}</summary>
         <TrustedDevices />
       </details>

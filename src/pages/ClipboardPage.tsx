@@ -1,3 +1,4 @@
+import { platformLabel } from "../lib/platform";
 import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import {
   ArrowDownLeft,
@@ -9,8 +10,6 @@ import {
   Inbox,
   LoaderCircle,
   LockKeyhole,
-  Radio,
-  RadioOff,
   Send,
   ShieldCheck,
   X,
@@ -19,6 +18,7 @@ import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { EmptyState } from "../components/EmptyState";
 import { Button, toast } from "../ui";
+import { Switch } from "../ui/switch";
 import { formatClock, shortId } from "../lib/format";
 import type { ClipboardReceivePolicy, ClipboardShareView } from "../bindings";
 
@@ -190,34 +190,50 @@ export function ClipboardPage() {
     }
   }
 
+  // A template literal in class= is invisible to Tailwind's scanner, so the
+  // state colours have to be written out.
+  const stateChipClass = (state: string) => {
+    const base = "rounded-full px-2 py-0.5 text-label";
+    if (state === "delivered") return `${base} bg-success/10 text-success`;
+    if (state === "expired") return `${base} bg-muted text-muted-foreground`;
+    return `${base} bg-warning/10 text-warning`;
+  };
+
   return (
-    <div class="fx-page">
-      <header class="fx-page-head">
+    <div class="mx-auto flex w-full max-w-[60rem] flex-col gap-4">
+      <header class="flex items-end justify-between gap-4">
         <div>
-          <h1>{t("clipboard.title")}</h1>
-          <p>{t("clipboard.subtitle")}</p>
+          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
+            {t("clipboard.title")}
+          </h1>
+          <p class="text-body-sm text-muted-foreground">{t("clipboard.subtitle")}</p>
         </div>
-        <div class="fx-page-meta">
-          <span class="fx-meta-chip">
-            <ShieldCheck size={14} aria-hidden="true" />
+        <div class="flex items-center gap-2">
+          <span class="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground">
+            <ShieldCheck size={13} aria-hidden="true" />
             {t("app.lanOnly")}
           </span>
-          <span class="fx-meta-chip">
-            <LockKeyhole size={14} aria-hidden="true" />
+          <span class="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground">
+            <LockKeyhole size={13} aria-hidden="true" />
             {t("clipboard.policyChip")}
           </span>
         </div>
       </header>
 
-      <div class="fx-two-column">
-        <div class="fx-stack">
-          <section class="fx-panel fx-panel-main" aria-labelledby="clipboard-send">
-            <header class="fx-panel-head">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+        <div class="flex flex-col gap-4">
+          <section
+            class="overflow-hidden rounded-lg border border-border bg-card"
+            aria-labelledby="clipboard-send"
+          >
+            <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div>
                 <h2 id="clipboard-send">{t("clipboard.sendTitle")}</h2>
-                <p>{t("clipboard.sendBody")}</p>
+                <p class="text-body-sm text-muted-foreground">{t("clipboard.sendBody")}</p>
               </div>
-              <span class="fx-status-pill is-pending">{t("clipboard.manualSend")}</span>
+              <span class="rounded-full border border-border px-2 py-0.5 text-label text-muted-foreground">
+                {t("clipboard.manualSend")}
+              </span>
             </header>
             <Show
               when={onlineTrusted().length > 0}
@@ -230,28 +246,32 @@ export function ClipboardPage() {
                 />
               }
             >
-              <div class="fx-clipboard-peers">
-                <p class="fx-clipboard-field-label">{t("clipboard.chooseDevice")}</p>
-                <ul class="fx-peer-choice-list">
+              <div class="flex flex-col gap-2 px-4 py-3">
+                <p class="text-xs font-medium text-muted-foreground">
+                  {t("clipboard.chooseDevice")}
+                </p>
+                <ul class="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-2">
                   <For each={onlineTrusted()}>
                     {(peer) => (
                       <li>
                         <button
                           type="button"
-                          class="fx-peer-choice"
-                          classList={{
-                            "is-selected": selectedId() === peer.device_id,
-                          }}
+                          class="flex w-full items-center gap-2.5 rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-accent"
                           onClick={() => setSelectedId(peer.device_id)}
                           aria-pressed={selectedId() === peer.device_id}
                         >
-                          <span class="fx-status-dot is-ready" aria-hidden="true" />
-                          <span class="fx-peer-choice-main">
-                            <strong>{peer.name}</strong>
-                            <span>{peer.platform}</span>
+                          <span
+                            class="size-2 shrink-0 rounded-full bg-success"
+                            aria-hidden="true"
+                          />
+                          <span class="flex min-w-0 flex-1 items-center gap-1.5">
+                            <strong class="truncate text-body font-semibold">{peer.name}</strong>
+                            <span class="shrink-0 text-micro text-muted-foreground">
+                              {platformLabel(peer.platform)}
+                            </span>
                           </span>
                           <Show when={selectedId() === peer.device_id}>
-                            <Check size={15} class="fx-peer-choice-check" aria-hidden="true" />
+                            <Check size={15} class="shrink-0 text-primary" aria-hidden="true" />
                           </Show>
                         </button>
                       </li>
@@ -259,15 +279,17 @@ export function ClipboardPage() {
                   </For>
                 </ul>
               </div>
-              <div class="fx-clipboard-send-row">
-                <div class="fx-clipboard-hint">
+              <div class="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+                <div class="text-xs text-muted-foreground">
                   <Clipboard size={16} aria-hidden="true" />
-                  <p>{t("clipboard.readHint")}</p>
+                  <p class="text-body-sm">{t("clipboard.readHint")}</p>
                 </div>
                 <Button
                   onClick={() => void shareCurrent()}
                   disabled={!selectedPeer() || sending()}
-                  icon={sending() ? <LoaderCircle size={15} class="fx-spin" /> : <Send size={15} />}
+                  icon={
+                    sending() ? <LoaderCircle size={15} class="animate-spin" /> : <Send size={15} />
+                  }
                 >
                   {sending() ? t("clipboard.sending") : t("clipboard.sendButton")}
                 </Button>
@@ -275,30 +297,35 @@ export function ClipboardPage() {
             </Show>
           </section>
 
-          <section class="fx-panel" aria-labelledby="clipboard-history">
-            <header class="fx-panel-head">
+          <section
+            class="overflow-hidden rounded-lg border border-border bg-card"
+            aria-labelledby="clipboard-history"
+          >
+            <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div>
                 <h2 id="clipboard-history">{t("clipboard.historyTitle")}</h2>
-                <p>{t("clipboard.historyBody")}</p>
+                <p class="text-body-sm text-muted-foreground">{t("clipboard.historyBody")}</p>
               </div>
               <History size={15} aria-hidden="true" />
             </header>
             <Show
               when={history().length > 0}
-              fallback={<p class="fx-note">{t("clipboard.historyEmpty")}</p>}
+              fallback={
+                <p class="px-4 py-3 text-xs text-muted-foreground">{t("clipboard.historyEmpty")}</p>
+              }
             >
-              <ul class="fx-clipboard-history">
+              <ul class="flex flex-col divide-y divide-border">
                 <For each={history()}>
                   {(share) => (
-                    <li class="fx-clipboard-history-row">
-                      <span class="fx-clipboard-history-icon" aria-hidden="true">
+                    <li class="flex items-start gap-2.5 px-4 py-2.5">
+                      <span class="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true">
                         {share.direction === "sent" ? (
                           <ArrowUpRight size={14} />
                         ) : (
                           <ArrowDownLeft size={14} />
                         )}
                       </span>
-                      <span class="fx-clipboard-history-main">
+                      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                         <strong>
                           {share.direction === "sent"
                             ? t("clipboard.to", {
@@ -308,22 +335,24 @@ export function ClipboardPage() {
                                 name: peerName(share.device_id),
                               })}
                         </strong>
-                        <span class="fx-clipboard-history-preview">
+                        <span class="truncate text-sm">
                           {share.preview || t("clipboard.previewEmpty")}
                         </span>
-                        <span class="fx-numeric fx-muted">
+                        <span class="font-mono text-label text-muted-foreground">
                           {t(`clipboard.direction.${share.direction}`)} ·{" "}
                           {formatBytes(share.size_bytes)}
                         </span>
                       </span>
-                      <span class="fx-clipboard-history-meta">
+                      <span class="flex shrink-0 items-center gap-2 text-label text-muted-foreground">
                         <span
-                          class={`fx-state ${share.state}`}
+                          class={stateChipClass(share.state)}
                           title={t(`clipboard.state.${share.state}`)}
                         >
                           {t(`clipboard.state.${share.state}`)}
                         </span>
-                        <time class="fx-numeric">{formatClock(share.created_at_ms, locale())}</time>
+                        <time class="font-mono text-label">
+                          {formatClock(share.created_at_ms, locale())}
+                        </time>
                       </span>
                     </li>
                   )}
@@ -333,52 +362,59 @@ export function ClipboardPage() {
           </section>
         </div>
 
-        <aside class="fx-stack">
-          <section class="fx-panel" aria-labelledby="clipboard-incoming">
-            <header class="fx-panel-head">
-              <div>
+        <aside class="flex flex-col gap-4">
+          <section
+            class="overflow-hidden rounded-lg border border-border bg-card"
+            aria-labelledby="clipboard-incoming"
+          >
+            <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <div class="min-w-0">
                 <h2 id="clipboard-incoming">{t("clipboard.incomingTitle")}</h2>
-                <p>{t("clipboard.incomingBody")}</p>
+                <p class="text-body-sm text-muted-foreground">{t("clipboard.incomingBody")}</p>
               </div>
-              <span class="fx-clipboard-count">
+              <span class="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 <Inbox size={14} aria-hidden="true" />
                 {pendingIncoming().length}
               </span>
             </header>
             <Show
               when={pendingIncoming().length > 0}
-              fallback={<p class="fx-note">{t("clipboard.incomingEmpty")}</p>}
+              fallback={
+                <p class="px-4 py-3 text-xs text-muted-foreground">
+                  {t("clipboard.incomingEmpty")}
+                </p>
+              }
             >
-              <ul class="fx-clipboard-incoming">
+              <ul class="flex flex-col divide-y divide-border">
                 <For each={pendingIncoming()}>
                   {(share) => (
-                    <li class="fx-clipboard-offer">
-                      <div class="fx-clipboard-offer-head">
+                    <li class="flex flex-col gap-2 px-4 py-3">
+                      <div class="flex items-center justify-between gap-2">
                         <div>
                           <strong>{peerName(share.device_id)}</strong>
-                          <span class="fx-clipboard-meta">
+                          <span class="flex items-center gap-2 text-label text-muted-foreground">
                             <Clock3 size={11} aria-hidden="true" />
                             {remaining(share)}
                           </span>
                         </div>
-                        <span class={`fx-state ${share.state}`}>
+                        <span class={stateChipClass(share.state)}>
                           {t(`clipboard.state.${share.state}`)}
                         </span>
                       </div>
-                      <p class="fx-clipboard-preview">{share.preview}</p>
-                      <div class="fx-clipboard-meta">
+                      <p class="line-clamp-3 text-sm text-muted-foreground">{share.preview}</p>
+                      <div class="flex items-center gap-2 text-label text-muted-foreground">
                         <span>{formatBytes(share.size_bytes)}</span>
                         <span>{t("clipboard.previewLabel")}</span>
                       </div>
                       <Show when={share.state === "offered" && share.expires_at_ms > now()}>
-                        <div class="fx-clipboard-actions">
+                        <div class="flex items-center gap-2">
                           <Button
                             size="xs"
                             onClick={() => void accept(share)}
                             disabled={pendingAction() === share.offer_id}
                             icon={
                               pendingAction() === share.offer_id ? (
-                                <LoaderCircle size={13} class="fx-spin" />
+                                <LoaderCircle size={13} class="animate-spin" />
                               ) : (
                                 <Check size={13} />
                               )
@@ -398,8 +434,8 @@ export function ClipboardPage() {
                         </div>
                       </Show>
                       <Show when={share.state === "accepted"}>
-                        <p class="fx-clipboard-waiting">
-                          <LoaderCircle size={12} class="fx-spin" />
+                        <p class="flex items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+                          <LoaderCircle size={12} class="animate-spin" />
                           {t("clipboard.waitingText")}
                         </p>
                       </Show>
@@ -408,33 +444,41 @@ export function ClipboardPage() {
                 </For>
               </ul>
             </Show>
-            <p class="fx-note">{t("clipboard.incomingNote")}</p>
+            <p class="px-4 py-3 text-xs text-muted-foreground">{t("clipboard.incomingNote")}</p>
           </section>
 
-          <section class="fx-panel" aria-labelledby="clipboard-policy">
-            <header class="fx-panel-head">
+          <section
+            class="overflow-hidden rounded-lg border border-border bg-card"
+            aria-labelledby="clipboard-policy"
+          >
+            <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div>
                 <h2 id="clipboard-policy">{t("clipboard.policyTitle")}</h2>
               </div>
               <LockKeyhole size={15} aria-hidden="true" />
             </header>
-            <p class="fx-note">{t("clipboard.policyBody")}</p>
+            <p class="px-4 py-3 text-xs text-muted-foreground">{t("clipboard.policyBody")}</p>
             <Show
               when={trusted().length > 0}
-              fallback={<p class="fx-note">{t("clipboard.policyEmpty")}</p>}
+              fallback={
+                <p class="px-4 py-3 text-xs text-muted-foreground">{t("clipboard.policyEmpty")}</p>
+              }
             >
-              <ul class="fx-policy-list">
+              <ul class="flex flex-col divide-y divide-border">
                 <For each={trusted()}>
                   {(peer) => (
-                    <li class="fx-policy-row">
-                      <div class="fx-policy-peer">
-                        <strong>{peer.name}</strong>
-                        <span>
-                          {peer.platform} · {shortId(peer.device_id, 12)}
+                    <li class="flex flex-col gap-2 px-4 py-3">
+                      <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <strong class="text-body font-semibold">{peer.name}</strong>
+                        <span class="text-micro text-muted-foreground">
+                          {platformLabel(peer.platform)}
+                        </span>
+                        <span class="font-mono text-micro text-muted-foreground">
+                          {shortId(peer.device_id, 12)}
                         </span>
                       </div>
                       <div
-                        class="fx-policy-options"
+                        class="flex flex-wrap gap-1"
                         role="group"
                         aria-label={t("clipboard.policyFor", {
                           name: peer.name,
@@ -444,7 +488,7 @@ export function ClipboardPage() {
                           {(option) => (
                             <button
                               type="button"
-                              class="fx-policy-option"
+                              class="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                               classList={{
                                 "is-active": peer.clipboard_policy === option.value,
                                 "is-auto": option.value === "auto",
@@ -458,7 +502,7 @@ export function ClipboardPage() {
                           )}
                         </For>
                       </div>
-                      <p class="fx-policy-hint">
+                      <p class="text-label text-muted-foreground">
                         {t(
                           policyOptions.find((option) => option.value === peer.clipboard_policy)
                             ?.description ?? "clipboard.policyAskBody",
@@ -470,52 +514,47 @@ export function ClipboardPage() {
               </ul>
             </Show>
             <Show when={trusted().some((peer) => peer.clipboard_policy === "auto")}>
-              <p class="fx-policy-warning">{t("clipboard.policyWarning")}</p>
+              <p class="rounded-lg bg-warning/10 px-2.5 py-1.5 text-label text-warning">
+                {t("clipboard.policyWarning")}
+              </p>
             </Show>
-            <div class="fx-field">
-              <button
-                class="fx-switch"
-                type="button"
-                role="switch"
-                aria-checked={snapshot().settings.auto_clipboard}
-                disabled={savingAutoSend()}
-                onClick={() => void toggleAutoSend()}
-              >
-                <span class="fx-switch-track" aria-hidden="true">
-                  <span class="fx-switch-thumb" />
-                </span>
-                <span class="fx-switch-copy">
-                  <strong>{t("clipboard.autoSendLabel")}</strong>
-                  <span>
+            <div class="border-t border-border px-4 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <span class="flex min-w-0 flex-col gap-0.5">
+                  <strong class="text-sm">{t("clipboard.autoSendLabel")}</strong>
+                  <span class="text-xs text-muted-foreground">
                     {snapshot().settings.auto_clipboard
                       ? t("clipboard.autoSendOn")
                       : t("clipboard.autoSendOff")}
                   </span>
                 </span>
-                {snapshot().settings.auto_clipboard ? (
-                  <Radio size={15} aria-hidden="true" />
-                ) : (
-                  <RadioOff size={15} aria-hidden="true" />
-                )}
-              </button>
+                <Switch
+                  checked={snapshot().settings.auto_clipboard}
+                  disabled={savingAutoSend()}
+                  aria-label={t("clipboard.autoSendLabel")}
+                  onCheckedChange={() => void toggleAutoSend()}
+                />
+              </div>
             </div>
             <Show when={snapshot().settings.auto_clipboard}>
-              <p class="fx-note">
+              <p class="px-4 py-3 text-xs text-muted-foreground">
                 {onlineTrusted().length > 0
                   ? t("clipboard.autoSendTargets", {
                       count: String(onlineTrusted().length),
                     })
                   : t("clipboard.autoSendNoTargets")}
               </p>
-              <p class="fx-note">{t("clipboard.autoSendLoopNote")}</p>
+              <p class="px-4 py-3 text-xs text-muted-foreground">
+                {t("clipboard.autoSendLoopNote")}
+              </p>
             </Show>
-            <dl class="fx-definition-list">
+            <dl class="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
               <div>
                 <dt>{t("clipboard.sizeLimitLabel")}</dt>
                 <dd>{t("clipboard.sizeLimit")}</dd>
               </div>
             </dl>
-            <p class="fx-note">{t("clipboard.autoOffNote")}</p>
+            <p class="px-4 py-3 text-xs text-muted-foreground">{t("clipboard.autoOffNote")}</p>
           </section>
         </aside>
       </div>

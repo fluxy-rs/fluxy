@@ -78,7 +78,7 @@ export function IncomingOfferDialog() {
         </>
       }
     >
-      <p class="fx-note">{t("transfers.offerNote")}</p>
+      <p class="text-xs text-muted-foreground">{t("transfers.offerNote")}</p>
     </Dialog>
   );
 }

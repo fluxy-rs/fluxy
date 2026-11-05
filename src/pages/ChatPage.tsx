@@ -7,7 +7,7 @@ export function ChatPage() {
   const params = useParams();
   const navigate = useNavigate();
   return (
-    <div class="fx-page fx-page-chat">
+    <div class="flex min-h-0 flex-1 flex-col">
       <ChatWorkspace
         selectedId={params.deviceId}
         onSelect={(deviceId) => navigate(deviceId ? `/chat/${deviceId}` : "/chat")}

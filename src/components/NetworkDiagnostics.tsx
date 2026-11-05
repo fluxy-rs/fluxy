@@ -52,12 +52,28 @@ export function NetworkDiagnostics() {
     }
   }
 
+  // Tailwind cannot see a class built from a signal, so the tones are spelled
+  // out here instead of appended to a base string.
+  const statusPillClass = (value: string) => {
+    const base = "rounded-full border px-2 py-0.5 text-label";
+    if (value === "is-ready") return `${base} border-success/40 bg-success/10 text-success`;
+    if (value === "is-warn") return `${base} border-warning/40 bg-warning/10 text-warning`;
+    if (value === "is-danger")
+      return `${base} border-destructive/40 bg-destructive/10 text-destructive`;
+    return `${base} border-border text-muted-foreground`;
+  };
+
   return (
-    <section class="fx-panel fx-network-panel" aria-labelledby="network-heading">
-      <header class="fx-panel-head">
+    <section
+      class="overflow-hidden rounded-lg border border-border bg-card"
+      aria-labelledby="network-heading"
+    >
+      <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 id="network-heading">{t("network.title")}</h2>
-          <p>{t("network.body")}</p>
+          <h2 id="network-heading" class="text-title font-[620] tracking-[-0.012em]">
+            {t("network.title")}
+          </h2>
+          <p class="text-body-sm text-muted-foreground">{t("network.body")}</p>
         </div>
         <Button
           variant="outline"
@@ -69,37 +85,37 @@ export function NetworkDiagnostics() {
         </Button>
       </header>
 
-      <div class="fx-network-banner">
-        <span class={`fx-status-pill ${tone()}`}>
+      <div class="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2 text-xs">
+        <span class={statusPillClass(tone())}>
           <Network size={13} aria-hidden="true" />
           {t(stateKey())}
         </span>
-        <span class="fx-network-detail">{network().detail}</span>
+        <span class="px-4 py-3 text-xs text-muted-foreground">{network().detail}</span>
       </div>
 
       <Show when={network().state === "unavailable" || network().state === "listener_only"}>
-        <div class="fx-network-warning">
+        <div class="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
           <ShieldAlert size={16} aria-hidden="true" />
-          <p>{t("network.blocked")}</p>
+          <p class="text-body-sm text-muted-foreground">{t("network.blocked")}</p>
         </div>
       </Show>
 
-      <dl class="fx-definition-list fx-definition-2col">
+      <dl class="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
         <div>
           <dt>{t("network.interface")}</dt>
           <dd>{network().interface ?? t("network.none")}</dd>
         </div>
         <div>
           <dt>{t("network.localAddress")}</dt>
-          <dd class="fx-numeric">{network().local_address ?? t("network.none")}</dd>
+          <dd class="font-mono text-xs">{network().local_address ?? t("network.none")}</dd>
         </div>
         <div>
           <dt>{t("network.listenAddr")}</dt>
-          <dd class="fx-numeric">{network().listen_addr ?? t("network.none")}</dd>
+          <dd class="font-mono text-xs">{network().listen_addr ?? t("network.none")}</dd>
         </div>
         <div>
           <dt>{t("network.service")}</dt>
-          <dd class="fx-numeric">{network().mdns_service}</dd>
+          <dd class="font-mono text-xs">{network().mdns_service}</dd>
         </div>
         <div>
           <dt>{t("network.advertised")}</dt>
@@ -111,7 +127,7 @@ export function NetworkDiagnostics() {
         </div>
         <div>
           <dt>{t("network.nearby")}</dt>
-          <dd class="fx-numeric">{network().nearby_count}</dd>
+          <dd class="font-mono text-xs">{network().nearby_count}</dd>
         </div>
         <div>
           <dt>{t("network.fallback")}</dt>
@@ -129,47 +145,47 @@ export function NetworkDiagnostics() {
         <Show when={network().fallback_gateway}>
           <div>
             <dt>{t("network.fallbackGateway")}</dt>
-            <dd class="fx-numeric">{network().fallback_gateway}</dd>
+            <dd class="font-mono text-xs">{network().fallback_gateway}</dd>
           </div>
         </Show>
         <Show when={network().fallback_peers > 0}>
           <div>
             <dt>{t("network.fallbackPeers")}</dt>
-            <dd class="fx-numeric">{network().fallback_peers}</dd>
+            <dd class="font-mono text-xs">{network().fallback_peers}</dd>
           </div>
         </Show>
         <Show when={network().fallback_targets.length > 0}>
-          <div class="fx-definition-wide">
+          <div class="col-span-2 flex flex-col gap-1">
             <dt>{t("network.fallbackTargets")}</dt>
-            <dd class="fx-network-addresses">
+            <dd class="flex flex-col gap-0.5 font-mono text-xs">
               <For each={network().fallback_targets}>
-                {(target) => <span class="fx-numeric">{target}</span>}
+                {(target) => <span class="font-mono text-xs">{target}</span>}
               </For>
             </dd>
           </div>
         </Show>
-        <div class="fx-definition-wide">
+        <div class="col-span-2 flex flex-col gap-1">
           <dt>{t("network.interfaces")}</dt>
-          <dd class="fx-network-addresses">
+          <dd class="flex flex-col gap-0.5 font-mono text-xs">
             <Show
               when={network().local_addresses.length > 0}
-              fallback={<span class="fx-muted">{t("network.none")}</span>}
+              fallback={<span class="text-xs text-muted-foreground">{t("network.none")}</span>}
             >
               <For each={network().local_addresses}>
-                {(address) => <span class="fx-numeric">{address}</span>}
+                {(address) => <span class="font-mono text-xs">{address}</span>}
               </For>
             </Show>
           </dd>
         </div>
       </dl>
       <Show when={network().fallback_last_error}>
-        <p class="fx-note">
+        <p class="px-4 py-3 text-xs text-muted-foreground">
           {t("network.fallbackError", {
             message: network().fallback_last_error ?? "",
           })}
         </p>
       </Show>
-      <p class="fx-note">{t("network.note")}</p>
+      <p class="px-4 py-3 text-xs text-muted-foreground">{t("network.note")}</p>
     </section>
   );
 }
