@@ -1,0 +1,1 @@
+export { AvatarFallback } from "./AvatarFallback";

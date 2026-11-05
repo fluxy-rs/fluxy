@@ -19,7 +19,7 @@ export function Button(props: AppButtonProps) {
       {...rest}
       type={local.type ?? "button"}
       variant={mapVariant(local.variant)}
-      class={`fx-button ${local.block ? "fx-button-block" : ""} ${local.class ?? ""}`}
+      class={local.block ? `w-full ${local.class ?? ""}` : local.class}
     />
   );
 }

@@ -151,7 +151,8 @@ export function Dialog(props: AppDialogProps) {
         ref={(element) => {
           surface = element;
         }}
-        class={`fx-dialog ${local.width === "sm" ? "fx-dialog-sm" : ""}`}
+        class="max-w-lg gap-4 p-5"
+        classList={{ "max-w-sm": local.width === "sm" }}
         aria-modal="true"
         tabindex="-1"
         showCloseButton={false}
@@ -163,13 +164,16 @@ export function Dialog(props: AppDialogProps) {
           </Show>
         </DialogHeader>
         <Show when={local.children}>
-          <div class="fx-dialog-body">{local.children}</div>
+          <div class="flex flex-col gap-3 text-sm">{local.children}</div>
         </Show>
         <Show when={local.footer}>
           <DialogFooter>{local.footer}</DialogFooter>
         </Show>
         <Show when={local.dismissible !== false}>
-          <DialogClose class="fx-dialog-close fx-icon-button" aria-label={t("common.close")}>
+          <DialogClose
+            class="absolute top-3 right-3 grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={t("common.close")}
+          >
             <X size={15} aria-hidden="true" />
           </DialogClose>
         </Show>

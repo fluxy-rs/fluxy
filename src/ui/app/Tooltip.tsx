@@ -5,10 +5,10 @@ import { Button } from "./Button";
 export function Tooltip(props: { label: string; children: JSX.Element }) {
   return (
     <NeutTooltip>
-      <TooltipTrigger component={Button} variant="ghost" size="sm" class="fx-tooltip-trigger">
+      <TooltipTrigger component={Button} variant="ghost" size="sm" class="size-8 p-0">
         {props.children}
       </TooltipTrigger>
-      <TooltipContent class="fx-tooltip">{props.label}</TooltipContent>
+      <TooltipContent class="text-xs">{props.label}</TooltipContent>
     </NeutTooltip>
   );
 }
@@ -26,14 +26,15 @@ export function IconButton(props: {
         component={Button}
         variant="ghost"
         size="sm"
-        class={`fx-icon-button ${props.active ? "is-active" : ""}`}
+        class="size-8 p-0"
+        classList={{ "bg-muted": props.active }}
         aria-label={props.label}
         onClick={props.onClick}
         disabled={props.disabled}
       >
         {props.children}
       </TooltipTrigger>
-      <TooltipContent class="fx-tooltip">{props.label}</TooltipContent>
+      <TooltipContent class="text-xs">{props.label}</TooltipContent>
     </NeutTooltip>
   );
 }

@@ -86,6 +86,8 @@ export function getDocumentDirection(): "rtl" | "ltr" | "auto" {
   return dir as "rtl" | "ltr" | "auto";
 }
 
+/**
+ */
 export function getViewportLayoutClass(position: Position, expanded: boolean): string {
   if (!expanded) return "grid";
   return position.startsWith("top") ? "flex flex-col" : "flex flex-col-reverse";

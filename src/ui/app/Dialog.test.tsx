@@ -59,7 +59,7 @@ function renderDialog(options: Parameters<typeof Host>[0] = {}) {
 }
 
 function surface(): HTMLElement {
-  const element = document.querySelector<HTMLElement>(".fx-dialog");
+  const element = document.querySelector<HTMLElement>('[role="dialog"]');
   if (!element) throw new Error("the dialog is not open");
   return element;
 }

@@ -14,7 +14,7 @@ export default defineConfig({
     restoreMocks: true,
     server: {
       deps: {
-        inline: ["lucide-solid", "@neut/ui"],
+        inline: ["lucide-solid"],
       },
     },
   },

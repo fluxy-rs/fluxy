@@ -1,10 +1,14 @@
 import type { JSX } from "solid-js";
 import { type Action, isAction, type Position, type ToastT } from "./Toast.types";
 
+/**
+ */
 export function getToastAction(value: ToastT["action"]): Action | undefined {
   return isAction(value) ? value : undefined;
 }
 
+/**
+ */
 export function resolveToastContent(value: ToastT["title"]): JSX.Element {
   return typeof value === "function" ? value() : value;
 }
@@ -17,6 +21,8 @@ export function isFrontToast(index: number): boolean {
   return index === 0;
 }
 
+/**
+ */
 export function getCollapsedTransform(options: {
   index: number;
   gap: number;
@@ -30,6 +36,8 @@ export function getCollapsedTransform(options: {
   return `translateY(calc(${lift * gap * index}px)) scale(${scale})`;
 }
 
+/**
+ */
 export function getToastStyle(options: {
   toast: ToastT;
   index: number;
@@ -54,6 +62,8 @@ export function getToastStyle(options: {
   } as JSX.CSSProperties;
 }
 
+/**
+ */
 export function getAnimationClasses(options: {
   index: number;
   expanded: boolean;
