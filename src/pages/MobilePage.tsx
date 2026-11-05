@@ -356,12 +356,10 @@ export function MobilePage() {
   }
 
   return (
-    <main class="flex flex-col gap-3">
-      <header class="flex items-center gap-3 border-b border-border px-4 py-3">
+    <main class="flex flex-col gap-3 px-4 pb-4">
+      <header class="flex items-center gap-3 border-b border-border py-3">
         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
-            {t("nav.devices")}
-          </h1>
+          <h1 class="text-heading font-[620] tracking-[-0.015em]">{t("nav.devices")}</h1>
           <span class="font-mono text-xs text-muted-foreground">
             {status()?.device_name} · {status()?.listen_port}
           </span>
@@ -393,21 +391,25 @@ export function MobilePage() {
       </header>
 
       <Show when={error()}>
-        <p class="text-xs text-destructive" role="alert">
+        <p class="px-4 py-2 text-label text-destructive" role="alert">
           {error()}
         </p>
       </Show>
       <Show when={notice()}>
-        <p class="text-xs text-muted-foreground">{notice()}</p>
+        <p class="px-4 text-label text-muted-foreground">{notice()}</p>
       </Show>
 
       <section class="overflow-hidden rounded-lg border border-border bg-card">
-        <h2 class="text-title font-[620] tracking-[-0.012em]">{t("mobile.nearbyTitle")}</h2>
+        <h2 class="border-b border-border px-4 py-3 text-title font-[620] tracking-[-0.012em]">
+          {t("mobile.nearbyTitle")}
+        </h2>
         <Show
           when={nearby().length > 0}
-          fallback={<p class="text-xs text-muted-foreground">{t("mobile.nearbyEmpty")}</p>}
+          fallback={
+            <p class="px-4 py-3 text-body-sm text-muted-foreground">{t("mobile.nearbyEmpty")}</p>
+          }
         >
-          <ul class="flex flex-col gap-2 px-4 py-3">
+          <ul class="flex flex-col gap-2 p-3">
             <For each={nearby()}>
               {(peer) => {
                 const open = () => expanded() === peer.device_id;
@@ -418,77 +420,93 @@ export function MobilePage() {
                           what this machine is. Opening a conversation is a
                           separate, explicit action, so a glance at the
                           details never navigates away by accident. */}
-                      <button
-                        type="button"
-                        class="flex items-center gap-2.5"
-                        aria-expanded={open()}
-                        onClick={() => setExpanded(open() ? null : peer.device_id)}
-                      >
-                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <strong>{peer.name}</strong>
-                          <span class="text-xs text-muted-foreground">{peerSubtitle(peer)}</span>
-                        </span>
-                        <ChevronDown
-                          size={16}
-                          class="size-4 shrink-0 text-muted-foreground transition-transform"
-                          aria-hidden="true"
-                        />
-                      </button>
-                      <Show
-                        when={peer.trusted}
-                        fallback={
-                          <Button
-                            variant="primary"
-                            disabled={busy()}
-                            onClick={() => void pairWith(peer.device_id)}
-                          >
-                            {t("mobile.nearbyPair")}
-                          </Button>
-                        }
-                      >
+                      <div class="flex items-center gap-2">
                         <button
                           type="button"
-                          class="w-full justify-center"
-                          onClick={() => navigate(`/chat/${peer.device_id}`)}
+                          class="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          aria-expanded={open()}
+                          onClick={() => setExpanded(open() ? null : peer.device_id)}
                         >
-                          <MessageCircle size={15} aria-hidden="true" />
-                          {t("mobile.openChat")}
+                          <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <strong class="truncate text-body font-semibold">{peer.name}</strong>
+                            <span class="truncate text-label text-muted-foreground">
+                              {peerSubtitle(peer)}
+                            </span>
+                          </span>
+                          <ChevronDown
+                            size={16}
+                            class="size-4 shrink-0 text-muted-foreground transition-transform"
+                            aria-hidden="true"
+                          />
                         </button>
-                      </Show>
+                        <Show
+                          when={peer.trusted}
+                          fallback={
+                            <Button
+                              variant="primary"
+                              disabled={busy()}
+                              onClick={() => void pairWith(peer.device_id)}
+                            >
+                              {t("mobile.nearbyPair")}
+                            </Button>
+                          }
+                        >
+                          <button
+                            type="button"
+                            class="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => navigate(`/chat/${peer.device_id}`)}
+                          >
+                            <MessageCircle size={14} aria-hidden="true" />
+                            {t("mobile.openChat")}
+                          </button>
+                        </Show>
+                      </div>
                     </div>
                     <Show when={open()}>
-                      <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
+                      <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-3 py-3">
                         <Show when={peer.manufacturer}>
                           <div>
-                            <dt>{t("devices.brandLabel")}</dt>
-                            <dd>{peer.manufacturer}</dd>
+                            <dt class="text-label text-muted-foreground">
+                              {t("devices.brandLabel")}
+                            </dt>
+                            <dd class="text-body">{peer.manufacturer}</dd>
                           </div>
                         </Show>
                         <Show when={peer.model}>
                           <div>
-                            <dt>{t("devices.modelLabel")}</dt>
-                            <dd>{peer.model}</dd>
+                            <dt class="text-label text-muted-foreground">
+                              {t("devices.modelLabel")}
+                            </dt>
+                            <dd class="text-body">{peer.model}</dd>
                           </div>
                         </Show>
                         <div>
-                          <dt>{t("devices.platformLabel")}</dt>
-                          <dd>{peer.os_version || peer.platform}</dd>
+                          <dt class="text-label text-muted-foreground">
+                            {t("devices.platformLabel")}
+                          </dt>
+                          <dd class="text-body">{peer.os_version || peer.platform}</dd>
                         </div>
                         <div>
-                          <dt>{t("devices.idLabel")}</dt>
+                          <dt class="text-label text-muted-foreground">{t("devices.idLabel")}</dt>
                           <dd class="font-mono text-xs">{shortId(peer.device_id, 24)}</dd>
                         </div>
                         <Show when={peer.address}>
                           <div>
-                            <dt>{t("devices.addressLabel")}</dt>
+                            <dt class="text-label text-muted-foreground">
+                              {t("devices.addressLabel")}
+                            </dt>
                             <dd class="font-mono text-xs">
                               {peer.address}:{peer.port}
                             </dd>
                           </div>
                         </Show>
                         <div>
-                          <dt>{t("devices.trustLabel")}</dt>
-                          <dd>{peer.trusted ? t("mobile.nearbyPaired") : t("devices.unpaired")}</dd>
+                          <dt class="text-label text-muted-foreground">
+                            {t("devices.trustLabel")}
+                          </dt>
+                          <dd class="text-body">
+                            {peer.trusted ? t("mobile.nearbyPaired") : t("devices.unpaired")}
+                          </dd>
                         </div>
                       </dl>
 
@@ -497,10 +515,10 @@ export function MobilePage() {
                           segmented control needs the full width. */}
                       <Show when={peer.trusted && trustEntry(peer.device_id)}>
                         {(entry) => (
-                          <div class="flex flex-col gap-1 px-4 py-3">
+                          <div class="flex flex-col gap-1 px-3 py-3">
                             <div class="flex flex-col gap-1 border-b border-border py-2 last:border-0">
                               <p class="text-body font-medium">{t("devices.clipboardHeading")}</p>
-                              <span class="text-xs text-muted-foreground">
+                              <span class="text-label text-muted-foreground">
                                 {t("devices.clipboardBody")}
                               </span>
                               <div
@@ -512,7 +530,7 @@ export function MobilePage() {
                                   {([value, label]) => (
                                     <button
                                       type="button"
-                                      class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                                      class="rounded-lg border border-border px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                                       aria-pressed={entry().clipboard_policy === value}
                                       onClick={() =>
                                         void applyClipboardPolicy(peer.device_id, value)
@@ -527,7 +545,7 @@ export function MobilePage() {
 
                             <div class="flex flex-col gap-1 border-b border-border py-2 last:border-0">
                               <p class="text-body font-medium">{t("devices.autoAcceptHeading")}</p>
-                              <span class="text-xs text-muted-foreground">
+                              <span class="text-label text-muted-foreground">
                                 {entry().auto_accept === "inherit"
                                   ? t("devices.autoAcceptInherit", {
                                       value: snapshot()?.settings.auto_accept_transfers
@@ -545,7 +563,7 @@ export function MobilePage() {
                                   {([value, label]) => (
                                     <button
                                       type="button"
-                                      class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                                      class="rounded-lg border border-border px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                                       aria-pressed={entry().auto_accept === value}
                                       onClick={() => void applyAutoAccept(peer.device_id, value)}
                                     >
@@ -558,7 +576,7 @@ export function MobilePage() {
 
                             <div class="flex flex-col gap-1 border-t border-border pt-2">
                               <p class="text-body font-medium">{t("devices.removeTrustHeading")}</p>
-                              <span class="text-xs text-muted-foreground">
+                              <span class="text-label text-muted-foreground">
                                 {t("devices.removeTrustBody")}
                               </span>
                               <Button variant="outline" onClick={() => setConfirmRemove(entry())}>
@@ -585,7 +603,7 @@ export function MobilePage() {
         </Show>
         <Show when={pairingError()}>
           {(failure) => (
-            <p class="text-xs text-destructive" role="alert">
+            <p class="px-4 py-2 text-label text-destructive" role="alert">
               {failure().message}
             </p>
           )}
@@ -674,9 +692,16 @@ export function MobilePage() {
       />
 
       <PairingQrDialog open={qrOpen()} onOpenChange={setQrOpen} />
-      <details class="overflow-hidden rounded-lg border border-border bg-card">
-        <summary>{t("devices.trustedTitle")}</summary>
-        <TrustedDevices />
+      <details class="group overflow-hidden rounded-lg border border-border bg-card">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-title font-[620] tracking-[-0.012em] marker:content-none [&::-webkit-details-marker]:hidden">
+          {t("devices.trustedTitle")}
+          <ChevronDown
+            size={16}
+            class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <TrustedDevices bare />
       </details>
     </main>
   );

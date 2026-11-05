@@ -5,7 +5,13 @@ import { useI18n } from "../i18n";
 import { Button, Dialog, toast } from "../ui";
 import { formatDate, shortId } from "../lib/format";
 
-export function TrustedDevices() {
+export function TrustedDevices(props: {
+  /**
+   * Skip the card shell. The phone already wraps this in a <details>, and two
+   * nested rounded borders read as a broken layout rather than a section.
+   */
+  bare?: boolean;
+}) {
   const engine = useEngine();
   const { t, locale } = useI18n();
   const [target, setTarget] = createSignal<{ device_id: string; name: string } | null>(null);
@@ -31,7 +37,8 @@ export function TrustedDevices() {
 
   return (
     <section
-      class="overflow-hidden rounded-lg border border-border bg-card"
+      class="overflow-hidden"
+      classList={{ "rounded-lg border border-border bg-card": !props.bare }}
       aria-labelledby="trust-heading"
     >
       <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
