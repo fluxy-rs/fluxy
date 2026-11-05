@@ -30,7 +30,6 @@
   },
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "@neut/ui": "^0.0.19",
     "@solidjs/router": "^1.0.1",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-barcode-scanner": "^2.5.3",
