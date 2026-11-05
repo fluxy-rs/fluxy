@@ -28,6 +28,28 @@ Keep `cargo check --target …` away from the target directory that
 the APK dies at startup with a missing `ring_core_…_vaes_avx2` symbol. Use
 `--target-dir target/check-android` for hand-run checks.
 
+### Never `android:build` to verify something on the phone
+
+**`bun tauri android dev` is the only way to check a change on the device.**
+It rebuilds the Rust side, installs, and hot reloads the frontend. `bun run
+android:build` is for one thing only: producing an APK to hand to someone else,
+or to measure transfer performance on a release build. It is never how an agent
+verifies its own work.
+
+This has been got wrong four times. Each time it cost 5-10 minutes to build,
+another install step, and a window where the device ran stale code. The rule is
+not advisory:
+
+| You want to | Run |
+| --- | --- |
+| See a UI change on the phone | `bun tauri android dev` (already running? just edit - it hot reloads) |
+| See a Rust change on the phone | restart `bun tauri android dev` - it rebuilds and installs |
+| Hand someone an installable app | `bun run android:build -- --target aarch64` |
+| Measure throughput on a release profile | `bun run android:build -- --release` |
+
+If `tauri android dev` is already running in a background job, **do not start a
+second one and do not build an APK**. Restart that job, wait for the device to
+come back, then look at it.
 ### Builds for UI work on the phone
 
 A debug APK still embeds the frontend. `bun run android:build` is a *build*, not
