@@ -1,6 +1,6 @@
 import { Show, createEffect, type ParentProps } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { TooltipProvider } from "@neut/ui";
+import { TooltipProvider } from "../ui/tooltip";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";

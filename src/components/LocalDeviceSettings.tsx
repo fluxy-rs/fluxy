@@ -4,6 +4,7 @@ import { SettingsRow } from "./SettingsRow";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { Button, Input, toast } from "../ui";
+import { Switch } from "../ui/switch";
 
 /**
  * Device name and desktop-notification preferences. Both are persisted by the
@@ -202,38 +203,24 @@ export function LocalDeviceSettings() {
           label={t("settings.notificationsToggle")}
           description={t("settings.notificationsBody")}
         >
-          <button
-            class="fx-switch-inline"
-            type="button"
-            role="switch"
-            aria-checked={settings().notifications}
+          <Switch
+            checked={settings().notifications}
             aria-label={t("settings.notificationsToggle")}
             disabled={savingNotifications()}
-            onClick={() => void toggleNotifications()}
-          >
-            <span class="fx-switch-track" aria-hidden="true">
-              <span class="fx-switch-thumb" />
-            </span>
-          </button>
+            onCheckedChange={() => void toggleNotifications()}
+          />
         </SettingsRow>
 
         <SettingsRow
           label={t("settings.autoAcceptToggle")}
           description={t("settings.autoAcceptBody")}
         >
-          <button
-            class="fx-switch-inline"
-            type="button"
-            role="switch"
-            aria-checked={settings().auto_accept_transfers}
+          <Switch
+            checked={settings().auto_accept_transfers}
             aria-label={t("settings.autoAcceptToggle")}
             disabled={savingAutoAccept()}
-            onClick={() => void toggleAutoAccept()}
-          >
-            <span class="fx-switch-track" aria-hidden="true">
-              <span class="fx-switch-thumb" />
-            </span>
-          </button>
+            onCheckedChange={() => void toggleAutoAccept()}
+          />
         </SettingsRow>
 
         <SettingsRow label={t("settings.receiveTitle")} description={settings().receive_dir}>

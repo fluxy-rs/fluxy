@@ -24,3 +24,7 @@ src-tauri/gen/android
 plugins/*/android/build
 plugins/*/android/.tauri
 plugins/*/build
+
+# Local notes that should not be published: what the neut/ui components are
+# missing, written down while the workaround still lives in this repo.
+*.local.md
