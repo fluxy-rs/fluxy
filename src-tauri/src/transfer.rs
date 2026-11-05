@@ -303,6 +303,9 @@ pub struct TransferRecord {
     wire_throttle: Mutex<ProgressThrottle>,
     speed_meter: Mutex<SpeedMeter>,
     pending_accept: Mutex<Option<tokio::sync::oneshot::Sender<PeerDecision>>>,
+    /// Set when the receiver answered with a duplicate frame instead of taking
+    /// the bytes. Nothing landed on disk, so nothing may be exported or opened.
+    deduplicated: std::sync::atomic::AtomicBool,
     source: Mutex<Option<SourcePlan>>,
     offer: Mutex<Option<OfferPlan>>,
     session: Mutex<Option<TransferSession>>,
@@ -339,6 +342,7 @@ impl TransferRecord {
             wire_throttle: Mutex::new(ProgressThrottle::new(PROGRESS_THROTTLE)),
             speed_meter: Mutex::new(SpeedMeter::new()),
             pending_accept: Mutex::new(None),
+            deduplicated: std::sync::atomic::AtomicBool::new(false),
             source: Mutex::new(None),
             offer: Mutex::new(None),
             session: Mutex::new(None),
@@ -444,6 +448,11 @@ pub struct TransferRuntime {
     folders: Mutex<HashMap<Uuid, FolderSelection>>,
     batches: Mutex<HashMap<Uuid, BatchRoot>>,
     batch_sends: Mutex<HashMap<Uuid, Arc<BatchSend>>>,
+    /// Root hashes of files this process has finished receiving. A sender that
+    /// offers identical content again is answered with a duplicate frame
+    /// instead of the whole file. Lifetime-bound on purpose: a file the user
+    /// deleted outside the app would otherwise keep claiming to be present.
+    received_hashes: Mutex<std::collections::HashSet<[u8; 32]>>,
 }
 
 impl TransferRuntime {
@@ -495,6 +504,7 @@ impl TransferRuntime {
             folders: Mutex::new(HashMap::new()),
             batches: Mutex::new(HashMap::new()),
             batch_sends: Mutex::new(HashMap::new()),
+            received_hashes: Mutex::new(std::collections::HashSet::new()),
         })
     }
 
@@ -2136,6 +2146,25 @@ impl TransferRuntime {
             .clone()
             .ok_or_else(|| TransferError::Control("the transfer has no offer".into()))?;
         let manifest = Arc::new(offer.manifest.clone());
+        // Identical content that this process already saved is not sent again:
+        // tell the sender, close the transfer as delivered, and never open a
+        // sink. The index is memory-only, so a file deleted outside the app
+        // between two sends simply transfers as usual.
+        if let Ok(hash) = <[u8; 32]>::try_from(manifest.root_hash.as_slice())
+            && lock(&self.received_hashes).contains(&hash)
+        {
+            record.deduplicated.store(true, Ordering::SeqCst);
+            tracing::info!(file = %record.file_name, "content already present; telling the sender");
+            if let Some(session) = lock(&record.session).clone() {
+                let message = TransferMessage::Duplicate {
+                    transfer_id: record.transfer_id,
+                };
+                async_runtime::spawn(async move {
+                    let _ = session.sender.send_transfer(message).await;
+                });
+            }
+            return Ok(());
+        }
         // The sender mints a new transfer id for every send, and after a restart
         // it cannot reuse the old one, so look the checkpoint up by content
         // first and fall back to the id for the same-process case.
@@ -2456,7 +2485,9 @@ impl TransferRuntime {
 
     fn complete(self: &Arc<Self>, record: &Arc<TransferRecord>) {
         #[cfg(target_os = "android")]
-        self.export_received(record);
+        if !record.deduplicated.load(Ordering::SeqCst) {
+            self.export_received(record);
+        }
         // Record what actually happened, so a slow run can be judged from the log
         // instead of from a bar that moves.
         let elapsed = (now_ms() - record.created_at_ms) as f64 / 1000.0;
@@ -2473,6 +2504,12 @@ impl TransferRuntime {
         record
             .bytes_done
             .store(record.bytes_total, Ordering::SeqCst);
+        if record.direction == TransferDirection::Receive
+            && let Some(offer) = lock(&record.offer).clone()
+            && let Ok(hash) = <[u8; 32]>::try_from(offer.manifest.root_hash.as_slice())
+        {
+            lock(&self.received_hashes).insert(hash);
+        }
         self.emit_transfer(TransferEvent::Completed {
             transfer_id: record.transfer_id.to_string(),
         });
@@ -2785,6 +2822,15 @@ mod tests {
             .control(&id.to_string(), TransferAction::Cancel)
             .unwrap();
         assert_eq!(cancelled.state, TransferState::Cancelled);
+    }
+
+    #[test]
+    fn a_received_root_hash_is_remembered_for_the_process_lifetime() {
+        let (runtime, _dir) = runtime();
+        let hash = [7u8; 32];
+        assert!(!lock(&runtime.received_hashes).contains(&hash));
+        lock(&runtime.received_hashes).insert(hash);
+        assert!(lock(&runtime.received_hashes).contains(&hash));
     }
 
     #[test]

@@ -49,6 +49,7 @@ async fn exchange(control: &mut ControlSession, text: &str) {
             | SessionEvent::TransferReject { .. }
             | SessionEvent::TransferProgress { .. }
             | SessionEvent::TransferComplete { .. }
+            | SessionEvent::TransferDuplicate { .. }
             | SessionEvent::TransferError { .. }
             | SessionEvent::TransferPause { .. }
             | SessionEvent::TransferCancel { .. }

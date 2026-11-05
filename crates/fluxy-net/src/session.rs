@@ -18,8 +18,8 @@ use fluxy_core::{Identity, TrustStore};
 use fluxy_proto::{
     BatchEntry as WireBatchEntry, ChatText, ClipboardAck, ClipboardOffer, ClipboardText, Envelope,
     Error as WireError, MessageAck, MessageKind, ProtoError, TransferAccept, TransferCancel,
-    TransferComplete, TransferError, TransferOffer, TransferPause, TransferProgress,
-    TransferReject, TransferResume, decode_payload, encode_payload,
+    TransferComplete, TransferDuplicate, TransferError, TransferOffer, TransferPause,
+    TransferProgress, TransferReject, TransferResume, decode_payload, encode_payload,
 };
 
 use crate::handshake::{self, HandshakeError, PairingLimiter, PeerSession, make_envelope};
@@ -134,6 +134,10 @@ pub enum TransferMessage {
         transfer_id: Uuid,
         bytes_done: u64,
         bytes_total: u64,
+    },
+    /// The receiver already holds this content, keyed by the offer root hash.
+    Duplicate {
+        transfer_id: Uuid,
     },
     Complete {
         transfer_id: Uuid,
@@ -255,6 +259,10 @@ pub enum SessionEvent {
         bytes_total: u64,
     },
     TransferComplete {
+        transfer_id: Uuid,
+    },
+    /// The peer already holds this content, so nothing was transferred.
+    TransferDuplicate {
         transfer_id: Uuid,
     },
     TransferError {
@@ -729,6 +737,12 @@ fn encode_transfer(message: &TransferMessage) -> (MessageKind, Vec<u8>) {
                 transfer_id: transfer_id.as_bytes().to_vec(),
             }),
         ),
+        TransferMessage::Duplicate { transfer_id } => (
+            MessageKind::TransferDuplicate,
+            encode_payload(&TransferDuplicate {
+                transfer_id: transfer_id.as_bytes().to_vec(),
+            }),
+        ),
         TransferMessage::Error {
             transfer_id,
             code,
@@ -859,6 +873,15 @@ async fn handle_transfer_envelope(
                 return true;
             };
             SessionEvent::TransferComplete { transfer_id }
+        }
+        MessageKind::TransferDuplicate => {
+            let Ok(duplicate) = decode_payload::<TransferDuplicate>(&envelope.payload) else {
+                return true;
+            };
+            let Some(transfer_id) = uuid_from(&duplicate.transfer_id) else {
+                return true;
+            };
+            SessionEvent::TransferDuplicate { transfer_id }
         }
         MessageKind::TransferError => {
             let Ok(error) = decode_payload::<TransferError>(&envelope.payload) else {

@@ -510,6 +510,7 @@ async fn clipboard(
             | SessionEvent::TransferReject { .. }
             | SessionEvent::TransferProgress { .. }
             | SessionEvent::TransferComplete { .. }
+            | SessionEvent::TransferDuplicate { .. }
             | SessionEvent::TransferError { .. }
             | SessionEvent::TransferPause { .. }
             | SessionEvent::TransferCancel { .. }
@@ -1230,6 +1231,9 @@ async fn serve(
                 SessionEvent::TransferComplete { transfer_id } => {
                     println!("transfer-complete id={transfer_id}")
                 }
+                SessionEvent::TransferDuplicate { transfer_id } => {
+                    println!("transfer-duplicate id={transfer_id}")
+                }
                 SessionEvent::TransferError { code, message, .. } => {
                     println!("transfer-error code={code} message={message}")
                 }
@@ -1359,6 +1363,7 @@ async fn chat_once(
         | SessionEvent::TransferReject { .. }
         | SessionEvent::TransferProgress { .. }
         | SessionEvent::TransferComplete { .. }
+        | SessionEvent::TransferDuplicate { .. }
         | SessionEvent::TransferError { .. }
         | SessionEvent::TransferPause { .. }
         | SessionEvent::TransferCancel { .. }
