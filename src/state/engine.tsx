@@ -1,3 +1,4 @@
+import { oldestOffer } from "../lib/offers";
 import {
   createContext,
   createEffect,
@@ -236,8 +237,7 @@ export function EngineProvider(props: ParentProps) {
   const chatMessages = () => snapshot()?.chat.messages ?? [];
   const clipboardShares = () => snapshot()?.clipboard.shares ?? [];
   const transfers = () => snapshot()?.transfers ?? [];
-  const incomingOffer = () =>
-    transfers().find((item) => item.direction === "receive" && item.state === "offered") ?? null;
+  const incomingOffer = () => oldestOffer(transfers());
   const chatBuffers = new Map<string, Partial<ChatMessageView>>();
   let pairingTimer: number | undefined;
 
