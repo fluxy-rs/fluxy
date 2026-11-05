@@ -1,0 +1,1 @@
+export { AvatarBadge } from "./AvatarBadge";

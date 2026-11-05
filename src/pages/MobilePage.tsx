@@ -1,6 +1,6 @@
 import { createEffect, For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
-import { Button, Dialog, toast } from "../ui";
+import { Button, Dialog, Input, toast } from "../ui";
 import { checkPermissions, requestPermissions, scan } from "@tauri-apps/plugin-barcode-scanner";
 import { PairingQrDialog } from "../components/PairingQrDialog";
 import { TrustedDevices } from "../components/TrustedDevices";
@@ -356,20 +356,22 @@ export function MobilePage() {
   }
 
   return (
-    <main class="fx-mobile">
-      <header class="fx-mobile-head fx-mobile-head-row">
-        <div class="fx-mobile-head-titles">
-          <h1>{t("nav.devices")}</h1>
-          <span class="fx-muted fx-numeric">
+    <main class="flex flex-col gap-3">
+      <header class="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
+            {t("nav.devices")}
+          </h1>
+          <span class="font-mono text-xs text-muted-foreground">
             {status()?.device_name} · {status()?.listen_port}
           </span>
         </div>
         {/* The two pairing actions are the only ones this page performs, and
             both are occasional. As icons in the header they stop costing a card
             of vertical space on a 1:1 screen. */}
-        <div class="fx-mobile-head-actions">
+        <div class="flex shrink-0 items-center gap-1">
           <button
-            class="fx-icon-button"
+            class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             type="button"
             aria-label={t("mobile.scanAction")}
             title={t("mobile.scanAction")}
@@ -379,7 +381,7 @@ export function MobilePage() {
             <ScanLine size={20} aria-hidden="true" />
           </button>
           <button
-            class="fx-icon-button"
+            class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             type="button"
             aria-label={t("pairing.myQrTitle")}
             title={t("pairing.myQrTitle")}
@@ -391,42 +393,46 @@ export function MobilePage() {
       </header>
 
       <Show when={error()}>
-        <p class="fx-form-error" role="alert">
+        <p class="text-xs text-destructive" role="alert">
           {error()}
         </p>
       </Show>
       <Show when={notice()}>
-        <p class="fx-form-hint">{notice()}</p>
+        <p class="text-xs text-muted-foreground">{notice()}</p>
       </Show>
 
-      <section class="fx-panel">
-        <h2>{t("mobile.nearbyTitle")}</h2>
+      <section class="overflow-hidden rounded-lg border border-border bg-card">
+        <h2 class="text-title font-[620] tracking-[-0.012em]">{t("mobile.nearbyTitle")}</h2>
         <Show
           when={nearby().length > 0}
-          fallback={<p class="fx-muted">{t("mobile.nearbyEmpty")}</p>}
+          fallback={<p class="text-xs text-muted-foreground">{t("mobile.nearbyEmpty")}</p>}
         >
-          <ul class="fx-mobile-peers">
+          <ul class="flex flex-col gap-2 px-4 py-3">
             <For each={nearby()}>
               {(peer) => {
                 const open = () => expanded() === peer.device_id;
                 return (
                   <li classList={{ "is-open": open() }}>
-                    <div class="fx-mobile-peer">
+                    <div class="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
                       {/* The row body is the disclosure: tapping it reveals
                           what this machine is. Opening a conversation is a
                           separate, explicit action, so a glance at the
                           details never navigates away by accident. */}
                       <button
                         type="button"
-                        class="fx-mobile-peer-main"
+                        class="flex items-center gap-2.5"
                         aria-expanded={open()}
                         onClick={() => setExpanded(open() ? null : peer.device_id)}
                       >
-                        <span class="fx-mobile-peer-copy">
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                           <strong>{peer.name}</strong>
-                          <span class="fx-muted">{peerSubtitle(peer)}</span>
+                          <span class="text-xs text-muted-foreground">{peerSubtitle(peer)}</span>
                         </span>
-                        <ChevronDown size={16} class="fx-mobile-caret" aria-hidden="true" />
+                        <ChevronDown
+                          size={16}
+                          class="size-4 shrink-0 text-muted-foreground transition-transform"
+                          aria-hidden="true"
+                        />
                       </button>
                       <Show
                         when={peer.trusted}
@@ -442,7 +448,7 @@ export function MobilePage() {
                       >
                         <button
                           type="button"
-                          class="fx-mobile-chat-button"
+                          class="w-full justify-center"
                           onClick={() => navigate(`/chat/${peer.device_id}`)}
                         >
                           <MessageCircle size={15} aria-hidden="true" />
@@ -451,7 +457,7 @@ export function MobilePage() {
                       </Show>
                     </div>
                     <Show when={open()}>
-                      <dl class="fx-mobile-facts">
+                      <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
                         <Show when={peer.manufacturer}>
                           <div>
                             <dt>{t("devices.brandLabel")}</dt>
@@ -470,12 +476,12 @@ export function MobilePage() {
                         </div>
                         <div>
                           <dt>{t("devices.idLabel")}</dt>
-                          <dd class="fx-numeric">{shortId(peer.device_id, 24)}</dd>
+                          <dd class="font-mono text-xs">{shortId(peer.device_id, 24)}</dd>
                         </div>
                         <Show when={peer.address}>
                           <div>
                             <dt>{t("devices.addressLabel")}</dt>
-                            <dd class="fx-numeric">
+                            <dd class="font-mono text-xs">
                               {peer.address}:{peer.port}
                             </dd>
                           </div>
@@ -491,12 +497,14 @@ export function MobilePage() {
                           segmented control needs the full width. */}
                       <Show when={peer.trusted && trustEntry(peer.device_id)}>
                         {(entry) => (
-                          <div class="fx-mobile-controls">
-                            <div class="fx-mobile-control">
-                              <p>{t("devices.clipboardHeading")}</p>
-                              <span class="fx-muted">{t("devices.clipboardBody")}</span>
+                          <div class="flex flex-col gap-1 px-4 py-3">
+                            <div class="flex flex-col gap-1 border-b border-border py-2 last:border-0">
+                              <p class="text-body font-medium">{t("devices.clipboardHeading")}</p>
+                              <span class="text-xs text-muted-foreground">
+                                {t("devices.clipboardBody")}
+                              </span>
                               <div
-                                class="fx-choice"
+                                class="flex gap-1"
                                 role="group"
                                 aria-label={t("devices.clipboardHeading")}
                               >
@@ -504,7 +512,7 @@ export function MobilePage() {
                                   {([value, label]) => (
                                     <button
                                       type="button"
-                                      class="fx-choice-item"
+                                      class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                                       aria-pressed={entry().clipboard_policy === value}
                                       onClick={() =>
                                         void applyClipboardPolicy(peer.device_id, value)
@@ -517,9 +525,9 @@ export function MobilePage() {
                               </div>
                             </div>
 
-                            <div class="fx-mobile-control">
-                              <p>{t("devices.autoAcceptHeading")}</p>
-                              <span class="fx-muted">
+                            <div class="flex flex-col gap-1 border-b border-border py-2 last:border-0">
+                              <p class="text-body font-medium">{t("devices.autoAcceptHeading")}</p>
+                              <span class="text-xs text-muted-foreground">
                                 {entry().auto_accept === "inherit"
                                   ? t("devices.autoAcceptInherit", {
                                       value: snapshot()?.settings.auto_accept_transfers
@@ -529,7 +537,7 @@ export function MobilePage() {
                                   : t("devices.autoAcceptBody")}
                               </span>
                               <div
-                                class="fx-choice"
+                                class="flex gap-1"
                                 role="group"
                                 aria-label={t("devices.autoAcceptHeading")}
                               >
@@ -537,7 +545,7 @@ export function MobilePage() {
                                   {([value, label]) => (
                                     <button
                                       type="button"
-                                      class="fx-choice-item"
+                                      class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                                       aria-pressed={entry().auto_accept === value}
                                       onClick={() => void applyAutoAccept(peer.device_id, value)}
                                     >
@@ -548,9 +556,11 @@ export function MobilePage() {
                               </div>
                             </div>
 
-                            <div class="fx-mobile-control is-danger">
-                              <p>{t("devices.removeTrustHeading")}</p>
-                              <span class="fx-muted">{t("devices.removeTrustBody")}</span>
+                            <div class="flex flex-col gap-1 border-t border-border pt-2">
+                              <p class="text-body font-medium">{t("devices.removeTrustHeading")}</p>
+                              <span class="text-xs text-muted-foreground">
+                                {t("devices.removeTrustBody")}
+                              </span>
                               <Button variant="outline" onClick={() => setConfirmRemove(entry())}>
                                 {t("devices.removeTrustAction")}
                               </Button>
@@ -566,8 +576,8 @@ export function MobilePage() {
           </ul>
         </Show>
         <Show when={waiting()}>
-          <div class="fx-mobile-confirm">
-            <p>{t("mobile.pairWaiting")}</p>
+          <div class="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+            <p class="text-body-sm">{t("mobile.pairWaiting")}</p>
             <Button variant="outline" onClick={() => void cancelPairing()}>
               {t("mobile.pairCancel")}
             </Button>
@@ -575,21 +585,23 @@ export function MobilePage() {
         </Show>
         <Show when={pairingError()}>
           {(failure) => (
-            <p class="fx-form-error" role="alert">
+            <p class="text-xs text-destructive" role="alert">
               {failure().message}
             </p>
           )}
         </Show>
         <Show when={pairing()}>
-          <div class="fx-mobile-confirm">
-            <p>{t("mobile.pairCompare")}</p>
-            <p class="fx-mobile-sas fx-numeric">{pairing()?.sas}</p>
+          <div class="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+            <p class="text-body-sm">{t("mobile.pairCompare")}</p>
+            <p class="flex items-center justify-center rounded-lg bg-muted px-3 py-2 font-mono text-sm tracking-[0.3em]">
+              {pairing()?.sas}
+            </p>
             <Button variant="primary" onClick={() => void confirm()}>
               {t("mobile.pairConfirm")}
             </Button>
           </div>
         </Show>
-        <div class="fx-mobile-manual">
+        <div class="flex flex-col gap-2 px-4 py-3">
           <Show
             when={manualOpen()}
             fallback={
@@ -598,32 +610,32 @@ export function MobilePage() {
               </Button>
             }
           >
-            <p>{t("mobile.manualBody")}</p>
-            <label class="fx-field">
+            <p class="text-body-sm text-muted-foreground">{t("mobile.manualBody")}</p>
+            <label class="flex flex-col gap-1.5 px-4 py-3">
               <span>{t("mobile.address")}</span>
-              <input
-                class="fx-input"
+              <Input
                 value={address()}
                 placeholder="192.168.1.8:49784"
-                onInput={(event) => setAddress(event.currentTarget.value)}
+                onInput={(value) => setAddress(String(value))}
               />
             </label>
-            <label class="fx-field">
+            <label class="flex flex-col gap-1.5 px-4 py-3">
               <span>{t("mobile.fingerprint")}</span>
-              <input
-                class="fx-input"
+              <Input
                 value={fingerprint()}
                 placeholder="64 hex characters"
-                onInput={(event) => setFingerprint(event.currentTarget.value)}
+                onInput={(value) => setFingerprint(String(value))}
               />
             </label>
             <Button variant="primary" disabled={busy()} onClick={() => void pair()}>
               {t("mobile.pairAction")}
             </Button>
             <Show when={challenge()}>
-              <div class="fx-mobile-confirm">
-                <p>{t("mobile.pairCompare")}</p>
-                <p class="fx-mobile-sas fx-numeric">{challenge()?.sas}</p>
+              <div class="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+                <p class="text-body-sm">{t("mobile.pairCompare")}</p>
+                <p class="flex items-center justify-center rounded-lg bg-muted px-3 py-2 font-mono text-sm tracking-[0.3em]">
+                  {challenge()?.sas}
+                </p>
                 <Button variant="primary" onClick={() => void confirm()}>
                   {t("mobile.pairConfirm")}
                 </Button>
@@ -662,7 +674,7 @@ export function MobilePage() {
       />
 
       <PairingQrDialog open={qrOpen()} onOpenChange={setQrOpen} />
-      <details class="fx-panel fx-disclosure">
+      <details class="overflow-hidden rounded-lg border border-border bg-card">
         <summary>{t("devices.trustedTitle")}</summary>
         <TrustedDevices />
       </details>

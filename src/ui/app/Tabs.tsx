@@ -12,26 +12,20 @@ import { splitProps } from "solid-js";
 
 export function Tabs(props: TabsProps) {
   const [local, rest] = splitProps(props, ["class"]);
-  return <NeutTabs {...rest} class={`fx-tabs ${local.class ?? ""}`} />;
+  return <NeutTabs {...rest} class={local.class} />;
 }
 
 export function TabsList(props: TabsListProps) {
   const [local, rest] = splitProps(props, ["class", "variant"]);
-  return (
-    <NeutTabsList
-      {...rest}
-      variant={local.variant ?? "line"}
-      class={`fx-tabs-list ${local.class ?? ""}`}
-    />
-  );
+  return <NeutTabsList {...rest} variant={local.variant ?? "line"} class={local.class} />;
 }
 
 export function TabsTrigger(props: TabsTriggerProps) {
   const [local, rest] = splitProps(props, ["class"]);
-  return <NeutTabsTrigger {...rest} class={`fx-tabs-trigger ${local.class ?? ""}`} />;
+  return <NeutTabsTrigger {...rest} class={local.class} />;
 }
 
 export function TabsContent(props: TabsContentProps) {
   const [local, rest] = splitProps(props, ["class"]);
-  return <NeutTabsContent {...rest} class={`fx-tabs-content ${local.class ?? ""}`} />;
+  return <NeutTabsContent {...rest} class={local.class} />;
 }

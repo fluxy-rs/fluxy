@@ -5,5 +5,5 @@ type Props = ComponentProps<typeof NeutInput>;
 
 export function Input(props: Props) {
   const [local, rest] = splitProps(props, ["class"]);
-  return <NeutInput {...rest} class={`fx-input ${local.class ?? ""}`} />;
+  return <NeutInput {...rest} class={local.class} />;
 }

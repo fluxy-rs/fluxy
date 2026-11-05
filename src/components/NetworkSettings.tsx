@@ -200,11 +200,16 @@ export function NetworkSettings() {
     mode() === "manual" && option.name === interfaceName();
 
   return (
-    <section class="fx-panel fx-panel-wide" aria-labelledby="network-settings-heading">
-      <header class="fx-panel-head">
+    <section
+      class="overflow-hidden rounded-lg border border-border bg-card"
+      aria-labelledby="network-settings-heading"
+    >
+      <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 id="network-settings-heading">{t("network.selectionTitle")}</h2>
-          <p>{t("network.selectionBody")}</p>
+          <h2 id="network-settings-heading" class="text-title font-[620] tracking-[-0.012em]">
+            {t("network.selectionTitle")}
+          </h2>
+          <p class="text-body-sm text-muted-foreground">{t("network.selectionBody")}</p>
         </div>
         <Button
           variant="outline"
@@ -216,12 +221,18 @@ export function NetworkSettings() {
         </Button>
       </header>
 
-      <div class="fx-network-banner">
-        <span class={["fx-status-pill", isDown() ? "is-danger" : "is-ready"].join(" ")}>
+      <div class="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2 text-xs">
+        <span
+          class={`rounded-full border px-2 py-0.5 text-label ${
+            isDown()
+              ? "border-destructive/40 bg-destructive/10 text-destructive"
+              : "border-success/40 bg-success/10 text-success"
+          }`}
+        >
           <Network size={13} aria-hidden="true" />
           {network().interface ?? t("network.none")}
         </span>
-        <span class="fx-network-detail">
+        <span class="px-4 py-3 text-xs text-muted-foreground">
           {network().local_address ?? t("network.none")}
           {" · "}
           {t(sourceKey(network().selection_source))}
@@ -231,31 +242,35 @@ export function NetworkSettings() {
       </div>
 
       <Show when={isDown() || failure()}>
-        <div class="fx-network-warning" role="alert">
+        <div class="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning" role="alert">
           <ShieldAlert size={16} aria-hidden="true" />
           <div>
             <strong>{t("network.guidanceTitle")}</strong>
-            <p>
+            <p class="text-body-sm">
               {network().selection_mode === "manual"
                 ? t("network.guidanceManualLost")
                 : t("network.guidanceUnavailable")}
             </p>
-            <p>{t("network.guidancePick")}</p>
+            <p class="text-body-sm text-muted-foreground">{t("network.guidancePick")}</p>
             <Show when={failure()}>
-              {(message) => <p>{t("network.guidanceError", { message: message() })}</p>}
+              {(message) => (
+                <p class="text-body-sm text-destructive">
+                  {t("network.guidanceError", { message: message() })}
+                </p>
+              )}
             </Show>
             <Show when={network().detail}>
-              {(detail) => <p class="fx-network-detail">{detail()}</p>}
+              {(detail) => <p class="px-4 py-3 text-xs text-muted-foreground">{detail()}</p>}
             </Show>
           </div>
         </div>
       </Show>
 
-      <div class="fx-field">
-        <span class="fx-field-label">{t("network.modeLabel")}</span>
-        <div class="fx-choice-row" role="group" aria-label={t("network.modeLabel")}>
+      <div class="flex flex-col gap-2 px-4 py-3">
+        <span class="text-sm font-medium">{t("network.modeLabel")}</span>
+        <div class="flex gap-1" role="group" aria-label={t("network.modeLabel")}>
           <button
-            class="fx-choice"
+            class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
             classList={{ "is-selected": mode() === "auto" }}
             type="button"
             aria-pressed={mode() === "auto"}
@@ -268,7 +283,7 @@ export function NetworkSettings() {
             </Show>
           </button>
           <button
-            class="fx-choice"
+            class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
             classList={{ "is-selected": mode() === "manual" }}
             type="button"
             aria-pressed={mode() === "manual"}
@@ -281,20 +296,20 @@ export function NetworkSettings() {
             </Show>
           </button>
         </div>
-        <p class="fx-field-hint">
+        <p class="text-xs text-muted-foreground">
           {mode() === "auto" ? t("network.modeAutoHint") : t("network.modeManualHint")}
         </p>
       </div>
 
-      <div class="fx-field">
-        <span class="fx-field-label">{t("network.interfaceList")}</span>
-        <ul class="fx-interface-list">
+      <div class="flex flex-col gap-2 px-4 py-3">
+        <span class="text-sm font-medium">{t("network.interfaceList")}</span>
+        <ul class="flex flex-col gap-2 px-4 py-3">
           <For each={network().interface_options}>
             {(option) => (
               <li>
                 <button
                   type="button"
-                  class="fx-interface-option"
+                  class="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-accent"
                   classList={{
                     "is-selected": isSelected(option),
                     "is-current": isCurrent(option),
@@ -304,35 +319,49 @@ export function NetworkSettings() {
                   title={t("network.interfaceSelect", { label: option.label })}
                   onClick={() => chooseInterface(option)}
                 >
-                  <span class="fx-interface-head">
+                  <span class="flex items-center gap-2">
                     <strong>{option.label}</strong>
-                    <span class="fx-interface-kind">{t(kindKey(option.kind))}</span>
+                    <span class="rounded-full bg-muted px-2 py-0.5 text-label text-muted-foreground">
+                      {t(kindKey(option.kind))}
+                    </span>
                     <Show when={isCurrent(option)}>
-                      <span class="fx-chip">{t("network.interfaceCurrent")}</span>
+                      <span class="rounded-full border border-border px-2 py-0.5 text-label text-muted-foreground">
+                        {t("network.interfaceCurrent")}
+                      </span>
                     </Show>
                     <Show when={option.recommended}>
-                      <span class="fx-chip">{t("network.interfaceRecommended")}</span>
+                      <span class="rounded-full border border-border px-2 py-0.5 text-label text-muted-foreground">
+                        {t("network.interfaceRecommended")}
+                      </span>
                     </Show>
                     <Show when={option.default_route}>
-                      <span class="fx-chip">{t("network.interfaceDefaultRoute")}</span>
+                      <span class="rounded-full border border-border px-2 py-0.5 text-label text-muted-foreground">
+                        {t("network.interfaceDefaultRoute")}
+                      </span>
                     </Show>
                     <Show when={option.virtual_adapter}>
-                      <span class="fx-chip is-warn">{t("network.interfaceVirtual")}</span>
+                      <span class="rounded-full bg-warning/10 px-2 py-0.5 text-label text-warning">
+                        {t("network.interfaceVirtual")}
+                      </span>
                     </Show>
                     <Show when={!option.up}>
-                      <span class="fx-chip is-warn">{t("network.interfaceDown")}</span>
+                      <span class="rounded-full bg-warning/10 px-2 py-0.5 text-label text-warning">
+                        {t("network.interfaceDown")}
+                      </span>
                     </Show>
-                    <span class="fx-interface-index">
+                    <span class="ml-auto font-mono text-label text-muted-foreground">
                       {t("network.interfaceIndex", { index: option.index })}
                     </span>
                   </span>
-                  <span class="fx-network-addresses">
+                  <span class="flex flex-col gap-0.5 font-mono text-xs text-muted-foreground">
                     <For
                       each={option.addresses}
-                      fallback={<span class="fx-muted">{t("network.none")}</span>}
+                      fallback={
+                        <span class="text-xs text-muted-foreground">{t("network.none")}</span>
+                      }
                     >
                       {(value) => (
-                        <span class="fx-numeric">
+                        <span class="font-mono text-xs">
                           {value}
                           <Show when={value.includes("%")}> {t("network.addressLinkLocal")}</Show>
                         </span>
@@ -344,22 +373,22 @@ export function NetworkSettings() {
             )}
           </For>
         </ul>
-        <p class="fx-field-hint">{t("network.interfaceListHint")}</p>
+        <p class="text-xs text-muted-foreground">{t("network.interfaceListHint")}</p>
       </div>
 
       <Show when={mode() === "manual" && selectedOption()}>
         {(option) => (
-          <div class="fx-field">
-            <span class="fx-field-label">{t("network.addressLabel")}</span>
+          <div class="flex flex-col gap-2 px-4 py-3">
+            <span class="text-sm font-medium">{t("network.addressLabel")}</span>
             <Show
               when={option().addresses.length > 1}
-              fallback={<p class="fx-numeric">{address() ?? t("network.none")}</p>}
+              fallback={<p class="font-mono text-xs">{address() ?? t("network.none")}</p>}
             >
-              <div class="fx-choice-row" role="group" aria-label={t("network.addressLabel")}>
+              <div class="flex gap-1" role="group" aria-label={t("network.addressLabel")}>
                 <For each={option().addresses}>
                   {(value, index) => (
                     <button
-                      class="fx-choice"
+                      class="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                       classList={{ "is-selected": address() === value }}
                       type="button"
                       aria-pressed={address() === value}
@@ -368,9 +397,11 @@ export function NetworkSettings() {
                         setFailure(null);
                       }}
                     >
-                      <span class="fx-numeric">{value}</span>
+                      <span class="font-mono text-xs">{value}</span>
                       <Show when={index() === 0}>
-                        <span class="fx-chip">{t("network.addressPreferred")}</span>
+                        <span class="rounded-full border border-border px-2 py-0.5 text-label text-muted-foreground">
+                          {t("network.addressPreferred")}
+                        </span>
                       </Show>
                       <Show when={address() === value}>
                         <Check size={14} aria-hidden="true" />
@@ -384,20 +415,22 @@ export function NetworkSettings() {
         )}
       </Show>
 
-      <dl class="fx-definition-list fx-definition-2col">
+      <dl class="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
         <div>
           <dt>{t("network.listenAddr")}</dt>
-          <dd class="fx-numeric">{network().listen_addr ?? t("network.none")}</dd>
+          <dd class="font-mono text-xs">{network().listen_addr ?? t("network.none")}</dd>
         </div>
         <div>
           <dt>{t("network.rebindLast")}</dt>
-          <dd class="fx-numeric">{rebindText()}</dd>
+          <dd class="font-mono text-xs">{rebindText()}</dd>
         </div>
       </dl>
 
-      <div class="fx-danger-actions">
+      <div class="flex items-center gap-2 px-4 py-3">
         <Show when={dirty()}>
-          <span class="fx-chip is-warn">{t("network.pendingChange")}</span>
+          <span class="rounded-full bg-warning/10 px-2 py-0.5 text-label text-warning">
+            {t("network.pendingChange")}
+          </span>
         </Show>
         <Button
           variant="outline"
@@ -416,7 +449,7 @@ export function NetworkSettings() {
           }}
           disabled={!dirty() || applying()}
           onClick={() => setConfirmOpen(true)}
-          icon={applying() ? <LoaderCircle size={14} class="fx-spin" /> : <Check size={14} />}
+          icon={applying() ? <LoaderCircle size={14} class="animate-spin" /> : <Check size={14} />}
         >
           {t("network.apply")}
         </Button>
@@ -437,14 +470,16 @@ export function NetworkSettings() {
             <Button
               onClick={() => void apply()}
               disabled={applying()}
-              icon={applying() ? <LoaderCircle size={14} class="fx-spin" /> : <Check size={14} />}
+              icon={
+                applying() ? <LoaderCircle size={14} class="animate-spin" /> : <Check size={14} />
+              }
             >
               {t("network.confirmAction")}
             </Button>
           </>
         }
       >
-        <p class="fx-dialog-warning">{t("network.confirmWarning")}</p>
+        <p class="text-xs text-destructive">{t("network.confirmWarning")}</p>
       </Dialog>
     </section>
   );

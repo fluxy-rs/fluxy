@@ -8,10 +8,35 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
-import { ChevronLeft, MessageCircle, Paperclip, Send, ShieldCheck, WifiOff } from "lucide-solid";
+import {
+  ChevronLeft,
+  Link2,
+  MessageCircle,
+  Paperclip,
+  Send,
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+} from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { Button, Textarea, toast } from "../ui";
+import { Bubble, BubbleContent } from "../ui/bubble";
+import { Message, MessageContent } from "../ui/message";
+import {
+  Attachment,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "../ui/attachment";
+import {
+  MessageScroller,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "../ui/message-scroller";
 import type { ChatMessageView, TransferSummary } from "../bindings";
 import { formatBytes, formatClock } from "../lib/format";
 import { fileKind } from "../lib/file-kind";
@@ -55,6 +80,16 @@ function failureMessage(cause: unknown): string {
  * phone's back button somewhere to go - but the workspace itself stays a plain
  * component, which keeps it testable without a router around it.
  */
+/**
+ * The library names its attachment states for the sender's side of an
+ * upload; this project names them for both directions.
+ */
+function attachmentState(state: string) {
+  if (state === "transferring") return "uploading" as const;
+  if (state === "failed") return "error" as const;
+  return "done" as const;
+}
+
 export function ChatWorkspace(props: {
   selectedId?: string;
   onSelect?: (deviceId: string | null) => void;
@@ -319,58 +354,67 @@ export function ChatWorkspace(props: {
 
   return (
     <section
-      class="fx-chat"
+      class="grid min-h-[calc(100dvh-2rem)] grid-cols-[minmax(15rem,18.75rem)_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-card"
       classList={{ "is-compact": compact(), "is-thread": compact() && selected() !== undefined }}
       aria-label={t("chat.title")}
     >
-      <aside class="fx-chat-list" aria-label={t("chat.listAria")}>
-        <header class="fx-chat-list-head">
-          <div>
-            <h2>{t("chat.title")}</h2>
-            <p>{t("chat.memoryNote")}</p>
+      <aside
+        class="flex min-h-0 flex-col border-r border-border bg-muted/30"
+        aria-label={t("chat.listAria")}
+      >
+        <header class="flex items-center justify-between gap-2.5 px-4 pt-3.5 pb-2.5">
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <h2 class="text-title font-[620] tracking-[-0.012em]">{t("chat.title")}</h2>
+            <p class="text-body-sm text-muted-foreground">{t("chat.memoryNote")}</p>
           </div>
-          <span class="fx-count">{conversations().length}</span>
+          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            {conversations().length}
+          </span>
         </header>
         <Show
           when={conversations().length > 0}
           fallback={
-            <div class="fx-chat-list-empty">
+            <div class="flex flex-col items-center gap-1 p-4 text-center text-muted-foreground">
               <MessageCircle size={18} aria-hidden="true" />
-              <p>{t("chat.noConversations")}</p>
-              <span>{t("chat.noConversationsBody")}</span>
+              <p class="text-body font-medium">{t("chat.noConversations")}</p>
+              <span class="text-label">{t("chat.noConversationsBody")}</span>
             </div>
           }
         >
-          <ul class="fx-chat-conversations">
+          <ul class="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2">
             <For each={conversations()}>
               {(peer) => (
                 <li>
                   <button
                     type="button"
-                    class="fx-chat-conversation"
-                    classList={{ "is-active": selected()?.device_id === peer.device_id }}
+                    class="flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-muted aria-[current=page]:bg-accent"
                     aria-current={selected()?.device_id === peer.device_id ? "true" : undefined}
                     onClick={() => openConversation(peer.device_id)}
                   >
                     <span
-                      class="fx-chat-presence"
+                      class="size-2 shrink-0 rounded-full"
                       classList={{
-                        "is-online": peer.online,
-                        "is-connecting": peer.session_state === "connecting",
+                        "bg-success": peer.online,
+                        "bg-warning": !peer.online && peer.session_state === "connecting",
+                        "bg-muted-foreground/40":
+                          !peer.online && peer.session_state !== "connecting",
                       }}
                       aria-hidden="true"
                     />
-                    <span class="fx-chat-conversation-main">
-                      <strong>{displayName(peer.device_id, peer.name)}</strong>
+                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <strong class="text-body font-semibold">
+                        {displayName(peer.device_id, peer.name)}
+                      </strong>
                       <span
-                        classList={{ "fx-chat-preview-file": lastPreview(peer.device_id).isFile }}
+                        class="text-label text-muted-foreground"
+                        classList={{ "font-mono": lastPreview(peer.device_id).isFile }}
                       >
                         {lastPreview(peer.device_id).label ?? t("chat.noMessages")}
                       </span>
                     </span>
-                    <span class="fx-chat-conversation-meta">
+                    <span class="flex shrink-0 flex-col items-end gap-0.5 text-label text-muted-foreground">
                       <Show when={lastPreview(peer.device_id).at > 0}>
-                        <time class="fx-numeric">
+                        <time class="font-mono text-label">
                           {formatClock(lastPreview(peer.device_id).at, locale())}
                         </time>
                       </Show>
@@ -389,20 +433,20 @@ export function ChatWorkspace(props: {
       <Show
         when={selected()}
         fallback={
-          <div class="fx-chat-pane fx-chat-placeholder">
+          <div class="flex flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <MessageCircle size={26} aria-hidden="true" />
-            <h2>{t("chat.selectTitle")}</h2>
-            <p>{t("chat.selectBody")}</p>
+            <h2 class="text-title font-[620] tracking-[-0.012em]">{t("chat.selectTitle")}</h2>
+            <p class="text-body-sm text-muted-foreground">{t("chat.selectBody")}</p>
           </div>
         }
       >
         {(peer) => (
-          <div class="fx-chat-pane">
-            <header class="fx-chat-head">
+          <div class="flex min-h-0 flex-col">
+            <header class="flex items-center gap-3 border-b border-border px-4 py-3">
               <Show when={compact()}>
                 <button
                   type="button"
-                  class="fx-chat-back"
+                  class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   aria-label={t("chat.back")}
                   onClick={() => closeConversation()}
                 >
@@ -410,16 +454,18 @@ export function ChatWorkspace(props: {
                 </button>
               </Show>
               <div>
-                <h2>{displayName(peer().device_id, peer().name)}</h2>
-                <p class="fx-chat-peer-state">
-                  <span
-                    class="fx-chat-presence"
-                    classList={{
-                      "is-online": peer().online,
-                      "is-connecting": peer().session_state === "connecting",
-                    }}
-                    aria-hidden="true"
-                  />
+                <h2 class="text-heading font-[620] tracking-[-0.015em]">
+                  {displayName(peer().device_id, peer().name)}
+                </h2>
+                <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Show when={peer().online} fallback={<WifiOff size={12} aria-hidden="true" />}>
+                    <Show
+                      when={peer().session_state === "connected"}
+                      fallback={<Wifi size={12} aria-hidden="true" />}
+                    >
+                      <Link2 size={12} aria-hidden="true" />
+                    </Show>
+                  </Show>
                   <span>
                     {peer().online
                       ? peer().session_state === "connected"
@@ -429,158 +475,229 @@ export function ChatWorkspace(props: {
                   </span>
                 </p>
               </div>
-              <span class="fx-chat-memory-pill">{t("chat.memoryPill")}</span>
+              <span class="rounded-full border border-border px-2 py-0.5 text-label text-muted-foreground">
+                {t("chat.memoryPill")}
+              </span>
             </header>
 
-            <div class="fx-chat-messages" ref={messageList} aria-live="polite">
-              <Show
-                when={selectedTimeline().length > 0}
-                fallback={
-                  <div class="fx-chat-empty">
-                    <MessageCircle size={24} aria-hidden="true" />
-                    <p>{t("chat.noMessages")}</p>
-                    <span>{t("chat.noMessagesBody")}</span>
-                  </div>
-                }
-              >
-                <For each={selectedTimeline()}>
-                  {(entry) => {
-                    if (entry.kind === "file") {
-                      const transfer = entry.transfer;
-                      const percent = () =>
-                        transfer.bytes_total > 0
-                          ? Math.round((transfer.bytes_done / transfer.bytes_total) * 100)
-                          : 0;
-                      return (
-                        <article
-                          class="fx-chat-message"
-                          classList={{ "is-sent": transfer.direction === "send" }}
-                        >
-                          <div
-                            class="fx-chat-file"
-                            classList={{
-                              // Only a received, finished file is worth opening:
-                              // the sender's copy is already theirs, and a file
-                              // still moving cannot be handed to another app.
-                              "is-openable":
-                                transfer.direction === "receive" && transfer.state === "completed",
-                            }}
-                            onClick={() => {
-                              if (
-                                transfer.direction === "receive" &&
-                                transfer.state === "completed"
-                              ) {
-                                void engine.openReceivedTransfer(transfer.transfer_id);
-                              }
-                            }}
-                          >
-                            <span
-                              class={`fx-chat-file-icon is-${fileKind(transfer.file_name).tone}`}
-                            >
-                              {(() => {
-                                const Icon = fileKind(transfer.file_name).icon;
-                                return <Icon size={18} aria-hidden="true" />;
-                              })()}
-                            </span>
-                            <div class="fx-chat-file-body">
-                              <p class="fx-chat-file-name">{transfer.file_name}</p>
-                              <span class="fx-chat-file-meta">
-                                {formatBytes(transfer.bytes_total)} · {transferLabel(transfer, t)}
-                                <Show when={transfer.state === "transferring"}>
-                                  {" · "}
-                                  {percent()}%
-                                </Show>
-                              </span>
-                              <Show when={transfer.state === "transferring"}>
-                                <span class="fx-chat-file-bar">
-                                  <span style={{ width: `${percent()}%` }} />
-                                </span>
-                              </Show>
-                              {/* A bare "failed" for every failure hides the one
-                                  thing the user needs: whether the peer declined,
-                                  the disk filled up, or the source moved. */}
-                              <Show when={transfer.state === "failed"}>
-                                <span class="fx-chat-file-reason">
-                                  {failureReason(
-                                    transfer.error_code,
-                                    locale(),
-                                    transfer.error_message ?? t("chat.errorGeneric"),
-                                  )}
-                                </span>
-                              </Show>
-                            </div>
-                          </div>
-                          <div class="fx-chat-message-meta">
-                            <time class="fx-numeric">
-                              {formatClock(transfer.created_at_ms, locale())}
-                            </time>
-                          </div>
-                        </article>
-                      );
-                    }
-                    const message = entry.message;
-                    return (
-                      <article
-                        class="fx-chat-message"
-                        classList={{ "is-sent": message.direction === "sent" }}
-                      >
-                        <div class="fx-chat-bubble">{message.text}</div>
-                        <div class="fx-chat-message-meta">
-                          <time class="fx-numeric">
-                            {formatClock(message.created_at_ms, locale())}
-                          </time>
-                          <span classList={{ "is-failed": message.state === "failed" }}>
-                            {statusLabel(message)}
-                          </span>
-                          <Show when={message.state === "failed" && message.retryable}>
-                            <button
-                              type="button"
-                              class="fx-chat-retry"
-                              disabled={retrying() !== null || !peer().online}
-                              title={!peer().online ? t("chat.offlineHint") : undefined}
-                              aria-label={t("chat.retryAria", {
-                                name: displayName(peer().device_id, peer().name),
-                              })}
-                              onClick={() => void retry(message)}
-                            >
-                              {retrying() === message.message_id
-                                ? t("chat.retrying")
-                                : t("chat.retry")}
-                            </button>
-                          </Show>
+            <MessageScrollerProvider autoScroll>
+              <MessageScroller class="min-h-0 flex-1">
+                <MessageScrollerViewport aria-label={t("chat.listAria")}>
+                  <MessageScrollerContent class="gap-2 p-4">
+                    <Show
+                      when={selectedTimeline().length > 0}
+                      fallback={
+                        <div class="m-auto flex flex-col items-center gap-2 text-center text-muted-foreground">
+                          <MessageCircle size={24} aria-hidden="true" />
+                          <p class="text-body font-medium">{t("chat.noMessages")}</p>
+                          <span>{t("chat.noMessagesBody")}</span>
                         </div>
-                        <Show when={message.state === "failed" && message.error_message}>
-                          <p class="fx-chat-error">{errorLabel(message)}</p>
-                        </Show>
-                      </article>
-                    );
-                  }}
-                </For>
-              </Show>
-            </div>
+                      }
+                    >
+                      <For
+                        each={selectedTimeline().map((entry) =>
+                          entry.kind === "file"
+                            ? "file:" + entry.transfer.transfer_id
+                            : "text:" + entry.message.message_id,
+                        )}
+                      >
+                        {(key) => {
+                          const isFile = key.startsWith("file:");
+                          // The row is keyed by id, so it survives a progress tick.
+                          // The data is read through the key every render instead of
+                          // being captured once, which is what kept remounting it.
+                          const file = () =>
+                            selectedTimeline().find(
+                              (candidate) =>
+                                candidate.kind === "file" &&
+                                "file:" + candidate.transfer.transfer_id === key,
+                            ) as Extract<TimelineEntry, { kind: "file" }> | undefined;
+                          const text = () =>
+                            selectedTimeline().find(
+                              (candidate) =>
+                                candidate.kind === "text" &&
+                                "text:" + candidate.message.message_id === key,
+                            ) as Extract<TimelineEntry, { kind: "text" }> | undefined;
+                          if (isFile) {
+                            const transfer = () => file()!.transfer;
+                            // A batch walks through its files one at a time, so each new
+                            // file re-enters `preparing` while the cumulative byte counters
+                            // keep climbing. Both states are "moving".
+                            const moving = () =>
+                              transfer().state === "transferring" ||
+                              transfer().state === "preparing";
+                            const openable =
+                              transfer().direction === "receive" &&
+                              transfer().state === "completed";
+                            const percent = () =>
+                              transfer().bytes_total > 0
+                                ? Math.round((transfer().bytes_done / transfer().bytes_total) * 100)
+                                : 0;
+                            return (
+                              <MessageScrollerItem messageId={key}>
+                                <Message align={transfer().direction === "send" ? "end" : "start"}>
+                                  <MessageContent>
+                                    <Attachment
+                                      state={attachmentState(transfer().state)}
+                                      class="max-w-[min(22rem,80%)] cursor-pointer"
+                                      // Only a received, finished file is worth opening: the
+                                      // sender's copy is already theirs, and a file still
+                                      // moving cannot be handed to another app.
+                                      role={openable ? "button" : undefined}
+                                      tabindex={openable ? 0 : undefined}
+                                      onClick={() => {
+                                        if (openable)
+                                          void engine.openReceivedTransfer(transfer().transfer_id);
+                                      }}
+                                      onKeyDown={(event) => {
+                                        if (!openable) return;
+                                        if (event.key !== "Enter" && event.key !== " ") return;
+                                        event.preventDefault();
+                                        void engine.openReceivedTransfer(transfer().transfer_id);
+                                      }}
+                                    >
+                                      <AttachmentMedia>
+                                        {(() => {
+                                          const Icon = fileKind(transfer().file_name).icon;
+                                          return <Icon size={18} aria-hidden="true" />;
+                                        })()}
+                                      </AttachmentMedia>
+                                      <AttachmentContent>
+                                        <AttachmentTitle>{transfer().file_name}</AttachmentTitle>
+                                        <AttachmentDescription>
+                                          {formatBytes(transfer().bytes_total)} ·{" "}
+                                          {transferLabel(transfer(), t)}
+                                          <span classList={{ invisible: !moving() }}>
+                                            {" · "}
+                                            {percent()}%
+                                          </span>
+                                        </AttachmentDescription>
+                                        {/* The track stays mounted and only its ink hides:
+                                  unmounting it mid-batch collapses the card and
+                                  makes the scrollbar jump. */}
+                                        <span
+                                          class="mt-1 block h-1 w-full overflow-hidden rounded-full bg-muted"
+                                          classList={{ invisible: !moving() }}
+                                          aria-hidden={!moving()}
+                                        >
+                                          <span
+                                            class="block h-full rounded-full bg-primary"
+                                            style={{ width: `${percent()}%` }}
+                                          />
+                                        </span>
+                                        <Show when={transfer().state === "failed"}>
+                                          <span class="text-label text-destructive">
+                                            {failureReason(
+                                              transfer().error_code,
+                                              locale(),
+                                              transfer().error_message ?? t("chat.errorGeneric"),
+                                            )}
+                                          </span>
+                                        </Show>
+                                      </AttachmentContent>
+                                    </Attachment>
+                                    <div
+                                      class="flex flex-wrap items-center gap-2 text-label text-muted-foreground"
+                                      classList={{
+                                        "self-end": transfer().direction === "send",
+                                        "flex-row-reverse": transfer().direction === "send",
+                                      }}
+                                    >
+                                      <time class="font-mono text-label">
+                                        {formatClock(transfer().created_at_ms, locale())}
+                                      </time>
+                                    </div>
+                                  </MessageContent>
+                                </Message>
+                              </MessageScrollerItem>
+                            );
+                          }
+
+                          const message = () => text()!.message;
+                          const sent = message().direction === "sent";
+                          return (
+                            <MessageScrollerItem messageId={key}>
+                              <Message align={sent ? "end" : "start"}>
+                                <MessageContent>
+                                  <Bubble variant={sent ? "default" : "muted"}>
+                                    <BubbleContent class="px-3 py-2 text-sm break-words">
+                                      {message().text}
+                                    </BubbleContent>
+                                  </Bubble>
+                                  <div
+                                    class="flex flex-wrap items-center gap-2 text-label text-muted-foreground"
+                                    classList={{ "self-end": sent, "flex-row-reverse": sent }}
+                                  >
+                                    <time class="font-mono text-label">
+                                      {formatClock(message().created_at_ms, locale())}
+                                    </time>
+                                    <span
+                                      classList={{ "font-semibold": message().state === "failed" }}
+                                    >
+                                      {statusLabel(message())}
+                                    </span>
+                                    <Show
+                                      when={message().state === "failed" && message().retryable}
+                                    >
+                                      <button
+                                        type="button"
+                                        class="text-xs text-primary underline-offset-2 hover:underline"
+                                        disabled={retrying() !== null || !peer().online}
+                                        title={!peer().online ? t("chat.offlineHint") : undefined}
+                                        aria-label={t("chat.retryAria", {
+                                          name: displayName(peer().device_id, peer().name),
+                                        })}
+                                        onClick={() => void retry(message())}
+                                      >
+                                        {retrying() === message().message_id
+                                          ? t("chat.retrying")
+                                          : t("chat.retry")}
+                                      </button>
+                                    </Show>
+                                    <Show
+                                      when={message().state === "failed" && message().error_message}
+                                    >
+                                      <p class="text-label text-destructive">
+                                        {errorLabel(message())}
+                                      </p>
+                                    </Show>
+                                  </div>
+                                </MessageContent>
+                              </Message>
+                            </MessageScrollerItem>
+                          );
+                        }}
+                      </For>
+                    </Show>
+                  </MessageScrollerContent>
+                </MessageScrollerViewport>
+              </MessageScroller>
+            </MessageScrollerProvider>
 
             <Show
               when={peer().online}
               fallback={
-                <div class="fx-chat-offline">
+                <div class="mx-4 mb-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
                   <WifiOff size={16} aria-hidden="true" />
                   <span>{t("chat.offlineHint")}</span>
                 </div>
               }
             >
-              <div class="fx-chat-composer">
+              <div class="border-t border-border p-3">
                 <Textarea
                   value={draft()}
-                  onInput={(event) => setDraft(event.currentTarget.value)}
+                  onInput={(event: InputEvent & { currentTarget: HTMLTextAreaElement }) =>
+                    setDraft(event.currentTarget.value)
+                  }
                   onKeyDown={onComposerKeyDown}
                   placeholder={t("chat.placeholder")}
                   aria-label={t("chat.placeholder")}
                   rows={2}
                   disabled={sending()}
                 />
-                <div class="fx-chat-composer-foot">
-                  <span class="fx-chat-hint">{t("chat.enterHint")}</span>
-                  <div class="fx-chat-actions">
+                <div class="mt-2 flex items-center justify-between gap-3">
+                  <span class="text-label text-muted-foreground">{t("chat.enterHint")}</span>
+                  <div class="flex items-center gap-2">
                     <Button
                       size="sm"
                       variant="outline"

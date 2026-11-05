@@ -41,7 +41,7 @@ function renderApp(engine: Partial<EngineContextValue>, hash = "#/"): ReturnType
 }
 
 function dialog(): HTMLElement {
-  const surface = document.querySelector<HTMLElement>(".fx-dialog");
+  const surface = document.querySelector<HTMLElement>('[role="dialog"]');
   if (!surface) throw new Error("no dialog is open");
   return surface;
 }
@@ -97,7 +97,7 @@ describe("keyboard main flow", () => {
     await waitFor(() => expect(dialog().contains(document.activeElement)).toBe(true));
 
     const acknowledge = screen.getByRole("checkbox");
-    expect(acknowledge.tagName).toBe("INPUT");
+    expect(acknowledge).toHaveAttribute("role", "checkbox");
     acknowledge.focus();
     fireEvent.click(acknowledge);
     expect(confirm).toBeEnabled();

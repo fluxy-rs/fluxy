@@ -13,6 +13,8 @@ export interface BuildTooltipMiddlewareOptions {
   arrowElement: () => Element | undefined;
 }
 
+/**
+ */
 export function createTooltipMiddleware(options: BuildTooltipMiddlewareOptions): Middleware[] {
   return createFloatingMiddleware({
     sideOffset: options.sideOffset,

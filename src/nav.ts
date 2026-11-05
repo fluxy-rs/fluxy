@@ -1,5 +1,5 @@
 import type { Component } from "solid-js";
-import { MessageCircle, Settings, Users } from "lucide-solid";
+import { Clipboard, MessageCircle, Settings, Users } from "lucide-solid";
 
 export type NavIcon = Component<{ size?: number; class?: string }>;
 
@@ -19,6 +19,7 @@ export type NavItem = {
 export const primaryNav: NavItem[] = [
   { href: "/devices", key: "nav.devices", icon: Users },
   { href: "/chat", key: "nav.chat", icon: MessageCircle },
+  { href: "/clipboard", key: "nav.clipboard", icon: Clipboard },
   { href: "/settings", key: "nav.settings", icon: Settings },
 ];
 
@@ -29,6 +30,7 @@ export const primaryNav: NavItem[] = [
 export const mobileNav: NavItem[] = [
   { href: "/devices", key: "nav.devices", icon: Users },
   { href: "/chat", key: "nav.chat", icon: MessageCircle },
+  { href: "/clipboard", key: "nav.clipboard", icon: Clipboard },
   { href: "/settings", key: "nav.settings", icon: Settings },
 ];
 

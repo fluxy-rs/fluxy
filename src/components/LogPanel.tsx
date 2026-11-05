@@ -29,21 +29,26 @@ export function LogPanel() {
   }
 
   return (
-    <section class="fx-panel fx-panel-wide" aria-labelledby="log-heading">
-      <h2 id="log-heading">{t("settings.logHeading")}</h2>
-      <p class="fx-muted">{t("settings.logHint")}</p>
-      <div class="fx-log-actions">
+    <section
+      class="overflow-hidden rounded-lg border border-border bg-card"
+      aria-labelledby="log-heading"
+    >
+      <h2 id="log-heading" class="text-title font-[620] tracking-[-0.012em]">
+        {t("settings.logHeading")}
+      </h2>
+      <p class="text-xs text-muted-foreground">{t("settings.logHint")}</p>
+      <div class="flex items-center gap-2">
         <Button
           variant="outline"
           onClick={() => void load()}
           disabled={busy()}
-          icon={busy() ? <RefreshCw size={14} class="fx-spin" /> : <FileText size={14} />}
+          icon={busy() ? <RefreshCw size={14} class="animate-spin" /> : <FileText size={14} />}
         >
           {lines() === null ? t("settings.logLoad") : t("settings.logRefresh")}
         </Button>
       </div>
       <Show when={failure()}>
-        <p class="fx-form-error" role="alert">
+        <p class="text-xs text-destructive" role="alert">
           {failure()}
         </p>
       </Show>
@@ -51,9 +56,12 @@ export function LogPanel() {
         {(entries) => (
           <Show
             when={entries().length > 0}
-            fallback={<p class="fx-muted">{t("settings.logEmpty")}</p>}
+            fallback={<p class="text-xs text-muted-foreground">{t("settings.logEmpty")}</p>}
           >
-            <pre class="fx-log" aria-label={t("settings.logHeading")}>
+            <pre
+              class="max-h-72 overflow-auto bg-muted/40 p-3 font-mono text-label leading-relaxed"
+              aria-label={t("settings.logHeading")}
+            >
               <For each={entries()}>{(line) => <div>{line}</div>}</For>
             </pre>
           </Show>

@@ -129,40 +129,45 @@ export function LocalDeviceSettings() {
 
   return (
     <>
-      <section class="fx-panel" aria-labelledby="device-name-heading">
-        <header class="fx-panel-head">
+      <section
+        class="overflow-hidden rounded-lg border border-border bg-card"
+        aria-labelledby="device-name-heading"
+      >
+        <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h2 id="device-name-heading">{t("settings.deviceTitle")}</h2>
-            <p>{t("settings.deviceBody")}</p>
+            <h2 id="device-name-heading" class="text-title font-[620] tracking-[-0.012em]">
+              {t("settings.deviceTitle")}
+            </h2>
+            <p class="text-body-sm text-muted-foreground">{t("settings.deviceBody")}</p>
           </div>
         </header>
         <form
-          class="fx-setting-row is-stacked"
+          class="flex flex-col gap-2 px-4 py-3 not-last:border-b not-last:border-border"
           onSubmit={(event) => {
             event.preventDefault();
             void saveName();
           }}
         >
-          <div class="fx-setting-copy">
-            <label class="fx-setting-label" for="device-name">
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <label class="text-sm font-medium" for="device-name">
               {t("settings.nameLabel")}
             </label>
             <Show
               when={nameError()}
               fallback={
-                <span class="fx-setting-desc" id="device-name-hint">
+                <span class="text-xs text-muted-foreground" id="device-name-hint">
                   {t("settings.deviceNameHint")}
                 </span>
               }
             >
               {(message) => (
-                <span class="fx-setting-desc fx-setting-error" id="device-name-error" role="alert">
+                <span class="text-xs text-destructive" id="device-name-error" role="alert">
                   {message()}
                 </span>
               )}
             </Show>
           </div>
-          <div class="fx-setting-control">
+          <div class="flex shrink-0 items-center gap-2">
             <Input
               id="device-name"
               ref={field}
@@ -183,7 +188,9 @@ export function LocalDeviceSettings() {
             <Button
               type="submit"
               disabled={!dirty() || savingName()}
-              icon={savingName() ? <LoaderCircle size={14} class="fx-spin" /> : <Check size={14} />}
+              icon={
+                savingName() ? <LoaderCircle size={14} class="animate-spin" /> : <Check size={14} />
+              }
             >
               {t("settings.deviceNameSave")}
             </Button>
@@ -191,11 +198,16 @@ export function LocalDeviceSettings() {
         </form>
       </section>
 
-      <section class="fx-panel" aria-labelledby="receiving-heading">
-        <header class="fx-panel-head">
+      <section
+        class="overflow-hidden rounded-lg border border-border bg-card"
+        aria-labelledby="receiving-heading"
+      >
+        <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h2 id="receiving-heading">{t("settings.receivingTitle")}</h2>
-            <p>{t("settings.receivingBody")}</p>
+            <h2 id="receiving-heading" class="text-title font-[620] tracking-[-0.012em]">
+              {t("settings.receivingTitle")}
+            </h2>
+            <p class="text-body-sm text-muted-foreground">{t("settings.receivingBody")}</p>
           </div>
         </header>
 
@@ -237,30 +249,28 @@ export function LocalDeviceSettings() {
       </section>
 
       <Show when={engine.desktop}>
-        <section class="fx-panel" aria-labelledby="autostart-heading">
-          <header class="fx-panel-head">
+        <section
+          class="overflow-hidden rounded-lg border border-border bg-card"
+          aria-labelledby="autostart-heading"
+        >
+          <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
-              <h2 id="autostart-heading">{t("settings.autostartTitle")}</h2>
-              <p>{t("settings.autostartBody")}</p>
+              <h2 id="autostart-heading" class="text-title font-[620] tracking-[-0.012em]">
+                {t("settings.autostartTitle")}
+              </h2>
+              <p class="text-body-sm text-muted-foreground">{t("settings.autostartBody")}</p>
             </div>
           </header>
           <SettingsRow
             label={t("settings.autostartToggle")}
             description={settings().autostart_location || t("settings.autostartBody")}
           >
-            <button
-              class="fx-switch-inline"
-              type="button"
-              role="switch"
-              aria-checked={settings().autostart}
-              aria-label={t("settings.autostartToggle")}
+            <Switch
+              checked={settings().autostart}
               disabled={savingAutostart()}
-              onClick={() => void toggleAutostart()}
-            >
-              <span class="fx-switch-track" aria-hidden="true">
-                <span class="fx-switch-thumb" />
-              </span>
-            </button>
+              aria-label={t("settings.autostartToggle")}
+              onCheckedChange={() => void toggleAutostart()}
+            />
           </SettingsRow>
         </section>
       </Show>

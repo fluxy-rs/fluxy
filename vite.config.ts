@@ -9,6 +9,13 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [solid(), tailwind()],
 
+  // lucide-solid ships one file per icon. Without pre-bundling, a dev page that
+  // imports a handful of them pulls in two thousand separate module requests
+  // and the first paint never arrives.
+  optimizeDeps: {
+    include: ["lucide-solid"],
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

@@ -62,7 +62,10 @@ describe("PairingDialog", () => {
     await vi.advanceTimersByTimeAsync(700);
 
     expect(screen.getByText("验证码已失效")).toBeInTheDocument();
-    expect(checkbox).toBeDisabled();
+    // The visible control is a span with role=checkbox and aria-disabled; the
+    // native input behind it is sr-only, so there is no disabled attribute to
+    // assert on.
+    expect(checkbox).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("button", { name: "码一致，确认配对" })).toBeDisabled();
   });
 
@@ -75,7 +78,7 @@ describe("PairingDialog", () => {
 
     renderWithEngine(() => <PairingDialog />, engine);
 
-    expect(screen.getByRole("checkbox")).toBeDisabled();
+    expect(screen.getByRole("checkbox")).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("button", { name: "码一致，确认配对" })).toBeDisabled();
   });
 });

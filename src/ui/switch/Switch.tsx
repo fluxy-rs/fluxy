@@ -19,7 +19,7 @@ export const Switch = (props: SwitchProps) => {
 
   const [internalChecked, setInternalChecked] = createSignal(local.defaultChecked ?? false);
 
-  // Copied from @neut/ui; the library wires clicks only.
+  // Copied in from neut/ui; upstream wires clicks only.
   //
   // A span with role="switch" and tabindex is a real control as far as ARIA is
   // concerned, and ARIA says Space and Enter activate it. Without this, a

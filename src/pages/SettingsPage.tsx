@@ -51,42 +51,46 @@ export function SettingsPage() {
   }
 
   return (
-    <div class="fx-page fx-page-narrow">
-      <header class="fx-page-head">
+    <div class="mx-auto flex w-full max-w-[55rem] flex-col gap-4">
+      <header class="flex items-end justify-between gap-4">
         <div>
-          <h1>{t("settings.title")}</h1>
-          <p>{t("settings.subtitle")}</p>
+          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
+            {t("settings.title")}
+          </h1>
+          <p class="text-body-sm text-muted-foreground">{t("settings.subtitle")}</p>
         </div>
-        <div class="fx-page-meta">
-          <span class="fx-meta-chip">
+        <div class="flex items-center gap-2">
+          <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
             {t("settings.thisVersion", { version: status().version })}
           </span>
         </div>
       </header>
 
-      <div class="fx-settings-grid">
-        <section class="fx-panel" aria-labelledby="general-heading">
-          <header class="fx-panel-head">
+      <div class="flex flex-col gap-4">
+        <section
+          class="overflow-hidden rounded-lg border border-border bg-card"
+          aria-labelledby="general-heading"
+        >
+          <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
-              <h2 id="general-heading">{t("settings.generalTitle")}</h2>
+              <h2 id="general-heading" class="text-title font-[620] tracking-[-0.012em]">
+                {t("settings.generalTitle")}
+              </h2>
             </div>
           </header>
 
-          <div class="fx-setting-row">
-            <div class="fx-setting-copy">
-              <span class="fx-setting-label">{t("settings.appearanceTitle")}</span>
+          <div class="flex items-center justify-between gap-4 px-4 py-3 not-last:border-b not-last:border-border">
+            <div class="min-w-0">
+              <span class="text-sm font-medium">{t("settings.appearanceTitle")}</span>
             </div>
-            <div class="fx-setting-control">
-              <div class="fx-choice-row" role="group" aria-label={t("settings.appearanceTitle")}>
+            <div class="flex shrink-0 items-center gap-2">
+              <div class="flex gap-1" role="group" aria-label={t("settings.appearanceTitle")}>
                 <For each={themeOptions}>
                   {(option) => {
                     const Icon = option.icon;
                     return (
                       <button
-                        class="fx-choice"
-                        classList={{
-                          "is-selected": theme.preference() === option.value,
-                        }}
+                        class="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                         type="button"
                         aria-pressed={theme.preference() === option.value}
                         onClick={() => theme.setPreference(option.value)}
@@ -101,17 +105,16 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div class="fx-setting-row">
-            <div class="fx-setting-copy">
-              <span class="fx-setting-label">{t("settings.languageTitle")}</span>
+          <div class="flex items-center justify-between gap-4 px-4 py-3 not-last:border-b not-last:border-border">
+            <div class="min-w-0">
+              <span class="text-sm font-medium">{t("settings.languageTitle")}</span>
             </div>
-            <div class="fx-setting-control">
-              <div class="fx-choice-row" role="group" aria-label={t("settings.languageTitle")}>
+            <div class="flex shrink-0 items-center gap-2">
+              <div class="flex gap-1" role="group" aria-label={t("settings.languageTitle")}>
                 <For each={localeOptions}>
                   {(option) => (
                     <button
-                      class="fx-choice"
-                      classList={{ "is-selected": locale() === option.value }}
+                      class="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                       type="button"
                       aria-pressed={locale() === option.value}
                       onClick={() => setLocale(option.value)}
@@ -127,10 +130,15 @@ export function SettingsPage() {
 
         <LocalDeviceSettings />
 
-        <section class="fx-panel" aria-labelledby="more-heading">
-          <header class="fx-panel-head">
+        <section
+          class="overflow-hidden rounded-lg border border-border bg-card"
+          aria-labelledby="more-heading"
+        >
+          <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
-              <h2 id="more-heading">{t("settings.moreTitle")}</h2>
+              <h2 id="more-heading" class="text-title font-[620] tracking-[-0.012em]">
+                {t("settings.moreTitle")}
+              </h2>
             </div>
           </header>
           <SettingsLinkRow
@@ -150,15 +158,20 @@ export function SettingsPage() {
           />
         </section>
 
-        <section class="fx-panel fx-panel-wide fx-danger-zone" aria-labelledby="rotate-heading">
-          <header class="fx-panel-head">
+        <section
+          class="rounded-lg border border-destructive/30 bg-destructive/5"
+          aria-labelledby="rotate-heading"
+        >
+          <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
-              <h2 id="rotate-heading">{t("settings.rotateTitle")}</h2>
-              <p>{t("settings.rotateBody")}</p>
+              <h2 id="rotate-heading" class="text-title font-[620] tracking-[-0.012em]">
+                {t("settings.rotateTitle")}
+              </h2>
+              <p class="text-body-sm text-muted-foreground">{t("settings.rotateBody")}</p>
             </div>
             <ShieldAlert size={18} aria-hidden="true" />
           </header>
-          <div class="fx-danger-actions">
+          <div class="flex items-center gap-2 px-4 py-3">
             <Button
               ref={(element) => {
                 rotateTrigger = element;
@@ -176,7 +189,7 @@ export function SettingsPage() {
         </section>
       </div>
 
-      <p class="fx-page-footnote">{t("settings.localOnlyNote")}</p>
+      <p class="mt-2 text-xs text-muted-foreground">{t("settings.localOnlyNote")}</p>
 
       <Dialog
         open={dialogOpen()}
@@ -195,7 +208,11 @@ export function SettingsPage() {
               onClick={() => void rotateIdentity()}
               disabled={rotating()}
               icon={
-                rotating() ? <LoaderCircle size={14} class="fx-spin" /> : <RotateCcw size={14} />
+                rotating() ? (
+                  <LoaderCircle size={14} class="animate-spin" />
+                ) : (
+                  <RotateCcw size={14} />
+                )
               }
             >
               {t("settings.rotateConfirm")}
@@ -203,7 +220,7 @@ export function SettingsPage() {
           </>
         }
       >
-        <p class="fx-dialog-warning">{t("settings.rotateWarning")}</p>
+        <p class="text-xs text-destructive">{t("settings.rotateWarning")}</p>
       </Dialog>
     </div>
   );

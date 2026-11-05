@@ -23,34 +23,36 @@ export function NearbyDevices(props: { compact?: boolean }) {
     <Show
       when={!props.compact}
       fallback={
-        <section class="fx-rail-section fx-rail-nearby" aria-labelledby="nearby-rail-heading">
-          <div class="fx-rail-heading">
+        <section class="flex flex-col gap-2" aria-labelledby="nearby-rail-heading">
+          <div class="text-sm font-medium">
             <span id="nearby-rail-heading">{t("rail.nearby")}</span>
-            <span class="fx-count">{nearby().length}</span>
+            <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              {nearby().length}
+            </span>
           </div>
           <Show
             when={nearby().length > 0}
             fallback={
-              <div class="fx-rail-empty">
-                <p>{t("rail.noNearby")}</p>
+              <div class="px-4 py-6 text-center text-sm text-muted-foreground">
+                <p class="text-body-sm">{t("rail.noNearby")}</p>
                 <span>{t("rail.noNearbyBody")}</span>
               </div>
             }
           >
-            <ul class="fx-peer-list fx-nearby-list">
+            <ul class="flex flex-col divide-y divide-border">
               <For each={nearby()}>
                 {(peer) => (
                   <li>
-                    <div class="fx-peer-main">
-                      <span class="fx-peer-name" title={peer.name}>
+                    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span class="truncate text-sm font-medium" title={peer.name}>
                         {peer.name}
                       </span>
-                      <span class="fx-peer-id fx-numeric">
+                      <span class="font-mono text-label text-muted-foreground">
                         {peer.platform} · {shortId(peer.device_id)}
                       </span>
                     </div>
                     <button
-                      class="fx-peer-pair"
+                      class="shrink-0"
                       type="button"
                       aria-label={t("pairing.pairWith", { name: peer.name })}
                       title={t("pairing.pairWith", { name: peer.name })}
@@ -62,7 +64,7 @@ export function NearbyDevices(props: { compact?: boolean }) {
                         when={engine.pairing()?.peer_device_id === peer.device_id}
                         fallback={<Radio size={14} aria-hidden="true" />}
                       >
-                        <LoaderCircle size={14} class="fx-spin" aria-hidden="true" />
+                        <LoaderCircle size={14} class="animate-spin" aria-hidden="true" />
                       </Show>
                     </button>
                   </li>
@@ -73,13 +75,18 @@ export function NearbyDevices(props: { compact?: boolean }) {
         </section>
       }
     >
-      <section class="fx-panel" aria-labelledby="nearby-heading">
-        <header class="fx-panel-head">
+      <section
+        class="overflow-hidden rounded-lg border border-border bg-card"
+        aria-labelledby="nearby-heading"
+      >
+        <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <h2 id="nearby-heading">{t("nearby.title")}</h2>
-            <p>{t("nearby.body")}</p>
+            <p class="text-body-sm text-muted-foreground">{t("nearby.body")}</p>
           </div>
-          <span class="fx-count">{nearby().length}</span>
+          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            {nearby().length}
+          </span>
         </header>
         <Show
           when={nearby().length > 0}
@@ -92,18 +99,21 @@ export function NearbyDevices(props: { compact?: boolean }) {
             />
           }
         >
-          <ul class="fx-nearby-grid">
+          <ul class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3 p-4">
             <For each={nearby()}>
               {(peer) => (
-                <li class="fx-nearby-card">
-                  <div class="fx-nearby-icon" aria-hidden="true">
+                <li class="flex flex-col gap-2 rounded-lg border border-border p-3">
+                  <div
+                    class="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"
+                    aria-hidden="true"
+                  >
                     <Unplug size={17} />
                   </div>
-                  <div class="fx-nearby-main">
-                    <div class="fx-nearby-name">{peer.name}</div>
-                    <div class="fx-nearby-meta">
+                  <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div class="truncate text-sm font-medium">{peer.name}</div>
+                    <div class="flex items-center gap-2 text-label text-muted-foreground">
                       <span>{peer.platform}</span>
-                      <span class="fx-numeric">{shortId(peer.device_id, 18)}</span>
+                      <span class="font-mono text-label">{shortId(peer.device_id, 18)}</span>
                     </div>
                   </div>
                   <Button
@@ -114,7 +124,7 @@ export function NearbyDevices(props: { compact?: boolean }) {
                     onClick={() => pair(peer.device_id)}
                     icon={
                       engine.pairing()?.peer_device_id === peer.device_id ? (
-                        <LoaderCircle size={13} class="fx-spin" />
+                        <LoaderCircle size={13} class="animate-spin" />
                       ) : (
                         <ShieldCheck size={13} />
                       )
@@ -127,7 +137,7 @@ export function NearbyDevices(props: { compact?: boolean }) {
             </For>
           </ul>
         </Show>
-        <p class="fx-note">{t("nearby.note")}</p>
+        <p class="px-4 py-3 text-xs text-muted-foreground">{t("nearby.note")}</p>
       </section>
     </Show>
   );
