@@ -32,6 +32,9 @@ enum MessageKind {
   TRANSFER_CANCEL = 49;
   TRANSFER_COMPLETE = 50;
   TRANSFER_ERROR = 51;
+  // The receiver already holds this exact content; the sender should stop
+  // offering bytes and treat the transfer as delivered.
+  TRANSFER_DUPLICATE = 52;
 }
 
 message Envelope {
@@ -238,5 +241,11 @@ message TransferCancel {
 }
 
 message TransferResume {
+  bytes transfer_id = 1;
+}
+
+// Sent by a receiver that already has this content, keyed by the offer's
+// root_hash. It replaces the chunk exchange entirely.
+message TransferDuplicate {
   bytes transfer_id = 1;
 }

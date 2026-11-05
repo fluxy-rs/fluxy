@@ -1095,6 +1095,7 @@ impl ChatRuntime {
                 | SessionEvent::TransferReject { .. }
                 | SessionEvent::TransferProgress { .. }
                 | SessionEvent::TransferComplete { .. }
+                | SessionEvent::TransferDuplicate { .. }
                 | SessionEvent::TransferError { .. }
                 | SessionEvent::TransferPause { .. }
                 | SessionEvent::TransferCancel { .. }

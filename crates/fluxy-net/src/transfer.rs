@@ -257,6 +257,11 @@ pub async fn send_file(
                 if envelope.kind == MessageKind::ChunkAck as i32 {
                     continue;
                 }
+                // The receiver already holds this content. Nothing to send, and
+                // the transfer counts as delivered rather than failed.
+                if envelope.kind == MessageKind::TransferDuplicate as i32 {
+                    return Ok(manifest.file_size);
+                }
                 if envelope.kind != MessageKind::ChunkRequest as i32 {
                     return Err(TransferError::Unexpected(envelope.kind));
                 }
