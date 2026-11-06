@@ -154,6 +154,7 @@ describe("keyboard main flow", () => {
       {
         snapshot: () => makeSnapshot({ transfers: [offer] }),
         incomingOffer: () => offer,
+        incomingOffers: () => [offer],
         respondTransfer,
       },
       "#/transfers",

@@ -1,4 +1,4 @@
-import { oldestOffer } from "../lib/offers";
+import { pendingOffers } from "../lib/offers";
 import {
   createContext,
   createEffect,
@@ -137,6 +137,12 @@ export type EngineContextValue = {
   shellRequest: Accessor<ShellRequest | null>;
   clearShellRequest: () => void;
   incomingOffer: Accessor<TransferSummary | null>;
+  /**
+   * Every offer the prompt is currently answering. A batch arrives as one
+   * offer per file, and asking the receiver to confirm each separately is
+   * asking the same question N times.
+   */
+  incomingOffers: Accessor<TransferSummary[]>;
   transferBusy: Accessor<string | null>;
   transferError: Accessor<EngineFailure | null>;
   dragActive: Accessor<boolean>;
@@ -237,7 +243,8 @@ export function EngineProvider(props: ParentProps) {
   const chatMessages = () => snapshot()?.chat.messages ?? [];
   const clipboardShares = () => snapshot()?.clipboard.shares ?? [];
   const transfers = () => snapshot()?.transfers ?? [];
-  const incomingOffer = () => oldestOffer(transfers());
+  const incomingOffers = () => pendingOffers(transfers());
+  const incomingOffer = () => incomingOffers()[0] ?? null;
   const chatBuffers = new Map<string, Partial<ChatMessageView>>();
   let pairingTimer: number | undefined;
 
@@ -1226,6 +1233,7 @@ export function EngineProvider(props: ParentProps) {
         shellRequest,
         clearShellRequest: () => setShellRequest(null),
         incomingOffer,
+        incomingOffers,
         transferBusy,
         transferError,
         dragActive,
