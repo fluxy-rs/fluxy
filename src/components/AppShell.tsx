@@ -73,7 +73,7 @@ export function AppShell(props: ParentProps) {
 
   return (
     <TooltipProvider delay={420} closeDelay={100}>
-      <div class="grid h-dvh grid-cols-1 overflow-hidden bg-background text-foreground md:grid-cols-[4rem_minmax(0,1fr)]">
+      <div class="grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-background text-foreground md:grid-cols-[4rem_minmax(0,1fr)] md:grid-rows-1">
         <a
           class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
           href="#main"
@@ -88,7 +88,7 @@ export function AppShell(props: ParentProps) {
         <div class="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)]">
           <main
             id="main"
-            class="relative min-h-0 min-w-0 overflow-y-auto p-4"
+            class="relative min-h-0 min-w-0 overflow-y-auto p-4 max-md:p-0"
             classList={{
               // Sections that own the full height - the conversation workspace
               // and, on a desktop, the device list - must not scroll as a whole
