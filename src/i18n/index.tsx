@@ -386,6 +386,7 @@ const zh: Messages = {
   "mobile.scanFailed": "扫码失败：{message}",
   "mobile.scanAction": "扫码添加",
   "mobile.manualOpen": "找不到设备？手动输入",
+  "mobile.manualTitle": "手动输入地址",
   "mobile.manualBody": "网络隔离或过滤了多播时，输入对方显示的地址与指纹。",
   "mobile.address": "地址",
   "mobile.fingerprint": "指纹",
@@ -959,6 +960,7 @@ const en: Messages = {
   "mobile.scanFailed": "Scan failed: {message}",
   "mobile.scanAction": "Scan a code",
   "mobile.manualOpen": "Cannot see it? Enter it by hand",
+  "mobile.manualTitle": "Enter the address by hand",
   "mobile.manualBody":
     "For a network that isolates peers or filters multicast: type the address and fingerprint the other side shows.",
   "mobile.address": "Address",

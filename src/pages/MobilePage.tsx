@@ -16,7 +16,7 @@ import type {
   RegisteredFileView,
 } from "../bindings";
 import type { PairingChallenge } from "../state/engine";
-import { ChevronDown, MessageCircle, QrCode, ScanLine } from "lucide-solid";
+import { ChevronDown, Keyboard, MessageCircle, QrCode, ScanLine } from "lucide-solid";
 import { shortId } from "../lib/format";
 import { parsePairingPayload } from "../lib/pairing";
 
@@ -387,6 +387,15 @@ export function MobilePage() {
           >
             <QrCode size={20} aria-hidden="true" />
           </button>
+          <button
+            class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            type="button"
+            aria-label={t("mobile.manualOpen")}
+            title={t("mobile.manualOpen")}
+            onClick={() => setManualOpen(true)}
+          >
+            <Keyboard size={20} aria-hidden="true" />
+          </button>
         </div>
       </header>
 
@@ -619,48 +628,6 @@ export function MobilePage() {
             </Button>
           </div>
         </Show>
-        <div class="flex flex-col gap-2 px-4 py-3">
-          <Show
-            when={manualOpen()}
-            fallback={
-              <Button variant="ghost" onClick={() => setManualOpen(true)}>
-                {t("mobile.manualOpen")}
-              </Button>
-            }
-          >
-            <p class="text-body-sm text-muted-foreground">{t("mobile.manualBody")}</p>
-            <label class="flex flex-col gap-1.5 px-4 py-3">
-              <span>{t("mobile.address")}</span>
-              <Input
-                value={address()}
-                placeholder="192.168.1.8:49784"
-                onInput={(value) => setAddress(String(value))}
-              />
-            </label>
-            <label class="flex flex-col gap-1.5 px-4 py-3">
-              <span>{t("mobile.fingerprint")}</span>
-              <Input
-                value={fingerprint()}
-                placeholder="64 hex characters"
-                onInput={(value) => setFingerprint(String(value))}
-              />
-            </label>
-            <Button variant="primary" disabled={busy()} onClick={() => void pair()}>
-              {t("mobile.pairAction")}
-            </Button>
-            <Show when={challenge()}>
-              <div class="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
-                <p class="text-body-sm">{t("mobile.pairCompare")}</p>
-                <p class="flex items-center justify-center rounded-lg bg-muted px-3 py-2 font-mono text-sm tracking-[0.3em]">
-                  {challenge()?.sas}
-                </p>
-                <Button variant="primary" onClick={() => void confirm()}>
-                  {t("mobile.pairConfirm")}
-                </Button>
-              </div>
-            </Show>
-          </Show>
-        </div>
       </section>
 
       <Dialog
@@ -692,6 +659,41 @@ export function MobilePage() {
       />
 
       <PairingQrDialog open={qrOpen()} onOpenChange={setQrOpen} />
+
+      <Dialog
+        open={manualOpen()}
+        onOpenChange={setManualOpen}
+        title={t("mobile.manualTitle")}
+        description={t("mobile.manualBody")}
+        width="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="primary" disabled={busy()} onClick={() => void pair()}>
+              {t("mobile.pairAction")}
+            </Button>
+          </>
+        }
+      >
+        <label class="flex flex-col gap-1.5">
+          <span class="text-label text-muted-foreground">{t("mobile.address")}</span>
+          <Input
+            value={address()}
+            placeholder="192.168.1.8:49784"
+            onInput={(value) => setAddress(String(value))}
+          />
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="text-label text-muted-foreground">{t("mobile.fingerprint")}</span>
+          <Input
+            value={fingerprint()}
+            placeholder="64 hex characters"
+            onInput={(value) => setFingerprint(String(value))}
+          />
+        </label>
+      </Dialog>
       <details class="group overflow-hidden rounded-lg border border-border bg-card">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-title font-[620] tracking-[-0.012em] marker:content-none [&::-webkit-details-marker]:hidden">
           {t("devices.trustedTitle")}
