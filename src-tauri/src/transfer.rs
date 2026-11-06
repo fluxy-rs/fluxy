@@ -26,7 +26,8 @@ use fluxy_net::session::{
     BatchEntryWire, ControlSender, SessionEvent, TransferMessage, TransferOfferDraft,
 };
 use fluxy_net::transfer::{
-    TransferConfig, TransferOptions, prepare_sink, receive_file_resumable, send_file,
+    TransferConfig, TransferOptions, answer_duplicate, prepare_sink, receive_file_resumable,
+    send_file,
 };
 use fluxy_net::{CheckpointResume, TransferError};
 use quinn::Connection;
@@ -44,6 +45,8 @@ use crate::notify::Notifier;
 pub const PROGRESS_THROTTLE: Duration = Duration::from_millis(100);
 /// How long an offer waits for the peer's decision before it times out.
 const OFFER_TIMEOUT: Duration = Duration::from_secs(60);
+/// How long the receiver waits for the sender to take a duplicate answer.
+const DUPLICATE_ANSWER_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a sender waits for the control session to come up.
 // Ten seconds was tight enough that a chat session which had just dropped its
 // idle connection could not be re-established in time, and the send failed with
@@ -279,6 +282,9 @@ struct TransferFailure {
 enum PeerDecision {
     Accept,
     Reject,
+    /// The receiver already holds this content, so there is nothing to send
+    /// and the transfer counts as delivered.
+    Duplicate,
 }
 
 /// One transfer the UI can render and control.
@@ -902,6 +908,10 @@ impl TransferRuntime {
         tracing::info!("start_transfers: session requested");
 
         let mut ids = Vec::with_capacity(file_ids.len());
+        // The same file can be registered twice under different ids. Sending it
+        // twice in one batch would queue two transfers for one file, and the
+        // receiver can only reject the second after the first has landed.
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
         for file_id in file_ids {
             let key = parse_uuid(file_id, "file")?;
             tracing::info!(%file_id, "start_transfers: resolving file");
@@ -914,6 +924,11 @@ impl TransferRuntime {
                     message: "the file handle is no longer registered".into(),
                     retryable: false,
                 })?;
+            if !seen.insert(file.source_key.clone()) {
+                tracing::info!(file = %file.name, "start_transfers: the batch names this file twice; skipping");
+                continue;
+            }
+
             let size = file.size;
             // Reuse the id of a cancelled or failed send of the same file to the
             // same peer. A fresh id would leave the old row in the list (two
@@ -1372,6 +1387,9 @@ impl TransferRuntime {
             ),
             SessionEvent::TransferAccept { transfer_id } => {
                 self.resolve(transfer_id, PeerDecision::Accept);
+            }
+            SessionEvent::TransferDuplicate { transfer_id } => {
+                self.resolve(transfer_id, PeerDecision::Duplicate);
             }
             SessionEvent::TransferReject {
                 transfer_id,
@@ -2018,7 +2036,10 @@ impl TransferRuntime {
                 SendFailure::Transfer(TransferError::Control(error.to_string()))
             })?;
         tracing::info!(file = %record.file_name, "offer sent; waiting for the peer decision");
-        self.wait_for_decision(record).await?;
+        if self.wait_for_decision(record).await? {
+            tracing::info!(file = %record.file_name, "the receiver already has this content; nothing to send");
+            return Ok(());
+        }
         record.set_state(TransferState::Transferring);
         let identity = self
             .identity()
@@ -2110,11 +2131,12 @@ impl TransferRuntime {
         Ok((Arc::new(cached.manifest), Arc::from(source)))
     }
 
-    async fn wait_for_decision(&self, record: &Arc<TransferRecord>) -> Result<(), SendFailure> {
+    async fn wait_for_decision(&self, record: &Arc<TransferRecord>) -> Result<bool, SendFailure> {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         *lock(&record.pending_accept) = Some(sender);
         match tokio::time::timeout(OFFER_TIMEOUT, receiver).await {
-            Ok(Ok(PeerDecision::Accept)) => Ok(()),
+            Ok(Ok(PeerDecision::Accept)) => Ok(false),
+            Ok(Ok(PeerDecision::Duplicate)) => Ok(true),
             Ok(Ok(PeerDecision::Reject)) => Err(SendFailure::Rejected {
                 code: "rejected".into(),
                 message: "the receiver declined the transfer".into(),
@@ -2146,6 +2168,9 @@ impl TransferRuntime {
             .clone()
             .ok_or_else(|| TransferError::Control("the transfer has no offer".into()))?;
         let manifest = Arc::new(offer.manifest.clone());
+        let identity = self
+            .identity()
+            .map_err(|error| TransferError::Control(error.message))?;
         // Identical content that this process already saved is not sent again:
         // tell the sender, close the transfer as delivered, and never open a
         // sink. The index is memory-only, so a file deleted outside the app
@@ -2155,13 +2180,35 @@ impl TransferRuntime {
         {
             record.deduplicated.store(true, Ordering::SeqCst);
             tracing::info!(file = %record.file_name, "content already present; telling the sender");
-            if let Some(session) = lock(&record.session).clone() {
-                let message = TransferMessage::Duplicate {
-                    transfer_id: record.transfer_id,
-                };
-                async_runtime::spawn(async move {
-                    let _ = session.sender.send_transfer(message).await;
-                });
+            // The sender is blocked on the stream it accepted for this
+            // transfer, not on the session control stream, so the answer goes
+            // back on that stream. Sending it as a session message, or
+            // spawning it so the transfer could finish first, both left the
+            // sender waiting out its own timeout.
+            // Bounded: if the sender is not listening on this stream the await
+            // would otherwise sit here forever, leaving the row in transferring
+            // with nothing to show for it.
+            let answer = tokio::time::timeout(
+                DUPLICATE_ANSWER_TIMEOUT,
+                answer_duplicate(
+                    &session.connection,
+                    &identity,
+                    session.session_id,
+                    record.transfer_id,
+                    &manifest,
+                ),
+            )
+            .await;
+            match answer {
+                Ok(Ok(())) => {
+                    tracing::info!(file = %record.file_name, "told the sender the content is already here")
+                }
+                Ok(Err(error)) => {
+                    tracing::warn!(%error, file = %record.file_name, "the sender refused the duplicate answer")
+                }
+                Err(_) => {
+                    tracing::warn!(file = %record.file_name, "the sender did not take the duplicate answer in time")
+                }
             }
             return Ok(());
         }

@@ -25,8 +25,8 @@ use fluxy_core::transfer::{
 };
 use fluxy_core::{ErrorCode, Identity};
 use fluxy_proto::{
-    ChunkAck, ChunkRequest, MessageKind, ProtoError, TransferManifest, decode_payload,
-    encode_payload,
+    ChunkAck, ChunkRequest, MessageKind, ProtoError, TransferDuplicate, TransferManifest,
+    decode_payload, encode_payload,
 };
 
 use crate::handshake::make_envelope;
@@ -251,7 +251,10 @@ pub async fn send_file(
             incoming = read_envelope(&mut control_recv) => {
                 let envelope = match incoming {
                     Ok(envelope) => envelope,
-                    Err(TransportError::Stream(_)) => break,
+                    Err(TransportError::Stream(error)) => {
+                        tracing::warn!(%transfer_id, %error, "the transfer stream closed without a chunk request");
+                        break;
+                    }
                     Err(error) => return Err(TransferError::Transport(error)),
                 };
                 if envelope.kind == MessageKind::ChunkAck as i32 {
@@ -260,6 +263,7 @@ pub async fn send_file(
                 // The receiver already holds this content. Nothing to send, and
                 // the transfer counts as delivered rather than failed.
                 if envelope.kind == MessageKind::TransferDuplicate as i32 {
+                    tracing::info!(%transfer_id, "the receiver already has this content");
                     return Ok(manifest.file_size);
                 }
                 if envelope.kind != MessageKind::ChunkRequest as i32 {
@@ -911,6 +915,38 @@ async fn send_manifest(
         payload,
     );
     write_envelope(control, &envelope).await?;
+    Ok(())
+}
+
+/// Answer a manifest with "I already have this".
+///
+/// The sender is blocked reading the *transfer* stream it accepted, not the
+/// session control stream, so the answer only arrives if it is written to the
+/// same stream the sender opened a manifest exchange on. The manifest still has
+/// to be consumed first: it is the sender's first frame on that stream.
+pub async fn answer_duplicate(
+    connection: &Connection,
+    identity: &Identity,
+    session_id: Uuid,
+    transfer_id: Uuid,
+    manifest: &Manifest,
+) -> Result<(), TransferError> {
+    let (mut control_send, mut control_recv) = connection
+        .open_bi()
+        .await
+        .map_err(|error| TransportError::Stream(error.to_string()))?;
+    receive_manifest(&mut control_recv, transfer_id, manifest).await?;
+    let payload = encode_payload(&TransferDuplicate {
+        transfer_id: transfer_id.as_bytes().to_vec(),
+    });
+    let envelope = make_envelope(
+        MessageKind::TransferDuplicate,
+        identity,
+        Some(session_id),
+        payload,
+    );
+    write_envelope(&mut control_send, &envelope).await?;
+    let _ = control_send.shutdown().await;
     Ok(())
 }
 
