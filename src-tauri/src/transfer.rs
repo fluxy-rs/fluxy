@@ -1042,11 +1042,26 @@ impl TransferRuntime {
     }
 
     /// Incoming offers that were admitted and are still waiting for the user.
+    ///
+    /// Offers of one batch count once. A selection of ten files is ten offers
+    /// but one question, and charging a slot for each of them made the tenth
+    /// arrive into a full house and be refused as busy.
     fn offered_count(&self) -> usize {
-        lock(&self.records)
-            .values()
-            .filter(|record| record.state() == TransferState::Offered)
-            .count()
+        let records = lock(&self.records);
+        let mut batches: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
+        let mut loose = 0;
+        for record in records.values() {
+            if record.state() != TransferState::Offered {
+                continue;
+            }
+            match record.batch.as_ref().map(|tag| tag.batch_id) {
+                Some(batch_id) => {
+                    batches.insert(batch_id);
+                }
+                None => loose += 1,
+            }
+        }
+        batches.len() + loose
     }
 
     /// Slots in use, including offers that were admitted but not answered yet.
