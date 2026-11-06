@@ -251,16 +251,59 @@ export function ChatWorkspace(props: {
       // The platform decides this, not the IPC bridge: both builds expose
       // __TAURI_INTERNALS__, so engine.desktop is true on Android too.
       const onAndroid = engine.snapshot()?.status.platform === "android";
-      const file = onAndroid
-        ? await engine.pickSourceFile()
-        : await engine.pickFile(t("chat.attachTitle"));
-      if (!file) return;
-      await engine.startTransfers(peer.device_id, [file.file_id]);
-      toast.success(t("chat.attachSent", { name: file.name }));
+      if (onAndroid) {
+        // The platform picker hands back one descriptor, so a phone sends one
+        // file per tap; the desktop dialog can return a whole selection.
+        const file = await engine.pickSourceFile();
+        if (!file) return;
+        await engine.startTransfers(peer.device_id, [file.file_id]);
+        toast.success(t("chat.attachSent", { name: file.name }));
+        return;
+      }
+      const files = await engine.pickFiles(t("chat.attachTitle"));
+      if (files.length === 0) return;
+      await engine.startTransfers(
+        peer.device_id,
+        files.map((file) => file.file_id),
+      );
+      toast.success(
+        files.length === 1
+          ? t("chat.attachSent", { name: files[0].name })
+          : t("chat.attachSentMany", { count: files.length }),
+      );
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : String(cause));
     }
   }
+
+  // Files dropped on the window are handed to the conversation on screen. The
+  // engine keeps the last drop until something claims it, so a drop that lands
+  // while the chat is closed is still there when it opens.
+  createEffect(() => {
+    const dropped = engine.drop();
+    const peer = selected();
+    if (!dropped || !peer) return;
+    engine.clearDrop();
+    const fileIds = dropped.files.map((file) => file.file_id);
+    const folderIds = dropped.folders.map((folder) => folder.folder_id);
+    if (fileIds.length === 0 && folderIds.length === 0) return;
+    void (async () => {
+      try {
+        if (fileIds.length > 0) await engine.startTransfers(peer.device_id, fileIds);
+        for (const folderId of folderIds) await engine.startFolder(peer.device_id, folderId);
+        const count = fileIds.length + folderIds.length;
+        toast.success(
+          count === 1
+            ? t("chat.attachSent", {
+                name: dropped.files[0]?.name ?? dropped.folders[0]?.root_name ?? "",
+              })
+            : t("chat.attachSentMany", { count }),
+        );
+      } catch (cause) {
+        toast.error(cause instanceof Error ? cause.message : String(cause));
+      }
+    })();
+  });
 
   async function send() {
     const peer = selected();
@@ -354,7 +397,7 @@ export function ChatWorkspace(props: {
 
   return (
     <section
-      class="grid min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card"
+      class="relative grid min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card"
       classList={{
         "grid-cols-[minmax(15rem,18.75rem)_minmax(0,1fr)]": !compact(),
       }}
@@ -740,6 +783,15 @@ export function ChatWorkspace(props: {
             </div>
           )}
         </Show>
+      </Show>
+      {/* The OS owns the drag; this is only the invitation to drop. */}
+      <Show when={engine.dragActive() && selected()}>
+        <div class="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-lg border-2 border-dashed border-primary/60 bg-background/80">
+          <div class="flex flex-col items-center gap-1.5">
+            <Paperclip size={22} class="text-primary" aria-hidden="true" />
+            <p class="text-body font-medium">{t("chat.dropHere")}</p>
+          </div>
+        </div>
       </Show>
     </section>
   );

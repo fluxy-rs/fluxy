@@ -48,6 +48,7 @@ export function createMockEngine(options: MockEngineOptions = {}): EngineContext
     shellRequest: () => null,
     clearShellRequest: vi.fn(),
     incomingOffer: () => null,
+    incomingOffers: () => [],
     openReceivedTransfer: vi.fn(),
     setDeviceAutoAccept: vi.fn(),
     transferBusy: () => null,
