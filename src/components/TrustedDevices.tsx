@@ -1,3 +1,4 @@
+import { platformLabel } from "../lib/platform";
 import { For, Show, createSignal } from "solid-js";
 import { LoaderCircle, ShieldCheck, Trash2 } from "lucide-solid";
 import { useEngine } from "../state/engine";
@@ -41,6 +42,7 @@ export function TrustedDevices(props: {
       classList={{ "rounded-lg border border-border bg-card": !props.bare }}
       aria-labelledby="trust-heading"
     >
+      <Show when={!props.bare}>
       <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
           <h2 id="trust-heading" class="text-title font-[620] tracking-[-0.012em]">
@@ -52,10 +54,11 @@ export function TrustedDevices(props: {
           {trusted().length}
         </span>
       </header>
+      </Show>
       <Show
         when={trusted().length > 0}
         fallback={
-          <div class="px-4 py-6 text-center text-sm text-muted-foreground">
+          <div class="flex flex-col items-center gap-2 px-4 py-6 text-center text-muted-foreground">
             <ShieldCheck size={18} aria-hidden="true" />
             <div>
               <strong>{t("trust.emptyTitle")}</strong>
@@ -69,14 +72,17 @@ export function TrustedDevices(props: {
             {(peer) => (
               <li class="flex items-center gap-3 px-4 py-2.5">
                 <span
-                  class="size-2 shrink-0 rounded-full bg-muted-foreground/40"
-                  classList={{ "is-ready": peer.online, "is-offline": !peer.online }}
+                  class="size-2 shrink-0 rounded-full"
+                  classList={{
+                    "bg-success": peer.online,
+                    "bg-muted-foreground/40": !peer.online,
+                  }}
                   aria-hidden="true"
                 />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <strong>{peer.name}</strong>
+                  <strong class="truncate text-body font-semibold">{peer.name}</strong>
                   <span class="flex shrink-0 items-center gap-2 text-label text-muted-foreground">
-                    {peer.platform} ·{" "}
+                    {platformLabel(peer.platform)} ·{" "}
                     {t("trust.pairedAt", {
                       date: formatDate(peer.paired_at_ms, locale()),
                     })}

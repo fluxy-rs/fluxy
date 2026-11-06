@@ -472,48 +472,52 @@ export function MobilePage() {
                       </div>
                     </div>
                     <Show when={open()}>
-                      <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 px-3 py-3">
+                      <dl class="flex flex-col gap-3 px-3 py-3">
                         <Show when={peer.manufacturer}>
-                          <div>
+                          <div class="flex min-w-0 flex-col gap-0.5">
                             <dt class="text-label text-muted-foreground">
                               {t("devices.brandLabel")}
                             </dt>
-                            <dd class="text-body">{peer.manufacturer}</dd>
+                            <dd class="min-w-0 break-words text-body">{peer.manufacturer}</dd>
                           </div>
                         </Show>
                         <Show when={peer.model}>
-                          <div>
+                          <div class="flex min-w-0 flex-col gap-0.5">
                             <dt class="text-label text-muted-foreground">
                               {t("devices.modelLabel")}
                             </dt>
-                            <dd class="text-body">{peer.model}</dd>
+                            <dd class="min-w-0 break-words text-body">{peer.model}</dd>
                           </div>
                         </Show>
-                        <div>
+                        <div class="flex min-w-0 flex-col gap-0.5">
                           <dt class="text-label text-muted-foreground">
                             {t("devices.platformLabel")}
                           </dt>
-                          <dd class="text-body">{peer.os_version || peer.platform}</dd>
+                          <dd class="min-w-0 break-words text-body">
+                            {peer.os_version || peer.platform}
+                          </dd>
                         </div>
-                        <div>
+                        <div class="flex min-w-0 flex-col gap-0.5">
                           <dt class="text-label text-muted-foreground">{t("devices.idLabel")}</dt>
-                          <dd class="font-mono text-xs">{shortId(peer.device_id, 24)}</dd>
+                          <dd class="min-w-0 break-all font-mono text-label">
+                            {shortId(peer.device_id, 24)}
+                          </dd>
                         </div>
                         <Show when={peer.address}>
-                          <div>
+                          <div class="flex min-w-0 flex-col gap-0.5">
                             <dt class="text-label text-muted-foreground">
                               {t("devices.addressLabel")}
                             </dt>
-                            <dd class="font-mono text-xs">
+                            <dd class="min-w-0 break-all font-mono text-label">
                               {peer.address}:{peer.port}
                             </dd>
                           </div>
                         </Show>
-                        <div>
+                        <div class="flex min-w-0 flex-col gap-0.5">
                           <dt class="text-label text-muted-foreground">
                             {t("devices.trustLabel")}
                           </dt>
-                          <dd class="text-body">
+                          <dd class="min-w-0 break-words text-body">
                             {peer.trusted ? t("mobile.nearbyPaired") : t("devices.unpaired")}
                           </dd>
                         </div>
