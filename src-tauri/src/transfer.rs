@@ -1599,6 +1599,7 @@ impl TransferRuntime {
                 }
                 *lock(&record.control) = TransferControl::new();
                 *lock(&record.failure) = None;
+                record.deduplicated.store(false, Ordering::SeqCst);
                 match record.direction {
                     TransferDirection::Send => {
                         // A retry is a new attempt, so it goes back through the
@@ -2154,6 +2155,19 @@ impl TransferRuntime {
             return;
         }
 
+        // The receiver already holds this content: answer without a record,
+        // without a prompt, and without a transfer stream. Otherwise the pull
+        // discovers the duplicate only after the user answered, and the sender
+        // is already waiting for a stream a duplicate never opens.
+        if lock(&self.received_hashes).contains(&manifest.root_hash) {
+            tracing::info!(file = %file_name, "content already present; answering the offer as a duplicate");
+            let message = TransferMessage::Duplicate { transfer_id };
+            async_runtime::spawn(async move {
+                let _ = session.sender.send_transfer(message).await;
+            });
+            return;
+        }
+
         let offer = OfferPlan {
             manifest,
             file_name: file_name.clone(),
@@ -2290,9 +2304,18 @@ impl TransferRuntime {
     }
 
     fn resolve(&self, transfer_id: Uuid, decision: PeerDecision) {
-        if let Some(record) = self.get(transfer_id)
-            && let Some(sender) = lock(&record.pending_accept).take()
-        {
+        let Some(record) = self.get(transfer_id) else {
+            return;
+        };
+        if decision == PeerDecision::Duplicate {
+            // The decision can arrive after the Accept already woke the send
+            // task, which is then waiting for a transfer stream a duplicate
+            // never opens. Remember the outcome and stop that wait, or the send
+            // sits there until the connection ends.
+            record.deduplicated.store(true, Ordering::SeqCst);
+            record.control().cancel();
+        }
+        if let Some(sender) = lock(&record.pending_accept).take() {
             let _ = sender.send(decision);
         }
     }
@@ -2446,7 +2469,7 @@ impl TransferRuntime {
             .identity()
             .map_err(|error| SendFailure::Transfer(TransferError::Control(error.message)))?;
         let control = record.control();
-        send_file(
+        match send_file(
             &session.connection,
             &identity,
             session.session_id,
@@ -2457,7 +2480,16 @@ impl TransferRuntime {
             Some(&control),
         )
         .await
-        .map_err(SendFailure::Transfer)?;
+        {
+            Ok(_) => {}
+            // A duplicate answer can land after the accept and cancel the wait
+            // for a stream that will never open. The receiver already has the
+            // content, so this counts as delivered.
+            Err(TransferError::Canceled) if record.deduplicated.load(Ordering::SeqCst) => {
+                return Ok(());
+            }
+            Err(error) => return Err(SendFailure::Transfer(error)),
+        }
         let _ = session
             .sender
             .send_transfer(TransferMessage::Complete {
