@@ -19,13 +19,12 @@ pub const DEFAULT_LISTEN_PORT: u16 = 49784;
 
 /// Default number of transfers that may be active at the same time.
 ///
-/// One at a time. A transfer pairs a sender's `accept_bi` with a receiver's
-/// `open_bi`, and QUIC gives no way to say which stream belongs to which
-/// transfer, so two running at once can each take the other's stream and
-/// fail with "manifest has a different transfer id". Serialising them costs
-/// nothing measurable on a LAN, where one transfer already saturates the
-/// link, and it makes a multi-file send correct. Raising this needs stream
-/// pairing in the protocol first.
+/// One at a time is the conservative default: on a LAN one transfer already
+/// saturates the link, so extra concurrency mostly splits the same bandwidth.
+/// It is a throughput choice, not a correctness one - each transfer names its
+/// stream with its transfer id, the cap is enforced on pulls as well as sends,
+/// and a whole batch is confirmed in one prompt either way. A user who wants
+/// several files of one selection to move together can raise it in settings.
 pub const DEFAULT_ACTIVE_TRANSFERS: u32 = 1;
 /// The user-facing floor for the active-transfer cap.
 pub const MIN_ACTIVE_TRANSFERS: u32 = 1;
