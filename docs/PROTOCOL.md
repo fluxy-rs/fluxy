@@ -7,12 +7,14 @@ Status: draft for M0. This document is the implementation contract for
 
 - QUIC with TLS 1.3 and mutual certificate authentication.
 - ALPN: `fluxy/1`.
-- One bidirectional control stream per session; file chunks use independent
-  unidirectional streams.
-- Scheduling: both peers set priority 100 on the session control stream and
-  priority -50 on chunk streams, so chat, clipboard, and negotiation frames are
-  never queued behind bulk payload (a saturated 10 GiB transfer must not delay
-  chat by more than the M2-09 budget).
+- One bidirectional control stream per session. Each file transfer uses one
+  more bidirectional stream, opened by the receiver and named with its
+  `transfer_id` (section 8.2).
+- Scheduling: both peers set priority 100 on the session control stream, so
+  chat, clipboard, and negotiation frames are never queued behind bulk payload
+  (a saturated 10 GiB transfer must not delay chat by more than the M2-09
+  budget). Chunk payload rides the transfer stream, which keeps the default
+  priority.
 - No plaintext listener, no cloud relay, and no certificate-verification bypass.
 
 ## 2. Control frame
@@ -163,8 +165,8 @@ than assumed.
 ## 7. Control session and chat
 
 After `READY`, the initiator opens one bidirectional stream for control
-messages. The responder accepts it. File chunks never share this stream; they
-use independent unidirectional streams from M0-06 onward.
+messages. The responder accepts it. File chunks never share this stream: every
+transfer opens its own bidirectional stream and names it (section 8.2).
 
 - Framing is the same length-prefixed Envelope as section 2.
 - The stream carries `PING`, `PONG`, `CHAT_TEXT`, `MESSAGE_ACK`, `ERROR`, and
@@ -289,24 +291,36 @@ verification; M2-06 adds the root-hash check after the last block.
 
 The receiver drives the transfer; the sender never pushes an unrequested chunk.
 
+- The receiver opens one bidirectional stream per file and writes the 16 raw
+  bytes of `transfer_id` before anything else. One stream carries the whole
+  file: the name, the manifest, every request and acknowledgement, and every
+  chunk.
+- QUIC does not say which transfer opened an accepted stream. The sender reads
+  the name and serves the transfer it identifies, so two transfers in flight on
+  one connection never swap streams. A stream named for a transfer the sender
+  has not registered yet is parked until it registers, never reset: it is the
+  receiver's only stream for that file.
 - `TRANSFER_MANIFEST` (`TransferManifest`) carries `transfer_id`,
   `block_size`, `file_size`, the ordered `block_hashes`, `root_hash`, and
-  `manifest_digest`. The sender writes it on the control stream before serving
-  any request; the receiver opens that stream, sends its first request batch,
-  and validates every hash length, the block count, `manifest_digest`, and the
-  transfer id before writing a chunk.
+  `manifest_digest`. It is the sender's first frame on the transfer stream. The
+  receiver sends its first request batch, then validates every hash length, the
+  block count, `manifest_digest`, and the transfer id before writing a chunk.
 - `CHUNK_REQUEST` (`ChunkRequest`) names one `transfer_id` and
   `chunk_index`; `CHUNK_ACK` (`ChunkAck`) echoes both plus `stored` and a
   stable `code`.
-- The default window is 4 streams × 2 requests = 8 outstanding chunks. A request
-  that is not acknowledged within 15 s is retried; after 3 attempts the chunk is
-  reported missing and the transfer fails instead of hanging.
-- Each request is served on a fresh unidirectional QUIC stream carrying exactly
-  one `FCH1` frame, so at most four chunk streams are open at once and no
-  stream is reused across chunks.
-- The receiver decodes and hash-checks a chunk against the manifest block hash
-  before writing it to the sink, then acknowledges it. Duplicate or out-of-order
-  chunks are accepted but written at most once into the bitmap.
+- The default window is 16 outstanding chunks (8 × 2). A request that is not
+  acknowledged within 15 s is retried; after 3 attempts the chunk is reported
+  missing and the transfer fails instead of hanging.
+- Control frames and chunk frames share the stream and are told apart by their
+  first four bytes: a control frame is a 4-byte length followed by an Envelope
+  (section 2), a chunk starts with `FCH1`. The magic is far above the 8 MiB
+  frame cap, so the two can never be confused.
+- A chunk is read as its fixed 68-byte header followed by `payload_len` bytes
+  (section 8). Neither side reads to end of stream: the stream stays open for
+  the whole transfer.
+- The receiver hash-checks a chunk against the header and the manifest block
+  hash before writing it to the sink, then acknowledges it. Duplicate chunks
+  (a timed-out request served twice) are written at most once and counted once.
 - `offset` must equal `chunk_index * block_size`, and `payload_len` must equal
   the manifest block length; a mismatch is rejected without writing.
 
@@ -438,7 +452,7 @@ transfer center:
 - **Pause, resume, cancel, and retry.** The transfer center maps those actions
   onto the local `TransferControl` handle and also sends `TRANSFER_PAUSE`,
   `TRANSFER_RESUME`, or `TRANSFER_CANCEL` so the peer learns about the state
-  change. A cancel still closes the control stream, which stops a peer that
+  change. A cancel still closes the transfer stream, which stops a peer that
   never saw the frame.
 - **Errors.** `TRANSFER_ERROR{code, message, retryable}` mirrors
   `TransferError::code()` and `is_retryable()`; the UI keeps the code, the

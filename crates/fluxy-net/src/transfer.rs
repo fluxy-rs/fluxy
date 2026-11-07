@@ -1,43 +1,51 @@
-//! Pull-based chunk transfer over QUIC uni streams.
+//! Pull-based chunk transfer over one bidirectional stream per file.
 //!
-//! The receiver owns the manifest and a bounded request window. It writes
-//! `CHUNK_REQUEST` envelopes on a bidirectional control stream; the sender
-//! serves each request on a fresh unidirectional stream carrying one
-//! `FCH1`-framed chunk. The receiver verifies the chunk hash and writes it to
-//! the sink before acknowledging it.
+//! The receiver opens the stream and names its transfer in the first sixteen
+//! bytes. The sender routes the stream by that name, answers with the manifest,
+//! and serves every `CHUNK_REQUEST` on the same stream as an `FCH1` chunk
+//! frame. The receiver verifies each chunk and writes it to the sink before
+//! acknowledging it.
+//!
+//! QUIC accepts a stream without saying which transfer opened it, so without
+//! the name a sender serving two files at once took the other file's stream and
+//! answered its requests with a manifest that carried the wrong transfer id.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{Duration, Instant};
 
-use bytes::Bytes;
 use quinn::{Connection, RecvStream, SendStream};
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{Semaphore, mpsc};
-use tokio::task::JoinSet;
+use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 use fluxy_core::files::{FileAccessManager, FileError, FileSink, FileSource};
 use fluxy_core::transfer::{
-    CHUNK_HEADER_LEN, CheckpointError, CheckpointStore, ChunkError, ChunkHeader, MAX_CHUNK_BYTES,
-    Manifest, PullScheduler, ResumePlan, SchedulerConfig, StateError, StateMachine,
-    TransferCheckpoint, TransferControl, TransferRole, TransferState, covered_ranges,
+    CHUNK_HEADER_LEN, CHUNK_MAGIC, CheckpointError, CheckpointStore, ChunkError, ChunkHeader,
+    MAX_CHUNK_BYTES, Manifest, PullScheduler, ResumePlan, SchedulerConfig, StateError,
+    StateMachine, TransferCheckpoint, TransferControl, TransferRole, TransferState, covered_ranges,
 };
 use fluxy_core::{ErrorCode, Identity};
 use fluxy_proto::{
-    ChunkAck, ChunkRequest, MessageKind, ProtoError, TransferDuplicate, TransferManifest,
-    decode_payload, encode_payload,
+    ChunkAck, ChunkRequest, Envelope, MAX_CONTROL_FRAME, MessageKind, ProtoError, TransferManifest,
+    decode_frame, decode_payload, encode_payload,
 };
 
 use crate::handshake::make_envelope;
 use crate::transport::{TransportError, read_envelope, write_envelope};
 
-/// Time to wait for one control-frame write or chunk stream before failing.
+/// Time to wait for one control frame or a transfer stream before failing.
 pub const TRANSFER_IO_TIMEOUT: Duration = Duration::from_secs(30);
 /// Poll interval for retries and timeout expiry.
 pub const TRANSFER_TICK: Duration = Duration::from_millis(100);
-/// Scheduling priority for bulk chunk streams, below control traffic.
-pub const CHUNK_STREAM_PRIORITY: i32 = -50;
+/// Bytes a receiver writes before anything else on its transfer stream.
+pub const TRANSFER_STREAM_NAME_LEN: usize = 16;
+/// Streams a connection may park while they wait for their transfer to register.
+///
+/// Every file of a batch can name its stream before the matching send task
+/// reaches `send_file`, so this has to cover a full batch rather than one or two.
+const MAX_PARKED_STREAMS: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TransferConfig {
@@ -198,10 +206,188 @@ fn fixed_hash(bytes: &[u8], label: &str) -> Result<[u8; 32], TransferError> {
     Ok(fixed)
 }
 
-/// Serve chunk requests until the receiver closes the control stream.
+/// Route incoming transfer streams to the transfer that opened them.
 ///
-/// Returns the number of payload bytes written. At most `streams` chunk
-/// streams are open at once. `control` cancels an outgoing transfer.
+/// QUIC hands out a bidirectional stream without saying which transfer the peer
+/// opened it for. Two sends in flight at once therefore accepted each other's
+/// stream and wrote a manifest with the wrong id into it - the failure a
+/// multi-file send showed as "manifest has a different transfer id". The router
+/// is the single acceptor per connection: every receiver names its transfer in
+/// the first sixteen bytes, and the router hands the stream to the task waiting
+/// for that name. Nothing is reset for being unrecognised: a stream that names
+/// no registered transfer is parked, because a receiver answers an offer before
+/// the matching send task gets as far as `send_file`.
+struct StreamRouter {
+    connection: Connection,
+    state: Mutex<RouterState>,
+}
+
+#[derive(Default)]
+struct RouterState {
+    waiting: HashMap<Uuid, oneshot::Sender<Result<Incoming, String>>>,
+    parked: HashMap<Uuid, Vec<Incoming>>,
+    closed: Option<String>,
+}
+
+impl RouterState {
+    /// Hold a stream until the transfer that names it registers.
+    ///
+    /// The cap is a guard against a peer that names streams nothing will ever
+    /// claim, not a queue size: a real batch has one stream per file.
+    fn park(&mut self, transfer_id: Uuid, incoming: Incoming) {
+        let parked: usize = self.parked.values().map(Vec::len).sum();
+        if parked >= MAX_PARKED_STREAMS
+            && let Some(victim) = self.parked.keys().next().copied()
+        {
+            self.parked.remove(&victim);
+        }
+        self.parked.entry(transfer_id).or_default().push(incoming);
+    }
+
+    /// Take the parked stream for a transfer, if one arrived early.
+    fn take_parked(&mut self, transfer_id: Uuid) -> Option<Incoming> {
+        let mut parked = self.parked.remove(&transfer_id)?;
+        let incoming = parked.pop();
+        if !parked.is_empty() {
+            self.parked.insert(transfer_id, parked);
+        }
+        incoming
+    }
+}
+
+/// A transfer stream that has been accepted and named.
+struct Incoming {
+    send: SendStream,
+    recv: RecvStream,
+}
+
+/// Routers by connection, so a stream is never handed to another connection's
+/// transfer. The map holds weak handles: the accept loop owns the strong one,
+/// and it ends when the connection does.
+static ROUTERS: OnceLock<Mutex<HashMap<usize, Weak<StreamRouter>>>> = OnceLock::new();
+
+fn router_for(connection: &Connection) -> Arc<StreamRouter> {
+    let routers = ROUTERS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = routers
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.retain(|_, weak| weak.strong_count() > 0);
+    if let Some(router) = guard.get(&connection.stable_id()).and_then(Weak::upgrade) {
+        return router;
+    }
+    let router = Arc::new(StreamRouter {
+        connection: connection.clone(),
+        state: Mutex::new(RouterState::default()),
+    });
+    guard.insert(connection.stable_id(), Arc::downgrade(&router));
+    drop(guard);
+    let accepting = router.clone();
+    tokio::spawn(async move { accepting.accept_loop().await });
+    router
+}
+
+impl StreamRouter {
+    fn lock(&self) -> std::sync::MutexGuard<'_, RouterState> {
+        self.state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    async fn accept_loop(self: Arc<Self>) {
+        loop {
+            let (send, recv) = match self.connection.accept_bi().await {
+                Ok(pair) => pair,
+                Err(error) => {
+                    // Every sender still waiting has to learn the connection is
+                    // gone now, not after its own timeout.
+                    self.close(&format!(
+                        "the connection closed while waiting for a transfer stream: {error}"
+                    ));
+                    break;
+                }
+            };
+            let router = self.clone();
+            tokio::spawn(async move { router.dispatch(send, recv).await });
+        }
+    }
+
+    async fn dispatch(&self, send: SendStream, mut recv: RecvStream) {
+        let mut name = [0_u8; TRANSFER_STREAM_NAME_LEN];
+        if recv.read_exact(&mut name).await.is_err() {
+            // A peer that opens and closes a stream without naming anything has
+            // nothing for us to serve.
+            return;
+        }
+        let Ok(transfer_id) = Uuid::from_slice(&name) else {
+            tracing::warn!("a transfer stream did not name a transfer");
+            return;
+        };
+        let incoming = Incoming { send, recv };
+        let mut state = self.lock();
+        if let Some(waiter) = state.waiting.remove(&transfer_id) {
+            drop(state);
+            let _ = waiter.send(Ok(incoming));
+            return;
+        }
+        if state.closed.is_some() {
+            return;
+        }
+        state.park(transfer_id, incoming);
+        tracing::info!(%transfer_id, "a transfer stream arrived before its send registered");
+    }
+
+    /// Wait for the stream that names `transfer_id`.
+    async fn claim(&self, transfer_id: Uuid) -> Result<Incoming, TransferError> {
+        let (waiter, waiting) = oneshot::channel();
+        {
+            let mut state = self.lock();
+            if let Some(reason) = &state.closed {
+                return Err(TransferError::Control(reason.clone()));
+            }
+            if let Some(incoming) = state.take_parked(transfer_id) {
+                return Ok(incoming);
+            }
+            state.waiting.insert(transfer_id, waiter);
+        }
+        match tokio::time::timeout(TRANSFER_IO_TIMEOUT, waiting).await {
+            Ok(Ok(Ok(incoming))) => Ok(incoming),
+            Ok(Ok(Err(reason))) => Err(TransferError::Control(reason)),
+            Ok(Err(_)) => Err(TransferError::Control(
+                "the transfer stream router stopped".into(),
+            )),
+            Err(_) => {
+                self.lock().waiting.remove(&transfer_id);
+                Err(TransferError::Control(
+                    "the receiver never opened a stream for this transfer".into(),
+                ))
+            }
+        }
+    }
+
+    fn close(&self, reason: &str) {
+        let mut state = self.lock();
+        if state.closed.is_some() {
+            return;
+        }
+        state.closed = Some(reason.to_string());
+        let waiting: Vec<_> = state.waiting.drain().map(|(_, waiter)| waiter).collect();
+        state.parked.clear();
+        drop(state);
+        for waiter in waiting {
+            let _ = waiter.send(Err(reason.to_string()));
+        }
+    }
+}
+
+/// Serve one file until the receiver closes its stream.
+///
+/// Returns the number of payload bytes written. `control` cancels an outgoing
+/// transfer. The stream is the one the receiver opened and named; the manifest
+/// and every chunk answer travel back on it.
+///
+/// `config` sizes the receiver's request window and retry budget; a sender only
+/// answers what it is asked for, so nothing here is tunable and the argument is
+/// kept for the callers that share one config with both ends.
 #[allow(clippy::too_many_arguments)]
 pub async fn send_file(
     connection: &Connection,
@@ -210,7 +396,7 @@ pub async fn send_file(
     transfer_id: Uuid,
     manifest: Arc<Manifest>,
     source: Arc<dyn FileSource>,
-    config: TransferConfig,
+    _config: TransferConfig,
     control: Option<&TransferControl>,
 ) -> Result<u64, TransferError> {
     let path = connection.stats().path;
@@ -222,21 +408,49 @@ pub async fn send_file(
         congestion_events = path.congestion_events,
         "transfer path state"
     );
-    let (mut control_send, mut control_recv) = connection
-        .accept_bi()
-        .await
-        .map_err(|error| TransportError::Stream(error.to_string()))?;
-    tracing::info!(%transfer_id, "sender: stream accepted, writing the manifest");
-    send_manifest(
-        &mut control_send,
+    let Incoming { mut send, recv } = router_for(connection).claim(transfer_id).await?;
+    tracing::info!(%transfer_id, "sender: the receiver named this transfer");
+    serve_on_stream(
+        &mut send,
+        recv,
         identity,
         session_id,
         transfer_id,
-        &manifest,
+        manifest,
+        source,
+        control,
     )
-    .await?;
-    let semaphore = Arc::new(Semaphore::new(config.scheduler.streams.max(1)));
-    let mut tasks: JoinSet<Result<u64, TransferError>> = JoinSet::new();
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn serve_on_stream(
+    send: &mut SendStream,
+    recv: RecvStream,
+    identity: &Identity,
+    session_id: Uuid,
+    transfer_id: Uuid,
+    manifest: Arc<Manifest>,
+    source: Arc<dyn FileSource>,
+    control: Option<&TransferControl>,
+) -> Result<u64, TransferError> {
+    send_manifest(send, identity, session_id, transfer_id, &manifest).await?;
+    // One task owns the receive half: a dropped frame read loses the bytes it
+    // had already consumed, and a 4 MiB chunk would be cut in half by the next
+    // tick. The serving loop only ever awaits a whole envelope.
+    let (envelopes, mut incoming) = mpsc::channel::<Result<Envelope, TransportError>>(4);
+    let _reader = AbortOnDrop(tokio::spawn(async move {
+        let mut recv = recv;
+        loop {
+            let next = read_envelope(&mut recv).await;
+            let stop = next.is_err();
+            if envelopes.send(next).await.is_err() || stop {
+                break;
+            }
+        }
+    }));
+    let mut ticker = tokio::time::interval(TRANSFER_TICK);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut served: u64 = 0;
 
     loop {
@@ -248,15 +462,16 @@ pub async fn send_file(
             return Err(TransferError::File(error));
         }
         tokio::select! {
-            _ = tokio::time::sleep(TRANSFER_TICK) => {}
-            incoming = read_envelope(&mut control_recv) => {
-                let envelope = match incoming {
-                    Ok(envelope) => envelope,
-                    Err(TransportError::Stream(error)) => {
+            _ = ticker.tick() => {}
+            envelope = incoming.recv() => {
+                let envelope = match envelope {
+                    Some(Ok(envelope)) => envelope,
+                    Some(Err(TransportError::Stream(error))) => {
                         tracing::warn!(%transfer_id, %error, "the transfer stream closed without a chunk request");
                         break;
                     }
-                    Err(error) => return Err(TransferError::Transport(error)),
+                    Some(Err(error)) => return Err(TransferError::Transport(error)),
+                    None => break,
                 };
                 if envelope.kind == MessageKind::ChunkAck as i32 {
                     continue;
@@ -289,75 +504,37 @@ pub async fn send_file(
                 let Some(length) = manifest.block_len(index) else {
                     continue;
                 };
-                let permit = semaphore
-                    .clone()
-                    .acquire_owned()
-                    .await
-                    .map_err(|error| TransferError::Control(error.to_string()))?;
-                let connection = connection.clone();
-                let manifest = manifest.clone();
-                let source = source.clone();
-                tasks.spawn(async move {
-                    let _permit = permit;
-                    let offset = index as u64 * manifest.block_size as u64;
-                    let read_started = std::time::Instant::now();
-                    let data = source.read_at(offset, length)?;
-                    let read_ms = read_started.elapsed().as_millis() as u64;
-                    if data.len() != length {
-                        return Err(TransferError::Chunk(ChunkError::LengthMismatch {
-                            expected: length,
-                            actual: data.len(),
-                        }));
-                    }
-                    let header = ChunkHeader::for_block(transfer_id, &manifest, index, data.as_ref())?;
-                    let mut stream = connection
-                        .open_uni()
-                        .await
-                        .map_err(|error| TransportError::Stream(error.to_string()))?;
-                    // Chunk payloads are bulk traffic: yield to control frames.
-                    let _ = stream.set_priority(CHUNK_STREAM_PRIORITY);
-                    // Header and payload are written separately so a 4 MiB chunk
-                    // is not copied into a second 4 MiB frame buffer first.
-                    stream
-                        .write_all(&header.header_bytes())
-                        .await
-                        .map_err(|error| TransportError::Stream(error.to_string()))?;
-                    stream
-                        .write_all(data.as_ref())
-                        .await
-                        .map_err(|error| TransportError::Stream(error.to_string()))?;
-                    stream
-                        .finish()
-                        .map_err(|error| TransportError::Stream(error.to_string()))?;
-                    tracing::info!(
-                        index,
-                        bytes = length,
-                        read_ms,
-                        total_ms = read_started.elapsed().as_millis() as u64,
-                        "chunk streamed"
-                    );
-                    Ok(length as u64)
-                });
-            }
-            completed = tasks.join_next(), if !tasks.is_empty() => {
-                match completed {
-                    Some(Ok(Ok(bytes))) => served += bytes,
-                    Some(Ok(Err(error))) => return Err(error),
-                    Some(Err(error)) => return Err(TransferError::Control(error.to_string())),
-                    None => {}
+                let offset = index as u64 * manifest.block_size as u64;
+                let read_started = std::time::Instant::now();
+                let data = source.read_at(offset, length)?;
+                let read_ms = read_started.elapsed().as_millis() as u64;
+                if data.len() != length {
+                    return Err(TransferError::Chunk(ChunkError::LengthMismatch {
+                        expected: length,
+                        actual: data.len(),
+                    }));
                 }
+                let header = ChunkHeader::for_block(transfer_id, &manifest, index, data.as_ref())?;
+                // Header and payload are written separately so a 4 MiB chunk is
+                // not copied into a second 4 MiB frame buffer first.
+                send.write_all(&header.header_bytes())
+                    .await
+                    .map_err(|error| TransportError::Stream(error.to_string()))?;
+                send.write_all(data.as_ref())
+                    .await
+                    .map_err(|error| TransportError::Stream(error.to_string()))?;
+                served += length as u64;
+                tracing::info!(
+                    index,
+                    bytes = length,
+                    read_ms,
+                    "chunk streamed"
+                );
             }
         }
     }
 
-    while let Some(completed) = tasks.join_next().await {
-        match completed {
-            Ok(Ok(bytes)) => served += bytes,
-            Ok(Err(error)) => return Err(error),
-            Err(error) => return Err(TransferError::Control(error.to_string())),
-        }
-    }
-    let _ = control_send.shutdown().await;
+    let _ = send.shutdown().await;
     Ok(served)
 }
 
@@ -692,10 +869,31 @@ async fn pull_file(
     let control = options.control;
     let mut paused = false;
     tracing::info!(%transfer_id, "receiver: pulling, opening a stream");
-    let (mut control_send, mut control_recv) = connection
+    let (mut control_send, control_recv) = connection
         .open_bi()
         .await
         .map_err(|error| TransportError::Stream(error.to_string()))?;
+    // Name this transfer before anything else: the sender accepts whichever
+    // stream arrives and has to know which file it belongs to before it writes
+    // a byte back.
+    control_send
+        .write_all(transfer_id.as_bytes())
+        .await
+        .map_err(|error| TransportError::Stream(error.to_string()))?;
+    // One task owns the receive half. A frame read is not cancel-safe: the
+    // 100 ms tick would drop a half-read 4 MiB chunk and lose its bytes.
+    let (frames, mut incoming) = mpsc::channel::<Result<TransferFrame, TransferError>>(2);
+    let max_chunk_bytes = config.max_chunk_bytes;
+    let _reader = AbortOnDrop(tokio::spawn(async move {
+        let mut control_recv = control_recv;
+        loop {
+            let frame = read_transfer_frame(&mut control_recv, max_chunk_bytes).await;
+            let stop = frame.is_err();
+            if frames.send(frame).await.is_err() || stop {
+                break;
+            }
+        }
+    }));
     // Everything from here on runs inside a block so a failure can still be
     // reported on this stream. The sender waits for a chunk request here; an
     // error written to the control session instead would never be seen, and
@@ -703,10 +901,6 @@ async fn pull_file(
     let outcome: Result<u64, TransferError> = async {
         let mut scheduler =
             PullScheduler::resume_from(&manifest, config.scheduler, checkpoint.received.clone());
-        let (chunk_tx, mut chunk_rx) =
-            mpsc::channel::<(u32, Result<Bytes, TransferError>)>(config.scheduler.window().max(1));
-        let mut readers: JoinSet<Result<(), TransferError>> = JoinSet::new();
-        let semaphore = Arc::new(Semaphore::new(config.scheduler.streams.max(1)));
         let mut ticker = tokio::time::interval(TRANSFER_TICK);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut received: u64 = 0;
@@ -722,7 +916,18 @@ async fn pull_file(
         )
         .await?;
         tracing::info!(%transfer_id, "receiver: requests sent, waiting for the manifest");
-        receive_manifest(&mut control_recv, transfer_id, &manifest).await?;
+        let first = tokio::time::timeout(TRANSFER_IO_TIMEOUT, incoming.recv())
+            .await
+            .map_err(|_| TransferError::Timeout)?
+            .ok_or_else(|| {
+                TransferError::Control("the transfer stream closed before the manifest".into())
+            })??;
+        let TransferFrame::Control(manifest_frame) = first else {
+            return Err(TransferError::InvalidManifest(
+                "the sender wrote a chunk before the manifest".into(),
+            ));
+        };
+        accept_manifest(&manifest_frame, transfer_id, &manifest)?;
         tracing::info!(%transfer_id, "receiver: manifest accepted, pulling chunks");
 
         loop {
@@ -733,17 +938,99 @@ async fn pull_file(
                 return Err(TransferError::Canceled);
             }
             tokio::select! {
-                Some((index, chunk)) = chunk_rx.recv() => {
-                    let data = match chunk {
-                        Ok(data) => data,
-                        Err(_error) => {
+                frame = incoming.recv() => {
+                    let frame = match frame {
+                        Some(Ok(frame)) => frame,
+                        Some(Err(error)) => return Err(error),
+                        None => {
+                            return Err(TransferError::Control(
+                                "the transfer stream closed before the file was complete".into(),
+                            ));
+                        }
+                    };
+                    match frame {
+                        TransferFrame::Control(envelope) => {
+                            // The receiver told the sender it already has this
+                            // content, so the sender is closing as delivered.
+                            if envelope.kind == MessageKind::TransferDuplicate as i32 {
+                                tracing::info!(%transfer_id, "the sender says the content is already here");
+                                return Ok(received);
+                            }
+                            // The sender reports its own failure here rather than
+                            // on the control session, so the row stops instead of
+                            // sitting in transferring until it times out.
+                            if envelope.kind == MessageKind::TransferError as i32 {
+                                let failure: fluxy_proto::TransferError =
+                                    decode_payload(&envelope.payload)?;
+                                tracing::warn!(%transfer_id, code = %failure.code, "the sender gave up");
+                                return Err(TransferError::Control(failure.message));
+                            }
+                            return Err(TransferError::Unexpected(envelope.kind));
+                        }
+                        TransferFrame::Chunk { header, payload } => {
+                            let index = header.chunk_index;
+                            if header.transfer_id != transfer_id {
+                                return Err(TransferError::InvalidManifest(
+                                    "chunk has a different transfer id".into(),
+                                ));
+                            }
+                            let Some(length) = manifest.block_len(index as usize) else {
+                                return Err(TransferError::InvalidManifest(
+                                    "chunk index is outside the manifest".into(),
+                                ));
+                            };
                             // A tampered or mismatched chunk is rejected and
                             // re-requested; the transfer fails only when the
                             // retry budget for that block is exhausted.
-                            scheduler.on_chunk_rejected(index, Instant::now());
-                            if scheduler.has_failed() {
-                                return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
+                            let hash_ok = blake3::hash(&payload).as_bytes() == &header.payload_hash;
+                            if !hash_ok || header.verify(&manifest, &payload).is_err() {
+                                scheduler.on_chunk_rejected(index, Instant::now());
+                                if scheduler.has_failed() {
+                                    return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
+                                }
+                                refill_unless_paused(
+                                    control,
+                                    &mut control_send,
+                                    identity,
+                                    session_id,
+                                    transfer_id,
+                                    &mut scheduler,
+                                )
+                                .await?;
+                                continue;
                             }
+                            // A request that timed out can be served twice. The
+                            // bytes are the same, but the byte count must not grow.
+                            let fresh = !scheduler.bitmap().is_set(index as usize);
+                            let offset = index as u64 * manifest.block_size as u64;
+                            sink.write_at(offset, &payload)?;
+                            scheduler.on_chunk_received(index, Instant::now());
+                            checkpoint.mark_received(index);
+                            if fresh {
+                                received += length as u64;
+                                if let Some(progress) = options.progress {
+                                    progress(checkpoint.received_bytes(&manifest), manifest.file_size);
+                                }
+                                if let Some(resume) = resume
+                                    && resume.interval > 0
+                                    && checkpoint.blocks_done().is_multiple_of(resume.interval)
+                                {
+                                    resume.store.save_progress(checkpoint)?;
+                                }
+                            }
+                            send_ack(
+                                &mut control_send,
+                                identity,
+                                session_id,
+                                transfer_id,
+                                index,
+                                true,
+                                "ok",
+                            )
+                            .await?;
+                            // Refill the window as soon as a chunk lands. Waiting
+                            // for the next 100 ms tick would cap throughput at one
+                            // window per tick, far below the loopback target on NVMe.
                             refill_unless_paused(
                                 control,
                                 &mut control_send,
@@ -753,72 +1040,8 @@ async fn pull_file(
                                 &mut scheduler,
                             )
                             .await?;
-                            continue;
                         }
-                    };
-                    let Some(length) = manifest.block_len(index as usize) else {
-                        return Err(TransferError::InvalidManifest(
-                            "chunk index is outside the manifest".into(),
-                        ));
-                    };
-                    if data.len() != length {
-                        return Err(TransferError::Chunk(ChunkError::LengthMismatch {
-                            expected: length,
-                            actual: data.len(),
-                        }));
                     }
-                    let offset = index as u64 * manifest.block_size as u64;
-                    sink.write_at(offset, &data)?;
-                    received += data.len() as u64;
-                    scheduler.on_chunk_received(index, Instant::now());
-                    checkpoint.mark_received(index);
-                    if let Some(progress) = options.progress {
-                        progress(checkpoint.received_bytes(&manifest), manifest.file_size);
-                    }
-                    if let Some(resume) = resume
-                        && resume.interval > 0
-                        && checkpoint.blocks_done().is_multiple_of(resume.interval)
-                    {
-                        resume.store.save_progress(checkpoint)?;
-                    }
-                    send_ack(
-                        &mut control_send,
-                        identity,
-                        session_id,
-                        transfer_id,
-                        index,
-                        true,
-                        "ok",
-                    )
-                    .await?;
-                    // Refill the window as soon as a chunk lands. Waiting for the
-                    // next 100 ms tick would cap throughput at one window per tick,
-                    // which measured far below the loopback target on NVMe.
-                    refill_unless_paused(
-                        control,
-                        &mut control_send,
-                        identity,
-                        session_id,
-                        transfer_id,
-                        &mut scheduler,
-                    )
-                    .await?;
-                }
-                incoming = connection.accept_uni() => {
-                    let stream = incoming
-                        .map_err(|error| TransportError::Stream(error.to_string()))?;
-                    let permit = semaphore
-                        .clone()
-                        .acquire_owned()
-                        .await
-                        .map_err(|error| TransferError::Control(error.to_string()))?;
-                    let manifest = manifest.clone();
-                    let tx = chunk_tx.clone();
-                    let max_chunk_bytes = config.max_chunk_bytes;
-                    readers.spawn(async move {
-                        let _permit = permit;
-                        read_chunk(stream, &manifest, tx, max_chunk_bytes).await
-                    });
                 }
                 _ = ticker.tick() => {
                     if let Some(control) = control {
@@ -859,19 +1082,9 @@ async fn pull_file(
                         return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
                     }
                 }
-                completed = readers.join_next(), if !readers.is_empty() => {
-                    match completed {
-                        Some(Ok(Ok(()))) => {}
-                        Some(Ok(Err(error))) => return Err(error),
-                        Some(Err(error)) => return Err(TransferError::Control(error.to_string())),
-                        None => {}
-                    }
-                }
             }
         }
 
-        readers.abort_all();
-        while readers.join_next().await.is_some() {}
         sink.sync()?;
         Ok(received)
     }
@@ -927,36 +1140,67 @@ async fn refill_unless_paused(
     .await
 }
 
-async fn read_chunk(
-    mut stream: RecvStream,
-    manifest: &Manifest,
-    sender: mpsc::Sender<(u32, Result<Bytes, TransferError>)>,
+/// One frame on a transfer stream.
+enum TransferFrame {
+    Control(Envelope),
+    Chunk {
+        header: ChunkHeader,
+        payload: Vec<u8>,
+    },
+}
+
+/// Aborts a task when dropped, including on the error paths of its owner.
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Read one frame from a transfer stream.
+///
+/// Control frames keep their 4-byte big-endian length prefix; a chunk starts
+/// with `FCH1`, whose value is far above `MAX_CONTROL_FRAME`, so the first four
+/// bytes say which of the two follows without a second framing layer.
+async fn read_transfer_frame(
+    recv: &mut RecvStream,
     max_chunk_bytes: usize,
-) -> Result<(), TransferError> {
-    let frame = stream
-        .read_to_end(max_chunk_bytes + CHUNK_HEADER_LEN + 1)
+) -> Result<TransferFrame, TransferError> {
+    let mut prefix = [0_u8; 4];
+    recv.read_exact(&mut prefix)
         .await
         .map_err(|error| TransportError::Stream(error.to_string()))?;
-    // A frame whose header cannot be parsed is a protocol violation. A chunk
-    // that parses but fails its payload-hash or manifest check is reported so
-    // the receiver can reject it and retry instead of writing tampered bytes.
-    let (header, _) = ChunkHeader::decode_header(&frame)?;
-    let index = header.chunk_index;
-    let outcome = match ChunkHeader::decode(&frame) {
-        Ok((header, payload)) => match header.verify(manifest, payload) {
-            // Share the frame buffer with the writer instead of copying the
-            // payload out of it: a 4 MiB chunk reached the sink through two
-            // allocations before.
-            Ok(()) => Ok(Bytes::from(frame).slice(CHUNK_HEADER_LEN..)),
-            Err(error) => Err(TransferError::Chunk(error)),
-        },
-        Err(error) => Err(TransferError::Chunk(error)),
-    };
-    sender
-        .send((index, outcome))
+    if prefix == CHUNK_MAGIC {
+        let mut header = [0_u8; CHUNK_HEADER_LEN];
+        header[..4].copy_from_slice(&prefix);
+        recv.read_exact(&mut header[4..])
+            .await
+            .map_err(|error| TransportError::Stream(error.to_string()))?;
+        let header = ChunkHeader::decode_fixed(&header)?;
+        let length = header.payload_len as usize;
+        if length > max_chunk_bytes {
+            return Err(TransferError::Chunk(ChunkError::TooLarge(length)));
+        }
+        let mut payload = vec![0_u8; length];
+        recv.read_exact(&mut payload)
+            .await
+            .map_err(|error| TransportError::Stream(error.to_string()))?;
+        return Ok(TransferFrame::Chunk { header, payload });
+    }
+    let length = u32::from_be_bytes(prefix) as usize;
+    if length > MAX_CONTROL_FRAME {
+        return Err(TransferError::Protocol(ProtoError::FrameTooLarge(
+            length,
+            MAX_CONTROL_FRAME,
+        )));
+    }
+    let mut frame = vec![0_u8; 4 + length];
+    frame[..4].copy_from_slice(&prefix);
+    recv.read_exact(&mut frame[4..])
         .await
-        .map_err(|_| TransferError::Control("receiver stopped".into()))?;
-    Ok(())
+        .map_err(|error| TransportError::Stream(error.to_string()))?;
+    Ok(TransferFrame::Control(decode_frame(&frame)?))
 }
 
 async fn send_manifest(
@@ -977,44 +1221,11 @@ async fn send_manifest(
     Ok(())
 }
 
-/// Answer a manifest with "I already have this".
-///
-/// The sender is blocked reading the *transfer* stream it accepted, not the
-/// session control stream, so the answer only arrives if it is written to the
-/// same stream the sender opened a manifest exchange on. The manifest still has
-/// to be consumed first: it is the sender's first frame on that stream.
-pub async fn answer_duplicate(
-    connection: &Connection,
-    identity: &Identity,
-    session_id: Uuid,
-    transfer_id: Uuid,
-    manifest: &Manifest,
-) -> Result<(), TransferError> {
-    let (mut control_send, mut control_recv) = connection
-        .open_bi()
-        .await
-        .map_err(|error| TransportError::Stream(error.to_string()))?;
-    receive_manifest(&mut control_recv, transfer_id, manifest).await?;
-    let payload = encode_payload(&TransferDuplicate {
-        transfer_id: transfer_id.as_bytes().to_vec(),
-    });
-    let envelope = make_envelope(
-        MessageKind::TransferDuplicate,
-        identity,
-        Some(session_id),
-        payload,
-    );
-    write_envelope(&mut control_send, &envelope).await?;
-    let _ = control_send.shutdown().await;
-    Ok(())
-}
-
-async fn receive_manifest(
-    control: &mut RecvStream,
+fn accept_manifest(
+    envelope: &Envelope,
     transfer_id: Uuid,
     expected: &Manifest,
 ) -> Result<(), TransferError> {
-    let envelope = read_envelope(control).await?;
     if envelope.kind != MessageKind::TransferManifest as i32 {
         return Err(TransferError::Unexpected(envelope.kind));
     }
@@ -1134,6 +1345,13 @@ mod tests {
         (0..len).map(|index| (index % 251) as u8).collect()
     }
 
+    /// What every receiver writes before anything else on its transfer stream.
+    async fn read_stream_name(recv: &mut RecvStream) -> Uuid {
+        let mut name = [0_u8; TRANSFER_STREAM_NAME_LEN];
+        recv.read_exact(&mut name).await.unwrap();
+        Uuid::from_slice(&name).unwrap()
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn four_streams_transfer_a_file() {
         let data = test_data(5 * 1024 * 1024 + 7);
@@ -1202,6 +1420,186 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(served, data.len() as u64);
+    }
+
+    /// Two files sent at once over one connection. Before the transfer stream
+    /// carried a name, each sender accepted whichever stream arrived and wrote
+    /// its manifest into the other file's stream, so one file always failed
+    /// with "manifest has a different transfer id".
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn two_transfers_run_at_once_on_one_connection() {
+        let first_data = test_data(2 * 1024 * 1024 + 11);
+        let second_data = test_data(3 * 1024 * 1024 + 5);
+        let source_dir = tempfile::tempdir().unwrap();
+        let (first_manifest, first_source) =
+            build_manifest(source_dir.path(), "first.bin", &first_data, 256 * 1024);
+        let (second_manifest, second_source) =
+            build_manifest(source_dir.path(), "second.bin", &second_data, 256 * 1024);
+        let first_id = Uuid::now_v7();
+        let second_id = Uuid::now_v7();
+        let server_tls = TlsIdentity::generate("server").unwrap();
+        let fingerprint = server_tls.fingerprint;
+        let server = server_endpoint(&server_tls, loopback()).await.unwrap();
+        let addr = server.local_addr().unwrap();
+        let server_identity = Identity::generate();
+        let session_id = Uuid::now_v7();
+        let config = TransferConfig::default();
+        let served_first = first_manifest.clone();
+        let served_second = second_manifest.clone();
+        let server_task = tokio::spawn(async move {
+            let connection = accept(&server).await.unwrap();
+            let first = send_file(
+                &connection,
+                &server_identity,
+                session_id,
+                first_id,
+                served_first,
+                first_source,
+                config,
+                None,
+            );
+            let second = send_file(
+                &connection,
+                &server_identity,
+                session_id,
+                second_id,
+                served_second,
+                second_source,
+                config,
+                None,
+            );
+            tokio::join!(first, second)
+        });
+
+        let client_tls = TlsIdentity::generate("client").unwrap();
+        let endpoint = client_endpoint(loopback(), &client_tls, fingerprint)
+            .await
+            .unwrap();
+        let connection = connect(&endpoint, addr).await.unwrap();
+        let identity = Identity::generate();
+        let first_dir = tempfile::tempdir().unwrap();
+        let second_dir = tempfile::tempdir().unwrap();
+        let first_manager = DesktopFileAccessManager::new(first_dir.path());
+        let second_manager = DesktopFileAccessManager::new(second_dir.path());
+        let mut first_sink = first_manager
+            .create_sink("first.bin", first_data.len() as u64)
+            .unwrap();
+        let mut second_sink = second_manager
+            .create_sink("second.bin", second_data.len() as u64)
+            .unwrap();
+        let config = TransferConfig::default();
+        let first_receive = receive_file(
+            &connection,
+            &identity,
+            session_id,
+            first_id,
+            first_manifest.clone(),
+            first_sink.as_mut(),
+            config,
+        );
+        let second_receive = receive_file(
+            &connection,
+            &identity,
+            session_id,
+            second_id,
+            second_manifest.clone(),
+            second_sink.as_mut(),
+            config,
+        );
+        let (first, second) = timeout(Duration::from_secs(60), async {
+            tokio::join!(first_receive, second_receive)
+        })
+        .await
+        .expect("both transfers must finish");
+        assert_eq!(first.unwrap(), first_data.len() as u64);
+        assert_eq!(second.unwrap(), second_data.len() as u64);
+        let first_path = first_sink.finalize().unwrap();
+        let second_path = second_sink.finalize().unwrap();
+        assert_eq!(std::fs::read(first_path.as_path()).unwrap(), first_data);
+        assert_eq!(std::fs::read(second_path.as_path()).unwrap(), second_data);
+
+        let (first_served, second_served) = timeout(Duration::from_secs(10), server_task)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first_served.unwrap(), first_data.len() as u64);
+        assert_eq!(second_served.unwrap(), second_data.len() as u64);
+    }
+
+    /// A stream naming a transfer nobody is serving must not be used for the
+    /// transfer that is. The router parks it and waits for the stream that
+    /// names the transfer it wants.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_stream_named_for_another_transfer_is_left_alone() {
+        let data = test_data(64 * 1024);
+        let source_dir = tempfile::tempdir().unwrap();
+        let (manifest, source) = build_manifest(source_dir.path(), "source.bin", &data, 16 * 1024);
+        let transfer_id = Uuid::now_v7();
+        let other_id = Uuid::now_v7();
+        let server_tls = TlsIdentity::generate("server").unwrap();
+        let fingerprint = server_tls.fingerprint;
+        let server = server_endpoint(&server_tls, loopback()).await.unwrap();
+        let addr = server.local_addr().unwrap();
+        let server_manifest = manifest.clone();
+        let server_identity = Identity::generate();
+        let session_id = Uuid::now_v7();
+        let server_task = tokio::spawn(async move {
+            let connection = accept(&server).await.unwrap();
+            send_file(
+                &connection,
+                &server_identity,
+                session_id,
+                transfer_id,
+                server_manifest,
+                source,
+                TransferConfig::default(),
+                None,
+            )
+            .await
+        });
+
+        let client_tls = TlsIdentity::generate("client").unwrap();
+        let endpoint = client_endpoint(loopback(), &client_tls, fingerprint)
+            .await
+            .unwrap();
+        let connection = connect(&endpoint, addr).await.unwrap();
+        // Arrives before the transfer is registered, and names something else.
+        let (mut stray_send, mut stray_recv) = connection.open_bi().await.unwrap();
+        stray_send.write_all(other_id.as_bytes()).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let sink_dir = tempfile::tempdir().unwrap();
+        let manager = DesktopFileAccessManager::new(sink_dir.path());
+        let mut sink = manager
+            .create_sink("received.bin", data.len() as u64)
+            .unwrap();
+        let identity = Identity::generate();
+        let received = timeout(
+            Duration::from_secs(20),
+            receive_file(
+                &connection,
+                &identity,
+                session_id,
+                transfer_id,
+                manifest,
+                sink.as_mut(),
+                TransferConfig::default(),
+            ),
+        )
+        .await
+        .expect("the named transfer must not be starved")
+        .unwrap();
+        assert_eq!(received, data.len() as u64);
+
+        // The stray stream must not have carried this transfer's manifest.
+        let mut byte = [0_u8; 1];
+        assert!(
+            timeout(Duration::from_millis(300), stray_recv.read_exact(&mut byte))
+                .await
+                .is_err(),
+            "the sender wrote into a stream that named another transfer"
+        );
+        let _ = timeout(Duration::from_secs(10), server_task).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -1305,6 +1703,11 @@ mod tests {
         let server_task = tokio::spawn(async move {
             let connection = accept(&server).await.unwrap();
             let (mut control_send, mut control_recv) = connection.accept_bi().await.unwrap();
+            let named = read_stream_name(&mut control_recv).await;
+            assert_eq!(
+                named, transfer_id,
+                "the receiver named a different transfer"
+            );
             send_manifest(
                 &mut control_send,
                 &server_identity,
@@ -2359,6 +2762,11 @@ mod tests {
             .accept_bi()
             .await
             .map_err(|error| TransportError::Stream(error.to_string()))?;
+        let named = read_stream_name(&mut control_recv).await;
+        assert_eq!(
+            named, transfer_id,
+            "the receiver named a different transfer"
+        );
         let payload = encode_payload(&manifest_to_proto(transfer_id, &manifest));
         let envelope = make_envelope(
             MessageKind::TransferManifest,
@@ -2393,16 +2801,11 @@ mod tests {
             if corrupt && frame.len() > CHUNK_HEADER_LEN {
                 frame[CHUNK_HEADER_LEN] ^= 0xFF;
             }
-            let mut stream = connection
-                .open_uni()
-                .await
-                .map_err(|error| TransportError::Stream(error.to_string()))?;
-            stream
+            // Chunks answer their request on the same stream the request came in
+            // on; there is no second stream to mispair.
+            control_send
                 .write_all(&frame)
                 .await
-                .map_err(|error| TransportError::Stream(error.to_string()))?;
-            stream
-                .finish()
                 .map_err(|error| TransportError::Stream(error.to_string()))?;
             served += length as u64;
         }

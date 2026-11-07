@@ -113,38 +113,47 @@ impl ChunkHeader {
     /// Parse the frame header without validating the payload hash, so a caller
     /// can attribute a rejected chunk to its index and retry it.
     pub fn decode_header(frame: &[u8]) -> Result<(Self, &[u8]), ChunkError> {
-        if frame.len() < CHUNK_HEADER_LEN {
+        let header = Self::decode_fixed(frame)?;
+        let payload = &frame[CHUNK_HEADER_LEN..];
+        if payload.len() != header.payload_len as usize {
+            return Err(ChunkError::LengthMismatch {
+                expected: header.payload_len as usize,
+                actual: payload.len(),
+            });
+        }
+        Ok((header, payload))
+    }
+
+    /// Parse the fixed header on its own, with no payload attached.
+    ///
+    /// A transfer that keeps its chunks on one long-lived stream reads the
+    /// header first to learn how many payload bytes follow, so it cannot hand
+    /// [`Self::decode_header`] a complete frame. Everything the header itself
+    /// declares is checked here; the payload hash is not, because the payload
+    /// has not arrived yet.
+    pub fn decode_fixed(bytes: &[u8]) -> Result<Self, ChunkError> {
+        if bytes.len() < CHUNK_HEADER_LEN {
             return Err(ChunkError::Truncated);
         }
-        if frame[..4] != CHUNK_MAGIC {
+        if bytes[..4] != CHUNK_MAGIC {
             return Err(ChunkError::BadMagic);
         }
-        let transfer_id = Uuid::from_slice(&frame[4..20]).map_err(|_| ChunkError::BadTransferId)?;
-        let chunk_index = u32::from_be_bytes(frame[20..24].try_into().unwrap());
-        let offset = u64::from_be_bytes(frame[24..32].try_into().unwrap());
-        let payload_len = u32::from_be_bytes(frame[32..36].try_into().unwrap());
+        let transfer_id = Uuid::from_slice(&bytes[4..20]).map_err(|_| ChunkError::BadTransferId)?;
+        let chunk_index = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+        let offset = u64::from_be_bytes(bytes[24..32].try_into().unwrap());
+        let payload_len = u32::from_be_bytes(bytes[32..36].try_into().unwrap());
         if payload_len as usize > MAX_CHUNK_BYTES {
             return Err(ChunkError::TooLarge(payload_len as usize));
         }
         let mut payload_hash = [0_u8; 32];
-        payload_hash.copy_from_slice(&frame[36..68]);
-        let payload = &frame[CHUNK_HEADER_LEN..];
-        if payload.len() != payload_len as usize {
-            return Err(ChunkError::LengthMismatch {
-                expected: payload_len as usize,
-                actual: payload.len(),
-            });
-        }
-        Ok((
-            Self {
-                transfer_id,
-                chunk_index,
-                offset,
-                payload_len,
-                payload_hash,
-            },
-            payload,
-        ))
+        payload_hash.copy_from_slice(&bytes[36..68]);
+        Ok(Self {
+            transfer_id,
+            chunk_index,
+            offset,
+            payload_len,
+            payload_hash,
+        })
     }
 
     /// Check the header against the manifest and payload before writing.
@@ -243,6 +252,25 @@ mod tests {
         assert_eq!(decoded, header);
         assert_eq!(decoded_payload, payload);
         assert!(decoded.verify(&manifest, decoded_payload).is_ok());
+    }
+
+    #[test]
+    fn reads_the_header_before_the_payload_arrives() {
+        let data = b"abcdefgh";
+        let manifest = manifest_for(data, 8);
+        let transfer_id = Uuid::now_v7();
+        let header = ChunkHeader::for_block(transfer_id, &manifest, 0, data).unwrap();
+        let frame = header.encode_with_payload(data).unwrap();
+        assert_eq!(
+            ChunkHeader::decode_fixed(&frame[..CHUNK_HEADER_LEN]),
+            Ok(header.clone())
+        );
+        // The payload length is what a stream reader needs to know how much
+        // follows; a short header must not be guessed at.
+        assert_eq!(
+            ChunkHeader::decode_fixed(&frame[..CHUNK_HEADER_LEN - 1]),
+            Err(ChunkError::Truncated)
+        );
     }
 
     #[test]

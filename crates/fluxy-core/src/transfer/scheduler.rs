@@ -13,12 +13,13 @@ use serde::{Deserialize, Serialize};
 use super::bitmap::ChunkBitmap;
 use super::manifest::Manifest;
 
-/// Default concurrent chunk streams.
-// Eight streams, matching the protocol's negotiated max_streams ceiling: with a
-// single stream measured at roughly 3 MiB/s on a 600 Mbit/s link, more streams in
-// flight is the only lever that moved the number.
+/// Window sizing unit.
+///
+/// The name is historical: a file's chunks all share its transfer stream now,
+/// so this no longer counts streams. It multiplies `window_per_stream` into the
+/// number of requests the receiver keeps outstanding.
 pub const DEFAULT_STREAMS: usize = 8;
-/// Default requests in flight per stream.
+/// Default requests in flight per window unit.
 pub const DEFAULT_WINDOW_PER_STREAM: usize = 2;
 /// Default retry budget per chunk.
 pub const DEFAULT_MAX_RETRIES: u32 = 3;
@@ -27,7 +28,9 @@ pub const DEFAULT_CHUNK_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchedulerConfig {
+    /// Window sizing unit; see [`DEFAULT_STREAMS`]. Not a stream count.
     pub streams: usize,
+    /// Requests in flight per unit.
     pub window_per_stream: usize,
     pub max_retries: u32,
     pub chunk_timeout: Duration,
