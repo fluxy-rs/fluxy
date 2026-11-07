@@ -26,8 +26,7 @@ use fluxy_net::session::{
     BatchEntryWire, ControlSender, SessionEvent, TransferMessage, TransferOfferDraft,
 };
 use fluxy_net::transfer::{
-    TransferConfig, TransferOptions, answer_duplicate, prepare_sink, receive_file_resumable,
-    send_file,
+    TransferConfig, TransferOptions, prepare_sink, receive_file_resumable, send_file,
 };
 use fluxy_net::{CheckpointResume, TransferError};
 use quinn::Connection;
@@ -45,7 +44,7 @@ use crate::notify::Notifier;
 pub const PROGRESS_THROTTLE: Duration = Duration::from_millis(100);
 /// How long an offer waits for the peer's decision before it times out.
 const OFFER_TIMEOUT: Duration = Duration::from_secs(60);
-/// How long the receiver waits for the sender to take a duplicate answer.
+/// How long the receiver waits to hand a duplicate answer to the control session.
 const DUPLICATE_ANSWER_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a sender waits for the control session to come up.
 // Ten seconds was tight enough that a chat session which had just dropped its
@@ -2183,9 +2182,6 @@ impl TransferRuntime {
             .clone()
             .ok_or_else(|| TransferError::Control("the transfer has no offer".into()))?;
         let manifest = Arc::new(offer.manifest.clone());
-        let identity = self
-            .identity()
-            .map_err(|error| TransferError::Control(error.message))?;
         // Identical content that this process already saved is not sent again:
         // tell the sender, close the transfer as delivered, and never open a
         // sink. The index is memory-only, so a file deleted outside the app
@@ -2195,34 +2191,26 @@ impl TransferRuntime {
         {
             record.deduplicated.store(true, Ordering::SeqCst);
             tracing::info!(file = %record.file_name, "content already present; telling the sender");
-            // The sender is blocked on the stream it accepted for this
-            // transfer, not on the session control stream, so the answer goes
-            // back on that stream. Sending it as a session message, or
-            // spawning it so the transfer could finish first, both left the
-            // sender waiting out its own timeout.
-            // Bounded: if the sender is not listening on this stream the await
-            // would otherwise sit here forever, leaving the row in transferring
-            // with nothing to show for it.
+            // The receiver hasn't accepted the offer yet, so the sender is still
+            // waiting for its decision on the control session. Answering there
+            // resolves it; a transfer stream never opens for content that will
+            // not be pulled.
             let answer = tokio::time::timeout(
                 DUPLICATE_ANSWER_TIMEOUT,
-                answer_duplicate(
-                    &session.connection,
-                    &identity,
-                    session.session_id,
-                    record.transfer_id,
-                    &manifest,
-                ),
+                session.sender.send_transfer(TransferMessage::Duplicate {
+                    transfer_id: record.transfer_id,
+                }),
             )
             .await;
             match answer {
-                Ok(Ok(())) => {
+                Ok(Ok(_)) => {
                     tracing::info!(file = %record.file_name, "told the sender the content is already here")
                 }
                 Ok(Err(error)) => {
-                    tracing::warn!(%error, file = %record.file_name, "the sender refused the duplicate answer")
+                    tracing::warn!(%error, file = %record.file_name, "the duplicate answer could not be queued")
                 }
                 Err(_) => {
-                    tracing::warn!(file = %record.file_name, "the sender did not take the duplicate answer in time")
+                    tracing::warn!(file = %record.file_name, "the duplicate answer did not leave in time")
                 }
             }
             return Ok(());
