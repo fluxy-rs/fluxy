@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -46,6 +46,17 @@ pub const PROGRESS_THROTTLE: Duration = Duration::from_millis(100);
 const OFFER_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long the receiver waits to hand a duplicate answer to the control session.
 const DUPLICATE_ANSWER_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long the answer to one gesture is remembered, so a file of it that
+/// arrives late follows the same answer instead of asking again.
+const BATCH_ANSWER_TTL: Duration = Duration::from_secs(300);
+/// How many files may be hashed at the same time.
+///
+/// A manifest pass holds a read window of up to 64 MiB and runs on a blocking
+/// worker, so a batch of a hundred files must not start a hundred of them. One
+/// at a time keeps the peak at a single window and matches what the queue did
+/// before batches; the offers still go out together, because the batch barrier
+/// waits for the last hash before anyone offers.
+const CONCURRENT_HASHES: usize = 1;
 /// How long a sender waits for the control session to come up.
 // Ten seconds was tight enough that a chat session which had just dropped its
 // idle connection could not be re-established in time, and the send failed with
@@ -209,6 +220,92 @@ struct SourcePlan {
     source_key: String,
 }
 
+/// Holds every file of one gesture between hashing and offering.
+///
+/// Hashing is per file and its cost depends on the size, so a batch that starts
+/// together would otherwise reach the receiver in whatever order the hashes
+/// finish. The receiver then sees one gesture as several arrivals and asks once
+/// per wave - the second dialog a three-file send showed.
+struct BatchBarrier {
+    remaining: AtomicUsize,
+    ready: tokio::sync::Notify,
+}
+
+impl BatchBarrier {
+    fn new(count: usize) -> Self {
+        Self {
+            remaining: AtomicUsize::new(count),
+            ready: tokio::sync::Notify::new(),
+        }
+    }
+
+    /// Say that this member is done hashing (or failed). The last one releases
+    /// every waiter.
+    ///
+    /// Saturating: a retried transfer keeps its batch's barrier, and by then the
+    /// counter is already at zero. Decrementing through zero would wrap it and
+    /// leave the retry waiting for a batch that has long since gone.
+    fn release(&self) {
+        let released = self
+            .remaining
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+                value.checked_sub(1)
+            });
+        if released == Ok(1) {
+            self.ready.notify_waiters();
+        }
+    }
+
+    async fn wait(&self) {
+        loop {
+            let notified = self.ready.notified();
+            tokio::pin!(notified);
+            // Register before checking: a release that lands in between wakes
+            // this waiter instead of being missed.
+            notified.as_mut().enable();
+            if self.remaining.load(Ordering::SeqCst) == 0 {
+                return;
+            }
+            notified.await;
+        }
+    }
+}
+
+/// One member's place at a [`BatchBarrier`].
+///
+/// Dropping it without arriving releases the others, so one file that cannot be
+/// hashed does not leave the rest of its batch waiting forever.
+struct BatchArrival {
+    barrier: Arc<BatchBarrier>,
+    released: bool,
+}
+
+impl BatchArrival {
+    fn new(barrier: Arc<BatchBarrier>) -> Self {
+        Self {
+            barrier,
+            released: false,
+        }
+    }
+
+    async fn arrive_and_wait(&mut self) {
+        if !self.released {
+            self.released = true;
+            self.barrier.release();
+        }
+        self.barrier.wait().await;
+    }
+}
+
+impl Drop for BatchArrival {
+    fn drop(&mut self) {
+        if !self.released {
+            self.released = true;
+            self.barrier.release();
+        }
+    }
+}
+
 /// Batch membership of one sub-transfer.
 #[derive(Clone, Debug)]
 struct BatchTag {
@@ -314,7 +411,15 @@ pub struct TransferRecord {
     source: Mutex<Option<SourcePlan>>,
     offer: Mutex<Option<OfferPlan>>,
     session: Mutex<Option<TransferSession>>,
+    /// Grouping id shared by every file of one user gesture. A folder batch
+    /// also has `batch` for placement; a multi-file selection only has this.
+    /// It is what the receiver counts as one offer slot, what the prompt groups
+    /// on, and what makes the sender's files offer together.
+    group: Option<Uuid>,
+    /// Where the batch's files land. Folders only.
     batch: Option<BatchTag>,
+    /// Holds this transfer's sender at the batch barrier. Sender side only.
+    barrier: Option<Arc<BatchBarrier>>,
 }
 
 impl TransferRecord {
@@ -351,7 +456,9 @@ impl TransferRecord {
             source: Mutex::new(None),
             offer: Mutex::new(None),
             session: Mutex::new(None),
+            group: None,
             batch: None,
+            barrier: None,
         }
     }
 
@@ -382,7 +489,20 @@ impl TransferRecord {
 
     /// Attach this record to one file of a folder batch.
     fn with_batch(mut self, tag: BatchTag) -> Self {
+        self.group = Some(tag.batch_id);
         self.batch = Some(tag);
+        self
+    }
+
+    /// Mark this record as one file of one user gesture.
+    fn with_group(mut self, group: Uuid) -> Self {
+        self.group = Some(group);
+        self
+    }
+
+    /// Hold this sender at the batch's offering barrier.
+    fn with_barrier(mut self, barrier: Arc<BatchBarrier>) -> Self {
+        self.barrier = Some(barrier);
         self
     }
 
@@ -418,7 +538,7 @@ impl TransferRecord {
             retryable: failure.as_ref().is_some_and(|failure| failure.retryable),
             created_at_ms: self.created_at_ms,
             updated_at_ms: self.updated_at_ms.load(Ordering::SeqCst),
-            batch_id: self.batch.as_ref().map(|tag| tag.batch_id.to_string()),
+            batch_id: self.group.map(|group| group.to_string()),
             batch_root: self.batch.as_ref().map(|tag| tag.root_name.clone()),
             relative_path: self.batch.as_ref().map(|tag| tag.relative_path.clone()),
         }
@@ -458,6 +578,12 @@ pub struct TransferRuntime {
     /// instead of the whole file. Lifetime-bound on purpose: a file the user
     /// deleted outside the app would otherwise keep claiming to be present.
     received_hashes: Mutex<std::collections::HashSet<[u8; 32]>>,
+    /// What the user answered for each gesture, so a file of it that arrives
+    /// after the prompt was answered follows that answer instead of raising a
+    /// second prompt.
+    answers: Mutex<HashMap<Uuid, (bool, Instant)>>,
+    /// Serialises manifest passes; see [`CONCURRENT_HASHES`].
+    hash_gate: tokio::sync::Semaphore,
 }
 
 impl TransferRuntime {
@@ -474,6 +600,20 @@ impl TransferRuntime {
             Some(AutoAcceptPolicy::Ask) => false,
             _ => engine.config().auto_accept_transfers,
         }
+    }
+
+    /// Remember what the user answered for one gesture.
+    fn remember_answer(&self, group: Uuid, accepted: bool) {
+        let mut answers = lock(&self.answers);
+        answers.retain(|_, (_, at)| at.elapsed() < BATCH_ANSWER_TTL);
+        answers.insert(group, (accepted, Instant::now()));
+    }
+
+    /// The answer already given for one gesture, if it is still fresh.
+    fn answered(&self, group: Uuid) -> Option<bool> {
+        let mut answers = lock(&self.answers);
+        answers.retain(|_, (_, at)| at.elapsed() < BATCH_ANSWER_TTL);
+        answers.get(&group).map(|(accepted, _)| *accepted)
     }
 
     pub fn new(engine: Arc<Mutex<Engine>>, hub: Arc<EventHub>) -> Arc<Self> {
@@ -510,6 +650,8 @@ impl TransferRuntime {
             batches: Mutex::new(HashMap::new()),
             batch_sends: Mutex::new(HashMap::new()),
             received_hashes: Mutex::new(std::collections::HashSet::new()),
+            answers: Mutex::new(HashMap::new()),
+            hash_gate: tokio::sync::Semaphore::new(CONCURRENT_HASHES),
         })
     }
 
@@ -906,7 +1048,10 @@ impl TransferRuntime {
         chat.open(peer.clone())?;
         tracing::info!("start_transfers: session requested");
 
-        let mut ids = Vec::with_capacity(file_ids.len());
+        // Resolve every file before creating a record: a batch must not leave
+        // half of its records queued behind a barrier that will never fill, and
+        // the barrier has to know how many members to wait for.
+        let mut files = Vec::with_capacity(file_ids.len());
         // The same file can be registered twice under different ids. Sending it
         // twice in one batch would queue two transfers for one file, and the
         // receiver can only reject the second after the first has landed.
@@ -927,7 +1072,17 @@ impl TransferRuntime {
                 tracing::info!(file = %file.name, "start_transfers: the batch names this file twice; skipping");
                 continue;
             }
+            files.push(file);
+        }
+        // One id for the whole call. It is what the receiver shows one
+        // confirmation for and counts as one offer slot, and what holds the
+        // senders at the barrier so every offer of the gesture goes out
+        // together. A single file needs neither.
+        let group =
+            (files.len() > 1).then(|| (Uuid::now_v7(), Arc::new(BatchBarrier::new(files.len()))));
 
+        let mut ids = Vec::with_capacity(files.len());
+        for file in files {
             let size = file.size;
             // Reuse the id of a cancelled or failed send of the same file to the
             // same peer. A fresh id would leave the old row in the list (two
@@ -980,7 +1135,7 @@ impl TransferRuntime {
                         .map(|record| record.transfer_id)
                 })
                 .unwrap_or_else(Uuid::now_v7);
-            let record = Arc::new(TransferRecord::new(
+            let mut record = TransferRecord::new(
                 transfer_id,
                 device,
                 peer.name.clone(),
@@ -988,7 +1143,11 @@ impl TransferRuntime {
                 file.name.clone(),
                 size,
                 1,
-            ));
+            );
+            if let Some((group_id, barrier)) = &group {
+                record = record.with_group(*group_id).with_barrier(barrier.clone());
+            }
+            let record = Arc::new(record);
             record.set_state(TransferState::Queued);
             *lock(&record.source) = Some(SourcePlan {
                 handle: file.handle,
@@ -997,6 +1156,7 @@ impl TransferRuntime {
             self.insert(record.clone());
             self.emit_transfer(TransferEvent::Queued {
                 transfer_id: transfer_id.to_string(),
+                direction: TransferDirection::Send,
                 device_id: device.to_string(),
                 device_name: record.device_name.clone(),
                 file_name: record.file_name.clone(),
@@ -1053,9 +1213,9 @@ impl TransferRuntime {
             if record.state() != TransferState::Offered {
                 continue;
             }
-            match record.batch.as_ref().map(|tag| tag.batch_id) {
-                Some(batch_id) => {
-                    batches.insert(batch_id);
+            match record.group {
+                Some(group) => {
+                    batches.insert(group);
                 }
                 None => loose += 1,
             }
@@ -1070,14 +1230,53 @@ impl TransferRuntime {
 
     /// Promote queued sends while a slot is free. Called after every enqueue
     /// and after every terminal transition, so a freed slot is reused at once.
+    ///
+    /// The rest of a batch follows its first file immediately. A gesture of
+    /// three files is one question, and holding part of it behind the cap made
+    /// the receiver answer that question once per wave.
     pub fn pump_queue(self: &Arc<Self>) {
         let limit = self.max_active();
         while self.active_count() < limit {
             let Some(record) = self.claim_next_queued() else {
                 break;
             };
+            let mut claimed = vec![record];
+            if let Some(group) = claimed[0].group {
+                while let Some(next) = self.claim_next_queued_in(group) {
+                    claimed.push(next);
+                }
+            }
+            for record in &claimed {
+                self.emit_transfer(TransferEvent::Prepared {
+                    transfer_id: record.transfer_id.to_string(),
+                    direction: TransferDirection::Send,
+                    device_id: record.device_id.to_string(),
+                    device_name: record.device_name.clone(),
+                    file_name: record.file_name.clone(),
+                    total_files: record.total_files,
+                    total_bytes: record.bytes_total,
+                });
+            }
+            for record in claimed {
+                let runtime = self.clone();
+                async_runtime::spawn(async move { runtime.run_sender(record).await });
+            }
+        }
+    }
+
+    /// Promote accepted receives while a slot is free.
+    ///
+    /// The user answers one prompt for a whole batch, so every file of it is
+    /// accepted at once. Only this keeps the pulls at the configured
+    /// concurrency instead of starting one per accepted file.
+    pub fn pump_receives(self: &Arc<Self>) {
+        while self.active_count() < self.max_active() {
+            let Some(record) = self.claim_next_queued_receive() else {
+                break;
+            };
             self.emit_transfer(TransferEvent::Prepared {
                 transfer_id: record.transfer_id.to_string(),
+                direction: TransferDirection::Receive,
                 device_id: record.device_id.to_string(),
                 device_name: record.device_name.clone(),
                 file_name: record.file_name.clone(),
@@ -1085,8 +1284,57 @@ impl TransferRuntime {
                 total_bytes: record.bytes_total,
             });
             let runtime = self.clone();
-            async_runtime::spawn(async move { runtime.run_sender(record).await });
+            async_runtime::spawn(async move { runtime.run_receiver(record).await });
         }
+    }
+
+    /// Claim the oldest queued send that belongs to one gesture.
+    fn claim_next_queued_in(&self, group: Uuid) -> Option<Arc<TransferRecord>> {
+        let records = lock(&self.records);
+        let mut next: Option<&Arc<TransferRecord>> = None;
+        for record in records.values() {
+            if record.direction != TransferDirection::Send
+                || record.state() != TransferState::Queued
+                || record.group != Some(group)
+            {
+                continue;
+            }
+            if next.is_none_or(|current| {
+                (record.created_at_ms, record.queue_seq)
+                    < (current.created_at_ms, current.queue_seq)
+            }) {
+                next = Some(record);
+            }
+        }
+        let record = next.cloned();
+        if let Some(record) = &record {
+            record.set_state(TransferState::Preparing);
+        }
+        record
+    }
+
+    /// Claim the oldest accepted receive that is waiting for a slot.
+    fn claim_next_queued_receive(&self) -> Option<Arc<TransferRecord>> {
+        let records = lock(&self.records);
+        let mut next: Option<&Arc<TransferRecord>> = None;
+        for record in records.values() {
+            if record.direction != TransferDirection::Receive
+                || record.state() != TransferState::Queued
+            {
+                continue;
+            }
+            if next.is_none_or(|current| {
+                (record.created_at_ms, record.queue_seq)
+                    < (current.created_at_ms, current.queue_seq)
+            }) {
+                next = Some(record);
+            }
+        }
+        let record = next.cloned();
+        if let Some(record) = &record {
+            record.set_state(TransferState::Preparing);
+        }
+        record
     }
 
     /// Claim the oldest queued send by marking it as starting. Holding the
@@ -1207,31 +1455,65 @@ impl TransferRuntime {
                 "only an incoming transfer can be accepted",
             ));
         }
-        let session = lock(&record.session).clone();
+        // Answering an offer twice (a double click, an offer that expired
+        // between render and click) must not restart a transfer.
+        if record.state() != TransferState::Offered {
+            return Ok(record.summary());
+        }
+        // Remember the answer for the whole gesture: a batch reaches the
+        // receiver as one offer per file, and a file that arrives late must
+        // follow the answer already given instead of asking again.
+        if let Some(group) = record.group {
+            self.remember_answer(group, accepted);
+        }
         if accepted {
-            self.accept(record.clone());
+            self.accept(record);
         } else {
-            record.set_state(TransferState::Cancelled);
-            if let Some(session) = session {
-                let message = TransferMessage::Reject {
-                    transfer_id: id,
-                    code: "rejected".into(),
-                    message: "the receiver declined the transfer".into(),
-                };
-                async_runtime::spawn(async move {
-                    let _ = session.sender.send_transfer(message).await;
-                });
-            }
-            self.emit_transfer(TransferEvent::Cancelled {
-                transfer_id: id.to_string(),
-            });
-            self.pump_queue();
+            self.reject(record, "rejected", "the receiver declined the transfer");
         }
         Ok(self.record(id)?.summary())
     }
 
+    /// Decline one offer and tell the sender, without a prompt.
+    fn reject(self: &Arc<Self>, record: Arc<TransferRecord>, code: &str, message: &str) {
+        record.set_state(TransferState::Cancelled);
+        if let Some(session) = lock(&record.session).clone() {
+            let transfer_id = record.transfer_id;
+            let code = code.to_string();
+            let message = message.to_string();
+            async_runtime::spawn(async move {
+                let _ = session
+                    .sender
+                    .send_transfer(TransferMessage::Reject {
+                        transfer_id,
+                        code,
+                        message,
+                    })
+                    .await;
+            });
+        }
+        self.emit_transfer(TransferEvent::Cancelled {
+            transfer_id: record.transfer_id.to_string(),
+        });
+        self.pump_queue();
+        self.pump_receives();
+    }
+
     fn accept(self: &Arc<Self>, record: Arc<TransferRecord>) {
-        record.set_state(TransferState::Preparing);
+        // Accepted, not started. The user answers one prompt for a whole batch,
+        // so every file of it is accepted here; the pull itself waits for a
+        // free slot, which is what keeps the transfers at the configured
+        // concurrency instead of starting one per file.
+        record.set_state(TransferState::Queued);
+        self.emit_transfer(TransferEvent::Queued {
+            transfer_id: record.transfer_id.to_string(),
+            direction: TransferDirection::Receive,
+            device_id: record.device_id.to_string(),
+            device_name: record.device_name.clone(),
+            file_name: record.file_name.clone(),
+            total_files: record.total_files,
+            total_bytes: record.bytes_total,
+        });
         let Some(session) = lock(&record.session).clone() else {
             self.fail(
                 &record,
@@ -1239,15 +1521,16 @@ impl TransferRuntime {
             );
             return;
         };
-        let runtime = self.clone();
         let id = record.transfer_id;
         async_runtime::spawn(async move {
+            // The sender starts its transfer stream when this arrives, so it
+            // has to go out even while the pull is still queued.
             let _ = session
                 .sender
                 .send_transfer(TransferMessage::Accept { transfer_id: id })
                 .await;
-            runtime.run_receiver(record).await;
         });
+        self.pump_receives();
     }
 
     /// Pause, resume, cancel, or retry one transfer.
@@ -1261,6 +1544,12 @@ impl TransferRuntime {
         let session = lock(&record.session).clone();
         match action {
             TransferAction::Pause => {
+                // A queued transfer has no driver to pause, and marking it
+                // Paused would take it out of the queue for good: nothing would
+                // resume it. Leave it waiting for its slot.
+                if record.state() == TransferState::Queued {
+                    return Ok(self.record(id)?.summary());
+                }
                 if record.control().pause() {
                     record.set_state(TransferState::Paused);
                     send_control(session, TransferMessage::Pause { transfer_id: id });
@@ -1270,6 +1559,11 @@ impl TransferRuntime {
                 }
             }
             TransferAction::Resume => {
+                // Likewise a queued transfer was never paused; resuming it would
+                // mark it Transferring with nothing driving it.
+                if record.state() == TransferState::Queued {
+                    return Ok(self.record(id)?.summary());
+                }
                 if record.control().resume() {
                     record.set_state(TransferState::Transferring);
                     send_control(session, TransferMessage::Resume { transfer_id: id });
@@ -1286,6 +1580,7 @@ impl TransferRuntime {
                         transfer_id: id.to_string(),
                     });
                     self.pump_queue();
+                    self.pump_receives();
                 }
             }
             TransferAction::Retry => {
@@ -1311,6 +1606,7 @@ impl TransferRuntime {
                         record.set_state(TransferState::Queued);
                         self.emit_transfer(TransferEvent::Queued {
                             transfer_id: id.to_string(),
+                            direction: TransferDirection::Send,
                             device_id: record.device_id.to_string(),
                             device_name: record.device_name.clone(),
                             file_name: record.file_name.clone(),
@@ -1320,17 +1616,11 @@ impl TransferRuntime {
                         self.pump_queue();
                     }
                     TransferDirection::Receive => {
-                        record.set_state(TransferState::Preparing);
-                        self.emit_transfer(TransferEvent::Prepared {
-                            transfer_id: id.to_string(),
-                            device_id: record.device_id.to_string(),
-                            device_name: record.device_name.clone(),
-                            file_name: record.file_name.clone(),
-                            total_files: record.total_files,
-                            total_bytes: record.bytes_total,
-                        });
-                        let runtime = self.clone();
-                        async_runtime::spawn(async move { runtime.run_receiver(record).await });
+                        // A retry is a new attempt and goes back through the
+                        // receive queue, exactly like a send retry: the cap
+                        // applies to pulls too.
+                        record.set_state(TransferState::Queued);
+                        self.pump_receives();
                     }
                 }
             }
@@ -1455,11 +1745,17 @@ impl TransferRuntime {
             }
             SessionEvent::TransferPause { transfer_id } => {
                 if let Some(record) = self.get(transfer_id) {
-                    record.control().pause();
-                    record.set_state(TransferState::Paused);
-                    self.emit_transfer(TransferEvent::Paused {
-                        transfer_id: transfer_id.to_string(),
-                    });
+                    // A queued transfer has no driver: marking it Paused would
+                    // take it out of the queue with nothing left to resume it.
+                    if record.state() == TransferState::Queued {
+                        tracing::info!(%transfer_id, "ignoring a pause for a transfer that has not started");
+                    } else {
+                        record.control().pause();
+                        record.set_state(TransferState::Paused);
+                        self.emit_transfer(TransferEvent::Paused {
+                            transfer_id: transfer_id.to_string(),
+                        });
+                    }
                 }
             }
             SessionEvent::TransferCancel { transfer_id } => {
@@ -1470,15 +1766,20 @@ impl TransferRuntime {
                         transfer_id: transfer_id.to_string(),
                     });
                     self.pump_queue();
+                    self.pump_receives();
                 }
             }
             SessionEvent::TransferResume { transfer_id } => {
                 if let Some(record) = self.get(transfer_id) {
-                    record.control().resume();
-                    record.set_state(TransferState::Transferring);
-                    self.emit_transfer(TransferEvent::Resumed {
-                        transfer_id: transfer_id.to_string(),
-                    });
+                    if record.state() == TransferState::Queued {
+                        tracing::info!(%transfer_id, "ignoring a resume for a transfer that has not started");
+                    } else {
+                        record.control().resume();
+                        record.set_state(TransferState::Transferring);
+                        self.emit_transfer(TransferEvent::Resumed {
+                            transfer_id: transfer_id.to_string(),
+                        });
+                    }
                 }
             }
             _ => {}
@@ -1677,7 +1978,10 @@ impl TransferRuntime {
             }),
         );
 
-        let mut ids = Vec::with_capacity(files.len());
+        // Resolve and register every source before creating a record, for the
+        // same reason as a file selection: the barrier must know its members,
+        // and a failure halfway through must not leave a half batch queued.
+        let mut resolved = Vec::with_capacity(files.len());
         for entry in &files {
             let path =
                 BatchPlan::resolve(&root, &entry.relative_path).map_err(|error| IpcError {
@@ -1695,6 +1999,12 @@ impl TransferRuntime {
                     message: error.to_string(),
                     retryable: false,
                 })?;
+            resolved.push((entry, path, handle));
+        }
+
+        let barrier = Arc::new(BatchBarrier::new(resolved.len()));
+        let mut ids = Vec::with_capacity(resolved.len());
+        for (entry, path, handle) in resolved {
             let transfer_id = Uuid::now_v7();
             let record = Arc::new(
                 TransferRecord::new(
@@ -1710,7 +2020,8 @@ impl TransferRuntime {
                     batch_id,
                     root_name: plan.root_name.clone(),
                     relative_path: entry.relative_path.clone(),
-                }),
+                })
+                .with_barrier(barrier.clone()),
             );
             record.set_state(TransferState::Queued);
             *lock(&record.source) = Some(SourcePlan {
@@ -1720,6 +2031,7 @@ impl TransferRuntime {
             self.insert(record.clone());
             self.emit_transfer(TransferEvent::Queued {
                 transfer_id: transfer_id.to_string(),
+                direction: TransferDirection::Send,
                 device_id: device.to_string(),
                 device_name: record.device_name.clone(),
                 file_name: record.file_name.clone(),
@@ -1802,6 +2114,9 @@ impl TransferRuntime {
             Some((tag, dir, name)) => (Some(tag), Some(dir), name),
             None => (None, None, file_name),
         };
+        // The gesture this offer belongs to. A folder and a plain multi-file
+        // selection alike name it; only a folder also has a placement tag.
+        let group = batch.batch_id;
         let manifest = match Manifest::from_bytes(&manifest_bytes) {
             Ok(manifest)
                 if manifest.file_size == file_size
@@ -1860,7 +2175,19 @@ impl TransferRuntime {
             return;
         }
 
-        if self.occupied() >= self.max_active() {
+        // A batch is one question and one slot. Once any file of it is in
+        // flight, the rest belong to the same gesture the user already answered
+        // and must not be refused for filling a slot the batch already owns.
+        let group_in_flight = group.is_some_and(|group| {
+            lock(&self.records).values().any(|record| {
+                record.group == Some(group)
+                    && !matches!(
+                        record.state(),
+                        TransferState::Completed | TransferState::Failed | TransferState::Cancelled
+                    )
+            })
+        });
+        if !group_in_flight && self.occupied() >= self.max_active() {
             let message = TransferMessage::Reject {
                 transfer_id,
                 code: code_name(ErrorCode::PeerBusy).into(),
@@ -1881,6 +2208,9 @@ impl TransferRuntime {
             file_size.max(total_bytes),
             total_files.max(1),
         );
+        if let Some(group) = group {
+            record = record.with_group(group);
+        }
         if let Some(tag) = batch_tag {
             record = record.with_batch(tag);
         }
@@ -1889,6 +2219,25 @@ impl TransferRuntime {
         *lock(&record.offer) = Some(offer);
         record.set_state(TransferState::Offered);
         self.insert(record.clone());
+        // A file of a gesture the user already answered follows that answer.
+        // Without this a batch whose offers arrive in two waves - one file
+        // slower to hash, a reordered frame - raised a second prompt after the
+        // first was answered.
+        if let Some(group) = group
+            && let Some(accepted) = self.answered(group)
+        {
+            tracing::info!(
+                %transfer_id,
+                accepted,
+                "this file belongs to a gesture that was already answered"
+            );
+            if accepted {
+                self.accept(record);
+            } else {
+                self.reject(record, "rejected", "the receiver declined the transfer");
+            }
+            return;
+        }
         // A sender that offers is already a trusted peer, so a user who asked
         // for unattended receiving should not have to click accept every time.
         if self.auto_accept(device_id) {
@@ -1992,21 +2341,44 @@ impl TransferRuntime {
                     retryable: true,
                 },
             ),
+            // A cancel can arrive after the decision; the send file error is
+            // the same cancellation, so the row must end Cancelled rather than
+            // Failed.
+            Err(SendFailure::Transfer(TransferError::Canceled)) => self.cancelled(&record),
             Err(SendFailure::Transfer(error)) => self.fail(&record, error),
         }
     }
 
     async fn send_inner(&self, record: &Arc<TransferRecord>) -> Result<(), SendFailure> {
+        // Hold this file at the batch barrier for its whole attempt. Dropping
+        // the guard releases the others, so one file that cannot be hashed or
+        // cannot find a session does not leave its batch waiting forever.
+        let mut arrival = record
+            .barrier
+            .as_ref()
+            .map(|barrier| BatchArrival::new(barrier.clone()));
         let session = self.wait_for_session(record).await?;
         *lock(&record.session) = Some(session.clone());
         let manifest_started = Instant::now();
+        // Hash under a gate: a batch releases its offers together, but it must
+        // not hash a hundred files at once. The permit is dropped before the
+        // barrier, so queueing for it cannot hold the batch open.
+        let hash_permit = self.hash_gate.acquire().await.map_err(|_| {
+            SendFailure::Transfer(TransferError::Control("the hashing gate closed".into()))
+        })?;
         let (manifest, source) = self.build_manifest(record).await?;
+        drop(hash_permit);
         tracing::info!(
             file = %record.file_name,
             bytes = manifest.file_size,
             elapsed_ms = manifest_started.elapsed().as_millis() as u64,
             "manifest ready; offering the transfer"
         );
+        // Offer only once the whole gesture is hashed: the receiver then sees
+        // one arrival and asks once, instead of once per wave.
+        if let Some(arrival) = arrival.as_mut() {
+            arrival.arrive_and_wait().await;
+        }
         let mut offer = TransferOfferDraft::file(
             record.transfer_id,
             record.file_name.clone(),
@@ -2016,6 +2388,9 @@ impl TransferRuntime {
             manifest.manifest_digest,
             manifest.to_bytes(),
         );
+        if let Some(group) = record.group {
+            offer.batch_id = Some(group);
+        }
         if let Some(tag) = &record.batch {
             offer.batch_id = Some(tag.batch_id);
             offer.root_name = Some(tag.root_name.clone());
@@ -2565,6 +2940,7 @@ impl TransferRuntime {
         });
         self.notify_outcome(record, true);
         self.pump_queue();
+        self.pump_receives();
     }
 
     fn cancelled(self: &Arc<Self>, record: &Arc<TransferRecord>) {
@@ -2573,6 +2949,7 @@ impl TransferRuntime {
             transfer_id: record.transfer_id.to_string(),
         });
         self.pump_queue();
+        self.pump_receives();
     }
 
     fn fail(self: &Arc<Self>, record: &Arc<TransferRecord>, error: TransferError) {
@@ -2600,6 +2977,7 @@ impl TransferRuntime {
         });
         self.notify_outcome(record, false);
         self.pump_queue();
+        self.pump_receives();
     }
 }
 
@@ -3173,6 +3551,158 @@ mod tests {
         let (runtime, _dir) = runtime();
         runtime.insert(queued(TransferDirection::Receive, "in.bin"));
         assert!(runtime.claim_next_queued().is_none());
+    }
+
+    #[test]
+    fn the_receive_queue_claims_only_accepted_receives() {
+        let (runtime, _dir) = runtime();
+        let first = queued(TransferDirection::Receive, "first.bin");
+        let second = queued(TransferDirection::Receive, "second.bin");
+        for record in [
+            first.clone(),
+            second.clone(),
+            queued(TransferDirection::Send, "out.bin"),
+        ] {
+            runtime.insert(record);
+        }
+
+        let claimed = runtime.claim_next_queued_receive().unwrap();
+        assert_eq!(claimed.transfer_id, first.transfer_id);
+        assert_eq!(claimed.state(), TransferState::Preparing);
+        assert_eq!(runtime.active_count(), 1);
+
+        let next = runtime.claim_next_queued_receive().unwrap();
+        assert_eq!(next.transfer_id, second.transfer_id);
+        assert!(runtime.claim_next_queued_receive().is_none());
+        // The send queue never hands out a receive; it claims the queued send.
+        let send = runtime.claim_next_queued().unwrap();
+        assert_eq!(send.direction, TransferDirection::Send);
+        assert!(runtime.claim_next_queued().is_none());
+    }
+
+    #[test]
+    fn offers_of_one_gesture_count_as_one_slot() {
+        let (runtime, _dir) = runtime();
+        let group = Uuid::now_v7();
+        for name in ["a.bin", "b.bin", "c.bin"] {
+            let record = Arc::new(
+                TransferRecord::new(
+                    Uuid::now_v7(),
+                    Uuid::now_v7(),
+                    "Peer".into(),
+                    TransferDirection::Receive,
+                    name.into(),
+                    10,
+                    1,
+                )
+                .with_group(group),
+            );
+            record.set_state(TransferState::Offered);
+            runtime.insert(record);
+        }
+        // Three files of one gesture are one question, so one slot.
+        assert_eq!(runtime.offered_count(), 1);
+        assert_eq!(runtime.occupied(), 1);
+    }
+
+    #[test]
+    fn a_batch_is_claimed_whole_behind_its_first_file() {
+        let (runtime, _dir) = runtime();
+        let group = Uuid::now_v7();
+        let mut members = Vec::new();
+        for name in ["a.bin", "b.bin"] {
+            let record = Arc::new(
+                TransferRecord::new(
+                    Uuid::now_v7(),
+                    Uuid::now_v7(),
+                    "Peer".into(),
+                    TransferDirection::Send,
+                    name.into(),
+                    10,
+                    1,
+                )
+                .with_group(group),
+            );
+            record.set_state(TransferState::Queued);
+            runtime.insert(record.clone());
+            members.push(record);
+        }
+        runtime.insert(queued(TransferDirection::Send, "other.bin"));
+
+        let first = runtime.claim_next_queued().unwrap();
+        assert_eq!(first.transfer_id, members[0].transfer_id);
+        let second = runtime.claim_next_queued_in(group).unwrap();
+        assert_eq!(second.transfer_id, members[1].transfer_id);
+        assert!(runtime.claim_next_queued_in(group).is_none());
+    }
+
+    #[test]
+    fn an_answer_is_remembered_for_its_gesture_only() {
+        let (runtime, _dir) = runtime();
+        let group = Uuid::now_v7();
+        assert_eq!(runtime.answered(group), None);
+        runtime.remember_answer(group, true);
+        assert_eq!(runtime.answered(group), Some(true));
+        runtime.remember_answer(group, false);
+        assert_eq!(runtime.answered(group), Some(false));
+        // A different gesture has its own answer, or none.
+        assert_eq!(runtime.answered(Uuid::now_v7()), None);
+    }
+
+    #[tokio::test]
+    async fn a_batch_barrier_releases_every_member_at_once() {
+        let barrier = Arc::new(BatchBarrier::new(3));
+        let mut waiters = Vec::new();
+        for _ in 0..2 {
+            let barrier = barrier.clone();
+            waiters.push(tokio::spawn(async move {
+                let mut arrival = BatchArrival::new(barrier);
+                arrival.arrive_and_wait().await;
+            }));
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(waiters.iter().all(|waiter| !waiter.is_finished()));
+        // The third member is the one that opens the gate.
+        barrier.release();
+        for waiter in waiters {
+            tokio::time::timeout(Duration::from_secs(1), waiter)
+                .await
+                .expect("the barrier must release every waiter")
+                .unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn a_barrier_that_already_opened_lets_a_retry_through() {
+        let barrier = Arc::new(BatchBarrier::new(1));
+        barrier.release();
+        // A retried file reuses its gesture's barrier; it must not wrap the
+        // counter or wait for members that are never coming back.
+        let mut arrival = BatchArrival::new(barrier);
+        tokio::time::timeout(Duration::from_secs(1), arrival.arrive_and_wait())
+            .await
+            .expect("a retry must pass an already opened barrier")
+    }
+
+    #[tokio::test]
+    async fn a_failed_member_releases_the_rest_of_its_batch() {
+        let barrier = Arc::new(BatchBarrier::new(2));
+        let waiter = {
+            let barrier = barrier.clone();
+            tokio::spawn(async move {
+                let mut arrival = BatchArrival::new(barrier);
+                arrival.arrive_and_wait().await;
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!waiter.is_finished());
+        // The other file fails before it can offer; dropping its guard has to
+        // release the batch instead of leaving it waiting forever.
+        drop(BatchArrival::new(barrier.clone()));
+        tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .expect("a failed member must not strand its batch")
+            .unwrap();
     }
 
     #[tokio::test]

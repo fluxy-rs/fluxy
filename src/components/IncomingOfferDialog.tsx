@@ -26,10 +26,10 @@ export function IncomingOfferDialog() {
 
   const [pending, setPending] = createSignal(false);
 
-  // A batch reaches the receiver one offer at a time, and the engine only runs
-  // a few transfers at once, so the third file of a three-file batch can show
-  // up seconds after the first. Holding the list still for a moment lets the
-  // arrivals of one gesture land in the same prompt instead of three.
+  // The sender releases a whole gesture's offers together, so they normally
+  // land within a few milliseconds. Holding the list still for one render turns
+  // "1 file, then 3" into one stable prompt; a file that still arrives after
+  // the answer follows it without a second prompt (the runtime remembers it).
   const ARRIVAL_WINDOW_MS = 350;
   const [incoming, setIncoming] = createSignal(engine.incomingOffers());
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -337,8 +337,19 @@ impl StreamRouter {
     }
 
     /// Wait for the stream that names `transfer_id`.
-    async fn claim(&self, transfer_id: Uuid) -> Result<Incoming, TransferError> {
+    ///
+    /// No deadline: a receiver may hold the pull behind its own concurrency cap
+    /// while an earlier file of the same batch finishes, and that can take far
+    /// longer than any timeout worth picking. A closed connection wakes the
+    /// wait, and a cancelled transfer leaves it; only then does the sender give
+    /// up.
+    async fn claim(
+        &self,
+        transfer_id: Uuid,
+        control: Option<&TransferControl>,
+    ) -> Result<Incoming, TransferError> {
         let (waiter, waiting) = oneshot::channel();
+        tokio::pin!(waiting);
         {
             let mut state = self.lock();
             if let Some(reason) = &state.closed {
@@ -349,17 +360,25 @@ impl StreamRouter {
             }
             state.waiting.insert(transfer_id, waiter);
         }
-        match tokio::time::timeout(TRANSFER_IO_TIMEOUT, waiting).await {
-            Ok(Ok(Ok(incoming))) => Ok(incoming),
-            Ok(Ok(Err(reason))) => Err(TransferError::Control(reason)),
-            Ok(Err(_)) => Err(TransferError::Control(
-                "the transfer stream router stopped".into(),
-            )),
-            Err(_) => {
-                self.lock().waiting.remove(&transfer_id);
-                Err(TransferError::Control(
-                    "the receiver never opened a stream for this transfer".into(),
-                ))
+        let mut ticker = tokio::time::interval(TRANSFER_TICK);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                result = &mut waiting => {
+                    return match result {
+                        Ok(Ok(incoming)) => Ok(incoming),
+                        Ok(Err(reason)) => Err(TransferError::Control(reason)),
+                        Err(_) => Err(TransferError::Control(
+                            "the transfer stream router stopped".into(),
+                        )),
+                    };
+                }
+                _ = ticker.tick() => {
+                    if control.is_some_and(TransferControl::is_cancelled) {
+                        self.lock().waiting.remove(&transfer_id);
+                        return Err(TransferError::Canceled);
+                    }
+                }
             }
         }
     }
@@ -408,7 +427,7 @@ pub async fn send_file(
         congestion_events = path.congestion_events,
         "transfer path state"
     );
-    let Incoming { mut send, recv } = router_for(connection).claim(transfer_id).await?;
+    let Incoming { mut send, recv } = router_for(connection).claim(transfer_id, control).await?;
     tracing::info!(%transfer_id, "sender: the receiver named this transfer");
     serve_on_stream(
         &mut send,

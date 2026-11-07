@@ -439,10 +439,20 @@ transfer center:
   the offer as `offered`, and raises the incoming-offer prompt. Nothing is
   written before the user answers, and a repeated `transfer_id` reuses the
   existing record instead of creating a second one.
-- **Accept and reject.** `TRANSFER_ACCEPT` starts the pull. `TRANSFER_REJECT`
-  carries a `code` and `message` and fails the sender side with that code. A
-  receiver that never answers times out after 60 s and fails the sender with
-  4201 `peer_offline` semantics at the application layer.
+- **One gesture, one offer wave.** Every file of one selection or one folder
+  carries the same `batch_id`. A folder also carries `root_name`,
+  `relative_path`, and the entry list for placement; a plain multi-file
+  selection carries only `batch_id`. The sender holds a gesture at a barrier
+  between hashing and offering, so all of its offers go out together. The
+  receiver counts an offer batch as **one** slot against its concurrency cap and
+  raises **one** prompt; a file of the gesture that arrives after the user
+  answered follows the same answer instead of asking again.
+- **Accept and reject.** `TRANSFER_ACCEPT` tells the sender to start serving.
+  The receiver then starts the pull when a transfer slot is free, so a batch of
+  ten accepted at once still runs at the configured concurrency.
+  `TRANSFER_REJECT` carries a `code` and `message` and fails the sender side
+  with that code. A receiver that never answers times out after 60 s and fails
+  the sender with 4201 `peer_offline` semantics at the application layer.
 - **Progress.** While a receiver writes durable blocks it reports
   `TRANSFER_PROGRESS{bytes_done, bytes_total}` and raises a local UI event.
   Both are throttled to at most one emission per 100 ms per transfer; terminal

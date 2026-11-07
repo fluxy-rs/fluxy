@@ -22,8 +22,9 @@ pub const DEFAULT_LISTEN_PORT: u16 = 49784;
 /// One at a time is the conservative default: on a LAN one transfer already
 /// saturates the link, so extra concurrency mostly splits the same bandwidth.
 /// It is a throughput choice, not a correctness one - each transfer names its
-/// stream with its transfer id, so any value up to the cap runs safely, and a
-/// user who wants a batch to move together can raise it in settings.
+/// stream with its transfer id, the cap is enforced on pulls as well as sends,
+/// and a whole batch is confirmed in one prompt either way. A user who wants
+/// several files of one selection to move together can raise it in settings.
 pub const DEFAULT_ACTIVE_TRANSFERS: u32 = 1;
 /// The user-facing floor for the active-transfer cap.
 pub const MIN_ACTIVE_TRANSFERS: u32 = 1;

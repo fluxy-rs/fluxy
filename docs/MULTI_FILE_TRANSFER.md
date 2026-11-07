@@ -1,9 +1,11 @@
-# 多文件传输：按流身份配对
+# 多文件传输：按流身份配对，一次确认整批
 
 本文记录一次已经完成的重构。起因是多文件发送只能成功一个，
 下面写清楚根因、最终设计、已经试过并失败的方案，以及验证方式。
 
 状态：**已实现**（分支 `fix/multi-file-stream-identity`）。
+两部分：**流身份**让多个文件能同时传下去；**批次身份**让一次手势只确认一次，
+并按并发数拉取。
 
 ## 症状
 
@@ -74,6 +76,36 @@ QUIC 的双向流**不带任何身份信息**。
   parked 表（上限 256 条，超过丢最旧的），登记时先取 parked。
 - 连接断开时，所有等待者立即收到错误，而不是各自等满 30 秒。
 
+### 一次确认，按并发数传输
+
+流配对解决的是“传得下去”，但一次多选发送还有第二个问题：发送端按
+`max_active_transfers` 逐个领取发送任务，三个文件并不是一起 offer 的。
+接收端先看到 2 个，点接收后第一个传完、槽位空出来，第三个 offer 才到，
+于是弹出第二个确认框。
+
+- **多选也带 `batch_id`**：记录新增 `group` 字段，只表示“同一次手势”，
+  与文件夹落盘用的 `BatchTag` 分开。发送端把 `batch_id` 放进每一条
+  offer，接收端用它分组、计槽位。
+- **整批领取、一起 offer**：`pump_queue` 领到第一条后把同组的全部领走；
+  每个发送任务在“算完 manifest、还没发 offer”之间停在 `BatchBarrier` 上，
+  整批都算完才一起发出。某个文件失败或拿不到会话时，它的 guard 会释放
+  其余成员，不会让整批等下去。哈希本身一次只允许一个（一次 pass 会占 64 MiB
+  窗口），所以 100 个文件的批次不会同时开 100 个哈希。
+- **一批只算一个槽位**：`offered_count` 按 `group` 去重；同组已经有记录
+  在飞时，后续文件不再被并发上限拒成 `peer_busy`。所以上限是 1 时，
+  3 个文件的批次也能一次全部进入确认框。
+- **确认一次，按并发拉取**：用户确认后每条记录进入 `queued`，由
+  `pump_receives` 按 `max_active_transfers` 逐个开始；这就是
+  “一次确认、传输并发 2 个”。上限对收、发两个方向都生效。
+- **迟到的同批文件沿用答复**：接收端记住这一批的答复（`answers`，5 分钟
+  有效），晚到的文件直接按同一答复接收或拒绝，不再第二次弹窗。
+- **发送端可以等**：排在后面的文件可能要等前面的传完，所以 `claim` 不再
+  有 30 秒上限，只有连接断开或用户取消才放弃。
+
+`queued` 这个状态原来只给发送用，现在也表示“已确认、等槽位”的接收；
+`pump_receives` 与 `pump_queue` 共用 `active_count()`，所以收发两个
+方向的并发合起来不超过配置值。
+
 ### 重复内容（dedup）顺带修好
 
 旧代码在接收端判定“已经有了”时，打开一条流去读对方写的 manifest。但发送端
@@ -92,6 +124,13 @@ crates/fluxy-net/src/transfer.rs
 crates/fluxy-core/src/transfer/chunk.rs
   ChunkHeader::decode_fixed                       只有定长头、不含负载的解析
 src-tauri/src/transfer.rs
+  BatchBarrier / BatchArrival                     整批算完再一起 offer
+  GroupTag（记录的 group 字段）                    一次手势的批次身份
+  start_transfers / start_folder                  先解析、再按批登记
+  pump_queue / claim_next_queued_in               整批领取发送任务
+  pump_receives / claim_next_queued_receive       按上限开始拉取
+  accept / respond / reject                       确认即入队，等槽位再拉
+  answered / remember_answer                      迟到文件沿用同一答复
   receive_inner                                   dedup 改写控制会话消息
 ~~~
 
@@ -121,6 +160,13 @@ cargo test -p fluxy-core -p fluxy-net --lib
 - `a_stream_named_for_another_transfer_is_left_alone`：先开一条名字对不上的流，
   再传真正的文件；发送端必须把先到的流挂起，不能往里面写 manifest。
 - `reads_the_header_before_the_payload_arrives`：`decode_fixed` 只吃定长头。
+- `a_batch_barrier_releases_every_member_at_once` / `a_failed_member_releases_the_rest_of_its_batch`
+  / `a_barrier_that_already_opened_lets_a_retry_through`：批次屏障的三个边界。
+- `offers_of_one_gesture_count_as_one_slot`：一批 3 条 offer 只占 1 个槽位。
+- `the_receive_queue_claims_only_accepted_receives`：拉取只从 `queued` 接收里领，
+  且不碰发送队列。
+- `a_batch_is_claimed_whole_behind_its_first_file`：同组发送任务整批领取。
+- `an_answer_is_remembered_for_its_gesture_only`：答复按批次记忆，不影响别的批次。
 
 ## 兼容性
 
@@ -130,12 +176,11 @@ cargo test -p fluxy-core -p fluxy-net --lib
 
 ## 未做
 
-1. **接收端并发上限**：`accept()` 目前对每个接受的 offer 直接 spawn
-   `run_receiver`，没有上限。QUIC 的 `max_concurrent_bidi_streams` 是 16，
-   超出的流会排队等流位，不会失败，但一个上百文件的批次会同时占住很多任务。
+1. **接收端没有"每批文件数"上限**：一批 100 个文件会同时进入 offer 列表；
+   `MAX_BATCH_FILES` 只在发送端生效。对已配对的对端可以接受，但值得补。
 2. **大批次的 parked 上限**：256 是防御性上限，正常批次远小于它。
 3. `DEFAULT_ACTIVE_TRANSFERS` 仍是 1：这是吞吐选择，不再是正确性要求。
-   想让整批一起跑的用户可以在设置里调高。
+   想一次传多个的用户可以在设置里调高；上限现在对收、发两个方向都生效。
 
 ## 验证方法
 
