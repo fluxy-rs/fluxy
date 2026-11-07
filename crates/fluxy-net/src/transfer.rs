@@ -226,6 +226,7 @@ pub async fn send_file(
         .accept_bi()
         .await
         .map_err(|error| TransportError::Stream(error.to_string()))?;
+    tracing::info!(%transfer_id, "sender: stream accepted, writing the manifest");
     send_manifest(
         &mut control_send,
         identity,
@@ -678,6 +679,7 @@ async fn pull_file(
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut received: u64 = 0;
 
+    tracing::info!(%transfer_id, "receiver: stream open, sending chunk requests");
     send_requests(
         &mut control_send,
         identity,
@@ -687,7 +689,9 @@ async fn pull_file(
         Instant::now(),
     )
     .await?;
+    tracing::info!(%transfer_id, "receiver: requests sent, waiting for the manifest");
     receive_manifest(&mut control_recv, transfer_id, &manifest).await?;
+    tracing::info!(%transfer_id, "receiver: manifest accepted, pulling chunks");
 
     loop {
         if scheduler.is_complete() {
