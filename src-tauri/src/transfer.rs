@@ -374,7 +374,7 @@ struct TransferFailure {
     retryable: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PeerDecision {
     Accept,
     Reject,
@@ -405,6 +405,10 @@ pub struct TransferRecord {
     wire_throttle: Mutex<ProgressThrottle>,
     speed_meter: Mutex<SpeedMeter>,
     pending_accept: Mutex<Option<tokio::sync::oneshot::Sender<PeerDecision>>>,
+    /// The peer's decision, kept on the record: it can arrive before the send
+    /// task is waiting for it, and a one-shot with no waiter would drop it and
+    /// leave the send to time out.
+    decision: Mutex<Option<PeerDecision>>,
     /// Set when the receiver answered with a duplicate frame instead of taking
     /// the bytes. Nothing landed on disk, so nothing may be exported or opened.
     deduplicated: std::sync::atomic::AtomicBool,
@@ -452,6 +456,7 @@ impl TransferRecord {
             wire_throttle: Mutex::new(ProgressThrottle::new(PROGRESS_THROTTLE)),
             speed_meter: Mutex::new(SpeedMeter::new()),
             pending_accept: Mutex::new(None),
+            decision: Mutex::new(None),
             deduplicated: std::sync::atomic::AtomicBool::new(false),
             source: Mutex::new(None),
             offer: Mutex::new(None),
@@ -1599,6 +1604,7 @@ impl TransferRuntime {
                 }
                 *lock(&record.control) = TransferControl::new();
                 *lock(&record.failure) = None;
+                *lock(&record.decision) = None;
                 record.deduplicated.store(false, Ordering::SeqCst);
                 match record.direction {
                     TransferDirection::Send => {
@@ -1694,6 +1700,7 @@ impl TransferRuntime {
                 self.resolve(transfer_id, PeerDecision::Accept);
             }
             SessionEvent::TransferDuplicate { transfer_id } => {
+                tracing::info!(%transfer_id, "the peer already has this content");
                 self.resolve(transfer_id, PeerDecision::Duplicate);
             }
             SessionEvent::TransferReject {
@@ -2163,7 +2170,10 @@ impl TransferRuntime {
             tracing::info!(file = %file_name, "content already present; answering the offer as a duplicate");
             let message = TransferMessage::Duplicate { transfer_id };
             async_runtime::spawn(async move {
-                let _ = session.sender.send_transfer(message).await;
+                match session.sender.send_transfer(message).await {
+                    Ok(id) => tracing::info!(%id, "duplicate answer sent"),
+                    Err(error) => tracing::warn!(%error, "sending the duplicate answer failed"),
+                }
             });
             return;
         }
@@ -2315,6 +2325,12 @@ impl TransferRuntime {
             record.deduplicated.store(true, Ordering::SeqCst);
             record.control().cancel();
         }
+        tracing::info!(%transfer_id, ?decision, "peer decision resolved");
+        // Keep the decision on the record. A duplicate is answered at offer
+        // time, which can be before the send task gets as far as waiting for
+        // the decision; a one-shot alone would lose it and the send would time
+        // out with the content already on the other side.
+        *lock(&record.decision) = Some(decision);
         if let Some(sender) = lock(&record.pending_accept).take() {
             let _ = sender.send(decision);
         }
@@ -2567,15 +2583,30 @@ impl TransferRuntime {
     async fn wait_for_decision(&self, record: &Arc<TransferRecord>) -> Result<bool, SendFailure> {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         *lock(&record.pending_accept) = Some(sender);
+        // Re-check after installing the waiter: the decision may have landed
+        // between the offer going out and this point.
+        if let Some(decision) = *lock(&record.decision) {
+            *lock(&record.pending_accept) = None;
+            return Self::decision_outcome(decision);
+        }
         match tokio::time::timeout(OFFER_TIMEOUT, receiver).await {
-            Ok(Ok(PeerDecision::Accept)) => Ok(false),
-            Ok(Ok(PeerDecision::Duplicate)) => Ok(true),
-            Ok(Ok(PeerDecision::Reject)) => Err(SendFailure::Rejected {
+            Ok(Ok(decision)) => Self::decision_outcome(decision),
+            Ok(Err(_)) => Err(SendFailure::Canceled),
+            Err(_) => {
+                *lock(&record.pending_accept) = None;
+                Err(SendFailure::Transfer(TransferError::Timeout))
+            }
+        }
+    }
+
+    fn decision_outcome(decision: PeerDecision) -> Result<bool, SendFailure> {
+        match decision {
+            PeerDecision::Accept => Ok(false),
+            PeerDecision::Duplicate => Ok(true),
+            PeerDecision::Reject => Err(SendFailure::Rejected {
                 code: "rejected".into(),
                 message: "the receiver declined the transfer".into(),
             }),
-            Ok(Err(_)) => Err(SendFailure::Canceled),
-            Err(_) => Err(SendFailure::Transfer(TransferError::Timeout)),
         }
     }
 
