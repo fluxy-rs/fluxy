@@ -267,6 +267,15 @@ pub async fn send_file(
                     tracing::info!(%transfer_id, "the receiver already has this content");
                     return Ok(manifest.file_size);
                 }
+                // The receiver reports its own failure here rather than on the
+                // control session, so the row stops instead of sitting in
+                // transferring until the transfer times out.
+                if envelope.kind == MessageKind::TransferError as i32 {
+                    let failure: fluxy_proto::TransferError =
+                        decode_payload(&envelope.payload)?;
+                    tracing::warn!(%transfer_id, code = %failure.code, "the receiver gave up");
+                    return Err(TransferError::Control(failure.message));
+                }
                 if envelope.kind != MessageKind::ChunkRequest as i32 {
                     return Err(TransferError::Unexpected(envelope.kind));
                 }
@@ -489,11 +498,28 @@ pub fn prepare_sink(
                 ranges = covered.len(),
                 "prepare_sink: resuming into the existing file"
             );
-            Ok(manager.resume_sink(owner, file_name, manifest.file_size, &covered)?)
+            tracing::info!(%transfer_id, "prepare_sink: asking the manager to resume");
+            // A checkpoint can outlive the partial file it describes: the
+            // file is cleaned up when a transfer fails, but the checkpoint is
+            // kept so a retry can resume. Reopening it then fails with
+            // NotFound, and refusing the whole transfer over that trades a
+            // lost head start for a lost file. Start over instead.
+            let sink = match manager.resume_sink(owner, file_name, manifest.file_size, &covered) {
+                Ok(sink) => sink,
+                Err(FileError::NotFound(_)) => {
+                    tracing::info!(target: "fluxy", %transfer_id, %owner, "prepare_sink: the partial file is gone; starting over");
+                    manager.create_sink_with_id(transfer_id, file_name, manifest.file_size)?
+                }
+                Err(error) => return Err(error.into()),
+            };
+            tracing::info!(%transfer_id, "prepare_sink: the manager returned a sink");
+            Ok(sink)
         }
         None => {
             tracing::info!(%transfer_id, file = %file_name, "prepare_sink: creating a new file");
-            Ok(manager.create_sink_with_id(transfer_id, file_name, manifest.file_size)?)
+            let sink = manager.create_sink_with_id(transfer_id, file_name, manifest.file_size)?;
+            tracing::info!(%transfer_id, "prepare_sink: the manager returned a sink");
+            Ok(sink)
         }
     }
 }
@@ -665,184 +691,213 @@ async fn pull_file(
     let resume = options.resume;
     let control = options.control;
     let mut paused = false;
+    tracing::info!(%transfer_id, "receiver: pulling, opening a stream");
     let (mut control_send, mut control_recv) = connection
         .open_bi()
         .await
         .map_err(|error| TransportError::Stream(error.to_string()))?;
-    let mut scheduler =
-        PullScheduler::resume_from(&manifest, config.scheduler, checkpoint.received.clone());
-    let (chunk_tx, mut chunk_rx) =
-        mpsc::channel::<(u32, Result<Bytes, TransferError>)>(config.scheduler.window().max(1));
-    let mut readers: JoinSet<Result<(), TransferError>> = JoinSet::new();
-    let semaphore = Arc::new(Semaphore::new(config.scheduler.streams.max(1)));
-    let mut ticker = tokio::time::interval(TRANSFER_TICK);
-    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    let mut received: u64 = 0;
+    // Everything from here on runs inside a block so a failure can still be
+    // reported on this stream. The sender waits for a chunk request here; an
+    // error written to the control session instead would never be seen, and
+    // the sender would sit in transferring forever.
+    let outcome: Result<u64, TransferError> = async {
+        let mut scheduler =
+            PullScheduler::resume_from(&manifest, config.scheduler, checkpoint.received.clone());
+        let (chunk_tx, mut chunk_rx) =
+            mpsc::channel::<(u32, Result<Bytes, TransferError>)>(config.scheduler.window().max(1));
+        let mut readers: JoinSet<Result<(), TransferError>> = JoinSet::new();
+        let semaphore = Arc::new(Semaphore::new(config.scheduler.streams.max(1)));
+        let mut ticker = tokio::time::interval(TRANSFER_TICK);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut received: u64 = 0;
 
-    tracing::info!(%transfer_id, "receiver: stream open, sending chunk requests");
-    send_requests(
-        &mut control_send,
-        identity,
-        session_id,
-        transfer_id,
-        &mut scheduler,
-        Instant::now(),
-    )
-    .await?;
-    tracing::info!(%transfer_id, "receiver: requests sent, waiting for the manifest");
-    receive_manifest(&mut control_recv, transfer_id, &manifest).await?;
-    tracing::info!(%transfer_id, "receiver: manifest accepted, pulling chunks");
+        tracing::info!(%transfer_id, "receiver: stream open, sending chunk requests");
+        send_requests(
+            &mut control_send,
+            identity,
+            session_id,
+            transfer_id,
+            &mut scheduler,
+            Instant::now(),
+        )
+        .await?;
+        tracing::info!(%transfer_id, "receiver: requests sent, waiting for the manifest");
+        receive_manifest(&mut control_recv, transfer_id, &manifest).await?;
+        tracing::info!(%transfer_id, "receiver: manifest accepted, pulling chunks");
 
-    loop {
-        if scheduler.is_complete() {
-            break;
-        }
-        if control.is_some_and(TransferControl::is_cancelled) {
-            return Err(TransferError::Canceled);
-        }
-        tokio::select! {
-            Some((index, chunk)) = chunk_rx.recv() => {
-                let data = match chunk {
-                    Ok(data) => data,
-                    Err(_error) => {
-                        // A tampered or mismatched chunk is rejected and
-                        // re-requested; the transfer fails only when the
-                        // retry budget for that block is exhausted.
-                        scheduler.on_chunk_rejected(index, Instant::now());
-                        if scheduler.has_failed() {
-                            return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
+        loop {
+            if scheduler.is_complete() {
+                break;
+            }
+            if control.is_some_and(TransferControl::is_cancelled) {
+                return Err(TransferError::Canceled);
+            }
+            tokio::select! {
+                Some((index, chunk)) = chunk_rx.recv() => {
+                    let data = match chunk {
+                        Ok(data) => data,
+                        Err(_error) => {
+                            // A tampered or mismatched chunk is rejected and
+                            // re-requested; the transfer fails only when the
+                            // retry budget for that block is exhausted.
+                            scheduler.on_chunk_rejected(index, Instant::now());
+                            if scheduler.has_failed() {
+                                return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
+                            }
+                            refill_unless_paused(
+                                control,
+                                &mut control_send,
+                                identity,
+                                session_id,
+                                transfer_id,
+                                &mut scheduler,
+                            )
+                            .await?;
+                            continue;
                         }
-                        refill_unless_paused(
-                            control,
-                            &mut control_send,
-                            identity,
-                            session_id,
-                            transfer_id,
-                            &mut scheduler,
-                        )
-                        .await?;
-                        continue;
+                    };
+                    let Some(length) = manifest.block_len(index as usize) else {
+                        return Err(TransferError::InvalidManifest(
+                            "chunk index is outside the manifest".into(),
+                        ));
+                    };
+                    if data.len() != length {
+                        return Err(TransferError::Chunk(ChunkError::LengthMismatch {
+                            expected: length,
+                            actual: data.len(),
+                        }));
                     }
-                };
-                let Some(length) = manifest.block_len(index as usize) else {
-                    return Err(TransferError::InvalidManifest(
-                        "chunk index is outside the manifest".into(),
-                    ));
-                };
-                if data.len() != length {
-                    return Err(TransferError::Chunk(ChunkError::LengthMismatch {
-                        expected: length,
-                        actual: data.len(),
-                    }));
-                }
-                let offset = index as u64 * manifest.block_size as u64;
-                sink.write_at(offset, &data)?;
-                received += data.len() as u64;
-                scheduler.on_chunk_received(index, Instant::now());
-                checkpoint.mark_received(index);
-                if let Some(progress) = options.progress {
-                    progress(checkpoint.received_bytes(&manifest), manifest.file_size);
-                }
-                if let Some(resume) = resume
-                    && resume.interval > 0
-                    && checkpoint.blocks_done().is_multiple_of(resume.interval)
-                {
-                    resume.store.save_progress(checkpoint)?;
-                }
-                send_ack(
-                    &mut control_send,
-                    identity,
-                    session_id,
-                    transfer_id,
-                    index,
-                    true,
-                    "ok",
-                )
-                .await?;
-                // Refill the window as soon as a chunk lands. Waiting for the
-                // next 100 ms tick would cap throughput at one window per tick,
-                // which measured far below the loopback target on NVMe.
-                refill_unless_paused(
-                    control,
-                    &mut control_send,
-                    identity,
-                    session_id,
-                    transfer_id,
-                    &mut scheduler,
-                )
-                .await?;
-            }
-            incoming = connection.accept_uni() => {
-                let stream = incoming
-                    .map_err(|error| TransportError::Stream(error.to_string()))?;
-                let permit = semaphore
-                    .clone()
-                    .acquire_owned()
-                    .await
-                    .map_err(|error| TransferError::Control(error.to_string()))?;
-                let manifest = manifest.clone();
-                let tx = chunk_tx.clone();
-                let max_chunk_bytes = config.max_chunk_bytes;
-                readers.spawn(async move {
-                    let _permit = permit;
-                    read_chunk(stream, &manifest, tx, max_chunk_bytes).await
-                });
-            }
-            _ = ticker.tick() => {
-                if let Some(control) = control {
-                    if control.is_cancelled() {
-                        return Err(TransferError::Canceled);
+                    let offset = index as u64 * manifest.block_size as u64;
+                    sink.write_at(offset, &data)?;
+                    received += data.len() as u64;
+                    scheduler.on_chunk_received(index, Instant::now());
+                    checkpoint.mark_received(index);
+                    if let Some(progress) = options.progress {
+                        progress(checkpoint.received_bytes(&manifest), manifest.file_size);
                     }
-                    if control.is_paused() {
-                        scheduler.pause();
-                        if !paused {
-                            paused = true;
-                            state.pause()?;
+                    if let Some(resume) = resume
+                        && resume.interval > 0
+                        && checkpoint.blocks_done().is_multiple_of(resume.interval)
+                    {
+                        resume.store.save_progress(checkpoint)?;
+                    }
+                    send_ack(
+                        &mut control_send,
+                        identity,
+                        session_id,
+                        transfer_id,
+                        index,
+                        true,
+                        "ok",
+                    )
+                    .await?;
+                    // Refill the window as soon as a chunk lands. Waiting for the
+                    // next 100 ms tick would cap throughput at one window per tick,
+                    // which measured far below the loopback target on NVMe.
+                    refill_unless_paused(
+                        control,
+                        &mut control_send,
+                        identity,
+                        session_id,
+                        transfer_id,
+                        &mut scheduler,
+                    )
+                    .await?;
+                }
+                incoming = connection.accept_uni() => {
+                    let stream = incoming
+                        .map_err(|error| TransportError::Stream(error.to_string()))?;
+                    let permit = semaphore
+                        .clone()
+                        .acquire_owned()
+                        .await
+                        .map_err(|error| TransferError::Control(error.to_string()))?;
+                    let manifest = manifest.clone();
+                    let tx = chunk_tx.clone();
+                    let max_chunk_bytes = config.max_chunk_bytes;
+                    readers.spawn(async move {
+                        let _permit = permit;
+                        read_chunk(stream, &manifest, tx, max_chunk_bytes).await
+                    });
+                }
+                _ = ticker.tick() => {
+                    if let Some(control) = control {
+                        if control.is_cancelled() {
+                            return Err(TransferError::Canceled);
+                        }
+                        if control.is_paused() {
+                            scheduler.pause();
+                            if !paused {
+                                paused = true;
+                                state.pause()?;
+                                checkpoint.set_state(state.state());
+                                if let Some(resume) = resume {
+                                    let _ = resume.store.save_progress(checkpoint);
+                                }
+                            }
+                            continue;
+                        }
+                        if paused {
+                            paused = false;
+                            state.resume()?;
                             checkpoint.set_state(state.state());
                             if let Some(resume) = resume {
                                 let _ = resume.store.save_progress(checkpoint);
                             }
                         }
-                        continue;
                     }
-                    if paused {
-                        paused = false;
-                        state.resume()?;
-                        checkpoint.set_state(state.state());
-                        if let Some(resume) = resume {
-                            let _ = resume.store.save_progress(checkpoint);
-                        }
+                    send_requests(
+                        &mut control_send,
+                        identity,
+                        session_id,
+                        transfer_id,
+                        &mut scheduler,
+                        Instant::now(),
+                    )
+                    .await?;
+                    if scheduler.has_failed() {
+                        return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
                     }
                 }
-                send_requests(
-                    &mut control_send,
-                    identity,
-                    session_id,
-                    transfer_id,
-                    &mut scheduler,
-                    Instant::now(),
-                )
-                .await?;
-                if scheduler.has_failed() {
-                    return Err(TransferError::MissingChunks(scheduler.failed_chunks()));
-                }
-            }
-            completed = readers.join_next(), if !readers.is_empty() => {
-                match completed {
-                    Some(Ok(Ok(()))) => {}
-                    Some(Ok(Err(error))) => return Err(error),
-                    Some(Err(error)) => return Err(TransferError::Control(error.to_string())),
-                    None => {}
+                completed = readers.join_next(), if !readers.is_empty() => {
+                    match completed {
+                        Some(Ok(Ok(()))) => {}
+                        Some(Ok(Err(error))) => return Err(error),
+                        Some(Err(error)) => return Err(TransferError::Control(error.to_string())),
+                        None => {}
+                    }
                 }
             }
         }
-    }
 
-    readers.abort_all();
-    while readers.join_next().await.is_some() {}
-    sink.sync()?;
+        readers.abort_all();
+        while readers.join_next().await.is_some() {}
+        sink.sync()?;
+        Ok(received)
+    }
+    .await;
+    if let Err(error) = &outcome {
+        tracing::info!(
+            %transfer_id,
+            code = error.code().as_str(),
+            "receiver: reporting the failure on the transfer stream"
+        );
+        let payload = encode_payload(&fluxy_proto::TransferError {
+            transfer_id: transfer_id.as_bytes().to_vec(),
+            code: error.code().as_str().to_string(),
+            message: error.to_string(),
+            retryable: error.is_retryable(),
+        });
+        let envelope = make_envelope(
+            MessageKind::TransferError,
+            identity,
+            Some(session_id),
+            payload,
+        );
+        let _ = write_envelope(&mut control_send, &envelope).await;
+    }
     let _ = control_send.shutdown().await;
-    Ok(received)
+    outcome
 }
 
 /// Ask the scheduler for newly available work and send those requests.
