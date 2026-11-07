@@ -1806,6 +1806,10 @@ impl TransferRuntime {
                     return Ok(None);
                 }
                 (Some(id), Some(root), Some(path)) => (*id, root.clone(), path.clone()),
+                // A plain multi-file selection: the id groups the files into one
+                // confirmation, and there is nothing to place on disk. It is not
+                // a folder batch that lost its root.
+                (Some(_), None, None) if batch.entries.is_empty() => return Ok(None),
                 _ => {
                     return Err(BatchRejection::new(
                         "invalid_batch",
@@ -2332,15 +2336,23 @@ impl TransferRuntime {
         match outcome {
             Ok(()) => self.complete(&record),
             Err(SendFailure::Canceled) => self.cancelled(&record),
-            Err(SendFailure::Rejected { code, message }) => self.fail_with(
-                &record,
-                TransferFailure {
-                    code,
-                    code_number: 3001,
-                    message,
-                    retryable: true,
-                },
-            ),
+            // The TRANSFER_REJECT frame carries the peer's own code and message
+            // and is handled before the waiting send task wakes. Only fill in a
+            // generic reason when nothing was recorded, or a full receiver or a
+            // bad batch would be reported as a plain refusal.
+            Err(SendFailure::Rejected { code, message }) => {
+                if record.state() != TransferState::Failed {
+                    self.fail_with(
+                        &record,
+                        TransferFailure {
+                            code,
+                            code_number: 3001,
+                            message,
+                            retryable: true,
+                        },
+                    );
+                }
+            }
             // A cancel can arrive after the decision; the send file error is
             // the same cancellation, so the row must end Cancelled rather than
             // Failed.
@@ -3451,6 +3463,41 @@ mod tests {
         let error = runtime
             .place_batch_offer(&batch_offer("one.jpg", 5), 6)
             .expect_err("a size that disagrees with the entry list");
+        assert_eq!(error.code, "invalid_batch");
+    }
+
+    #[test]
+    fn a_selection_batch_has_no_folder_to_place() {
+        let (runtime, _dir) = runtime();
+        // A multi-file selection carries a batch id for one confirmation but
+        // no folder to create: it must not be mistaken for a batch that lost
+        // its root and refused.
+        let offer = BatchOffer {
+            batch_id: Some(Uuid::now_v7()),
+            root_name: None,
+            relative_path: None,
+            entries: Vec::new(),
+        };
+        assert!(
+            runtime
+                .place_batch_offer(&offer, 5)
+                .expect("a selection is not an invalid folder")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_folder_batch_missing_its_root_is_still_refused() {
+        let (runtime, _dir) = runtime();
+        let offer = BatchOffer {
+            batch_id: Some(Uuid::now_v7()),
+            root_name: None,
+            relative_path: Some("one.jpg".into()),
+            entries: Vec::new(),
+        };
+        let error = runtime
+            .place_batch_offer(&offer, 5)
+            .expect_err("a folder file needs its root");
         assert_eq!(error.code, "invalid_batch");
     }
 

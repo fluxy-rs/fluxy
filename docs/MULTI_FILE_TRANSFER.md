@@ -85,7 +85,9 @@ QUIC 的双向流**不带任何身份信息**。
 
 - **多选也带 `batch_id`**：记录新增 `group` 字段，只表示“同一次手势”，
   与文件夹落盘用的 `BatchTag` 分开。发送端把 `batch_id` 放进每一条
-  offer，接收端用它分组、计槽位。
+  offer，接收端用它分组、计槽位。注意多选的 offer **只有 `batch_id`**，
+  没有 `root_name`/`relative_path`：接收端不能把它当成“缺字段的文件夹批次”
+  拒掉（`place_batch_offer` 为此放行“有 id、没有落盘字段、也没有 entries”）。
 - **整批领取、一起 offer**：`pump_queue` 领到第一条后把同组的全部领走；
   每个发送任务在“算完 manifest、还没发 offer”之间停在 `BatchBarrier` 上，
   整批都算完才一起发出。某个文件失败或拿不到会话时，它的 guard 会释放
