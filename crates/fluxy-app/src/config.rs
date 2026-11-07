@@ -18,7 +18,15 @@ pub const CONFIG_VERSION: u32 = 1;
 pub const DEFAULT_LISTEN_PORT: u16 = 49784;
 
 /// Default number of transfers that may be active at the same time.
-pub const DEFAULT_ACTIVE_TRANSFERS: u32 = 2;
+///
+/// One at a time. A transfer pairs a sender's `accept_bi` with a receiver's
+/// `open_bi`, and QUIC gives no way to say which stream belongs to which
+/// transfer, so two running at once can each take the other's stream and
+/// fail with "manifest has a different transfer id". Serialising them costs
+/// nothing measurable on a LAN, where one transfer already saturates the
+/// link, and it makes a multi-file send correct. Raising this needs stream
+/// pairing in the protocol first.
+pub const DEFAULT_ACTIVE_TRANSFERS: u32 = 1;
 /// The user-facing floor for the active-transfer cap.
 pub const MIN_ACTIVE_TRANSFERS: u32 = 1;
 /// The user-facing ceiling for the active-transfer cap.
