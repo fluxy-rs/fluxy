@@ -26,10 +26,13 @@ jobs:
   # check, and running the matrix anyway costs twenty minutes of runner time to
   # learn nothing.
   #
-  # The filter asks "is every changed file documentation?" rather than "did
-  # anything change in a code path?" - a path somebody forgot to list then runs
-  # the gates instead of silently skipping them, which is the failure that would
-  # actually matter.
+  # Everything that is not documentation counts as code, rather than listing the
+  # code paths: a directory somebody forgot to list then runs the gates instead
+  # of silently skipping them, which is the failure that would actually matter.
+  #
+  # dorny/paths-filter could not express this. Its predicate-quantifier works
+  # per file, not across the change set, so a pull request that touched both
+  # docs and a workflow matched "docs" and skipped the matrix entirely.
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
@@ -38,15 +41,38 @@ jobs:
     outputs:
       docs_only: ${{ steps.filter.outputs.docs_only }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - name: Detect a documentation-only change
         id: filter
-        with:
-          predicate-quantifier: every
-          filters: |
-            docs_only:
-              - "**/*.md"
-              - "docs/**"
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ] || [ -z "$PR" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename'); then
+            # Failing open is deliberate: an unreadable change set runs the
+            # gates, it never skips them.
+            echo "::warning::could not read the changed files; running the matrix"
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$files" ]; then
+            # An empty change set means the API answered oddly, not that the
+            # pull request is documentation.
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          docs_only=true
+          while IFS= read -r file; do
+            case "$file" in
+              *.md|docs/*) ;;
+              *) docs_only=false; break ;;
+            esac
+          done <<< "$files"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
 
   # The regression matrix the release needs: the same gates on all three
   # desktop platforms. A platform is only "green" if this job is green for it.
