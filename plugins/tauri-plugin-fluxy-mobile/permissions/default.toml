@@ -10,6 +10,8 @@ permissions = [
   "allow-fs-open-source",
   "allow-fs-export",
   "allow-storage-available",
+  "allow-receive-dir-status",
+  "allow-fs-pick-receive-dir",
   "allow-shared-files",
   "allow-foreground-start",
   "allow-foreground-stop",

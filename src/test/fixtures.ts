@@ -43,6 +43,7 @@ export function makeSettings(overrides: Partial<SettingsSnapshot> = {}): Setting
     autostart: false,
     autostart_location: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Fluxy",
     receive_dir: "C:\\Users\\test\\AppData\\Roaming\\fluxy\\received",
+    receive_dir_ready: true,
     dev_loopback: false,
     ...overrides,
   };

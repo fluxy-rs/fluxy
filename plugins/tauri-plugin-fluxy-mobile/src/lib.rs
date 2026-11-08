@@ -409,6 +409,50 @@ async fn system_insets<R: Runtime>(app: AppHandle<R>) -> Result<SystemInsetsView
     }
 }
 
+/// Where received files land. On Android this is the folder the user picked
+/// through the Storage Access Framework; the desktop build answers unconfigured
+/// and keeps using the receive directory from its settings.
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReceiveDirState {
+    #[serde(default)]
+    pub configured: bool,
+    #[serde(default)]
+    pub label: String,
+    /// Only meaningful for a pick: true when the user dismissed the picker.
+    #[serde(default)]
+    pub cancelled: bool,
+}
+
+/// Whether the user has chosen a receive folder yet.
+#[tauri::command]
+async fn receive_dir_status<R: Runtime>(app: AppHandle<R>) -> Result<ReceiveDirState, String> {
+    #[cfg(mobile)]
+    {
+        let handle = app.state::<FluxyMobile<R>>();
+        return handle.receive_dir_status().await;
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = app;
+        Ok(ReceiveDirState::default())
+    }
+}
+
+/// Open the platform folder picker and remember the destination.
+#[tauri::command]
+async fn fs_pick_receive_dir<R: Runtime>(app: AppHandle<R>) -> Result<ReceiveDirState, String> {
+    #[cfg(mobile)]
+    {
+        let handle = app.state::<FluxyMobile<R>>();
+        return handle.pick_receive_dir().await;
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = app;
+        Err("choosing a receive folder is only needed on mobile".into())
+    }
+}
+
 /// Free bytes on the receive volume.
 #[tauri::command]
 async fn storage_available<R: Runtime>(app: AppHandle<R>) -> Result<i64, String> {
@@ -452,6 +496,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             fs_open_source,
             fs_export,
             storage_available,
+            receive_dir_status,
+            fs_pick_receive_dir,
             system_insets,
             set_chrome_color,
             local_network_info,

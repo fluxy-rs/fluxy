@@ -376,19 +376,36 @@ fn probe_picker(app: &tauri::App) {
 #[cfg(target_os = "android")]
 fn use_android_receive_dir(app: &tauri::App) {
     let state = app.state::<AppState>();
-    let marker = match state.engine_data_dir() {
-        Some(dir) => dir.join("receive-dir.txt"),
-        None => return,
-    };
-    let Ok(contents) = std::fs::read_to_string(&marker) else {
+    let Some(dir) = state.engine_data_dir() else {
         return;
     };
-    let directory = std::path::PathBuf::from(contents.trim());
-    if directory.as_os_str().is_empty() {
-        return;
+    // The staging directory the transfer pipeline writes into. A SAF document
+    // stream has no random access, so an in-progress receive still lives here
+    // and is copied into the chosen folder when it finishes.
+    if let Ok(contents) = std::fs::read_to_string(dir.join("receive-dir.txt")) {
+        let directory = std::path::PathBuf::from(contents.trim());
+        if !directory.as_os_str().is_empty() {
+            state.transfer.set_receive_root(directory);
+            tracing::info!(path = %contents.trim(), "android receive directory set");
+        }
     }
-    state.transfer.set_receive_root(directory);
-    tracing::info!(path = %contents.trim(), "android receive directory set");
+    // The destination the user picked, written by the plugin on every launch.
+    // Reading it here means the offer gate knows the answer before the first
+    // WebView call rather than after a round trip.
+    if let Ok(bytes) = std::fs::read(dir.join("receive-tree.json")) {
+        if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+            let ready = value
+                .get("configured")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            let label = value
+                .get("label")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            state.transfer.set_receive_dir_state(ready, label);
+            tracing::info!(ready, label, "android receive destination restored");
+        }
+    }
 }
 
 /// Move the plain identity into the platform keystore and drop the plain copy.

@@ -113,8 +113,12 @@ pub struct SettingsSnapshot {
     /// Where the login item lives, for the help page. Empty when the platform
     /// has no file or registry location to show.
     pub autostart_location: String,
-    /// Where received files land, as the runtime currently has it.
+    /// Where received files land, as the runtime currently has it. On Android
+    /// this is the folder label (e.g. `Downloads/Fluxy`) rather than a path.
     pub receive_dir: String,
+    /// Whether a receive destination exists. Desktop always has one; Android
+    /// needs the user to pick a folder through the system picker.
+    pub receive_dir_ready: bool,
     pub dev_loopback: bool,
 }
 
@@ -132,6 +136,7 @@ impl From<&AppConfig> for SettingsSnapshot {
             autostart: value.autostart,
             autostart_location: String::new(),
             receive_dir: String::new(),
+            receive_dir_ready: cfg!(not(target_os = "android")),
             dev_loopback: value.dev_allow_loopback,
         }
     }
@@ -995,28 +1000,52 @@ impl AppState {
         let mut settings = SettingsSnapshot::from(config);
         settings.autostart_location = self.startup.location();
         settings.receive_dir = self.transfer.receive_root().display().to_string();
+        #[cfg(target_os = "android")]
+        {
+            settings.receive_dir = self.transfer.receive_dir_label();
+            settings.receive_dir_ready = self.transfer.receive_dir_ready();
+        }
         settings
+    }
+
+    /// Mirror the Android folder picker's answer onto the runtime.
+    #[cfg(target_os = "android")]
+    pub fn set_receive_dir_state(&self, ready: bool, label: &str) {
+        self.transfer.set_receive_dir_state(ready, label);
+        self.hub.bump_snapshot();
     }
 
     /// Persist where received files land and switch the runtime to it. A path
     /// that cannot be created or is a file is refused with 3003.
     pub fn set_receive_dir(&self, directory: Option<String>) -> Result<SettingsSnapshot, IpcError> {
-        let directory = directory
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .map(PathBuf::from);
-        let config = {
-            let mut engine = self.lock_engine()?;
-            engine.set_receive_dir(directory)?
-        };
-        self.transfer.set_receive_root(
-            config
-                .receive_dir
-                .clone()
-                .unwrap_or_else(|| self.transfer.receive_root()),
-        );
-        self.hub.bump_snapshot();
-        Ok(self.settings_view(&config))
+        // Android's destination is a SAF grant the picker already stored, not a
+        // path the config could hold. Answer with the current view so the
+        // caller refreshes instead of writing the label into the config.
+        #[cfg(target_os = "android")]
+        {
+            let _ = directory;
+            let engine = self.lock_engine()?;
+            Ok(self.settings_view(engine.config()))
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let directory = directory
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from);
+            let config = {
+                let mut engine = self.lock_engine()?;
+                engine.set_receive_dir(directory)?
+            };
+            self.transfer.set_receive_root(
+                config
+                    .receive_dir
+                    .clone()
+                    .unwrap_or_else(|| self.transfer.receive_root()),
+            );
+            self.hub.bump_snapshot();
+            Ok(self.settings_view(&config))
+        }
     }
 
     /// Persist a new active-transfer cap, start whatever the new room allows,

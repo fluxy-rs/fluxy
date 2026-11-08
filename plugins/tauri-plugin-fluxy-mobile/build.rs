@@ -9,6 +9,8 @@ fn main() {
         "fs_open_source",
         "fs_export",
         "storage_available",
+        "receive_dir_status",
+        "fs_pick_receive_dir",
         "device_name",
         "local_network_granted",
         "clipboard_read",

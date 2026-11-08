@@ -408,6 +408,19 @@ const zh: Messages = {
   "settings.receiveTitle": "接收位置",
   "settings.receiveChoose": "选择目录",
   "settings.receiveSaved": "接收目录已更新。",
+  "settings.receiveNotChosen": "尚未选择",
+  "settings.receiveMobileNote":
+    "Android 只允许写入你选择的文件夹；Fluxy 会在其中创建 Fluxy 子文件夹来保存接收的文件。",
+  "receiveDir.title": "选择接收文件夹",
+  "receiveDir.body":
+    "Android 不允许应用直接写入公共目录，也不允许直接选择「下载」根目录。请进入「下载」后选择（或新建）Fluxy 文件夹，接收的文件会保存在那里。",
+  "receiveDir.hint":
+    "以「下载」为例：打开下载目录，选择 Fluxy（没有就新建），再点「使用此文件夹」。",
+  "receiveDir.choose": "选择接收文件夹",
+  "receiveDir.action": "选择文件夹",
+  "receiveDir.choosing": "正在打开…",
+  "receiveDir.saved": "接收文件夹已设置。",
+  "receiveDir.failed": "无法使用该文件夹：{message}",
   "settings.receiveFailed": "无法更改接收目录：{message}",
   "settings.deviceBody": "其他设备在局域网列表里看到的名字。",
   "settings.deviceNameSave": "保存名称",
@@ -988,6 +1001,19 @@ const en: Messages = {
   "settings.receiveTitle": "Received files",
   "settings.receiveChoose": "Choose folder",
   "settings.receiveSaved": "Receive directory updated.",
+  "settings.receiveNotChosen": "Not chosen",
+  "settings.receiveMobileNote":
+    "Android only lets Fluxy write to a folder you pick; it creates a Fluxy subfolder there for received files.",
+  "receiveDir.title": "Choose a receive folder",
+  "receiveDir.body":
+    "Android does not let an app write to a public folder, and it will not grant the Downloads root itself. Open Downloads, then choose (or create) a Fluxy folder there; received files are saved in it.",
+  "receiveDir.hint":
+    "For Downloads: open it, pick Fluxy (create it if missing), then tap Use this folder.",
+  "receiveDir.choose": "Choose receive folder",
+  "receiveDir.action": "Choose folder",
+  "receiveDir.choosing": "Opening…",
+  "receiveDir.saved": "Receive folder set.",
+  "receiveDir.failed": "That folder cannot be used: {message}",
   "settings.receiveFailed": "Could not change the receive directory: {message}",
   "settings.deviceBody": "The name other devices see in the local device list.",
   "settings.deviceNameSave": "Save name",
