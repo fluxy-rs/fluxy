@@ -1,0 +1,73 @@
+name: Warm caches
+
+# A merge to main does not need the test matrix again: the pull request already
+# ran it against the same tree. What the next pull request needs is the
+# dependency caches, so this workflow only fetches and compiles.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**/Cargo.toml"
+      - "src-tauri/Cargo.toml"
+      - "tools/**/Cargo.toml"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/warm-cache.yml"
+  # A rustc update changes the cache key without touching any watched file;
+  # without a periodic run the newest cache would belong to the previous
+  # toolchain and every pull request would rebuild from scratch.
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warm-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  warm:
+    name: Warm (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      # Unlike the pull request jobs this one saves: it runs on the default
+      # branch, so its cache is the one pull requests restore.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: desktop
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: ./.github/actions/bun-install
+        with:
+          save: "true"
+      # tauri-build embeds the frontend into the shell crate, so the bundle has
+      # to exist before the workspace compiles.
+      - run: bun run build:vite
+      - run: cargo fetch
+      # Check and build artefacts are separate and the pull request runs clippy
+      # before the tests, so both halves have to be warmed for the restore to
+      # cover its first step.
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo build --workspace --exclude udp-chaos --all-targets
+      # The decoder fuzz step is the only release-profile build in CI.
+      - run: cargo build --release -p fluxy-core --tests
