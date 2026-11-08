@@ -13,6 +13,7 @@ function renderPanel(
     setNotifications?: (enabled: boolean) => Promise<SettingsSnapshot>;
     setAutoAccept?: (enabled: boolean) => Promise<SettingsSnapshot>;
     setAutostart?: (enabled: boolean) => Promise<SettingsSnapshot>;
+    mobile?: () => boolean;
   } = {},
 ) {
   const engine = createMockEngine({
@@ -21,6 +22,7 @@ function renderPanel(
     ...(options.setNotifications ? { setNotifications: options.setNotifications } : {}),
     ...(options.setAutostart ? { setAutostart: options.setAutostart } : {}),
     ...(options.setAutoAccept ? { setAutoAccept: options.setAutoAccept } : {}),
+    ...(options.mobile ? { mobile: options.mobile } : {}),
   });
   renderWithEngine(() => <LocalDeviceSettings />, engine);
   return engine;
@@ -177,5 +179,15 @@ describe("LocalDeviceSettings", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "选择目录" }));
     await vi.waitFor(() => expect(writes).toContain("D:/inbox"));
+  });
+
+  it("hides the desktop login item on Android", () => {
+    renderPanel({ mobile: () => true });
+    expect(screen.queryByText("开机启动")).not.toBeInTheDocument();
+  });
+
+  it("shows the login item on a desktop platform", () => {
+    renderPanel();
+    expect(screen.getByText("开机启动")).toBeInTheDocument();
   });
 });

@@ -37,6 +37,7 @@ export function createMockEngine(options: MockEngineOptions = {}): EngineContext
     error: () => null,
     loading: () => false,
     desktop: true,
+    mobile: () => false,
     pairing: () => null,
     pairingNotice: () => null,
     pairingBusy: () => false,

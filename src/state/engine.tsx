@@ -125,6 +125,12 @@ export type EngineContextValue = {
   error: Accessor<EngineFailure | null>;
   loading: Accessor<boolean>;
   desktop: boolean;
+  /**
+   * Whether this is a phone or tablet. `desktop` only asks whether the Tauri
+   * bridge exists, which is equally true inside the Android shell, so
+   * desktop-only chrome (login item, tray) must ask this instead.
+   */
+  mobile: Accessor<boolean>;
   pairing: Accessor<PairingChallenge | null>;
   pairingNotice: Accessor<PairingNotice | null>;
   pairingBusy: Accessor<boolean>;
@@ -255,6 +261,15 @@ export function EngineProvider(props: ParentProps) {
   let disposed = false;
 
   const desktop = isDesktopRuntime();
+  // The platform separates the phone from the desktop shell; `desktop` cannot,
+  // because the Android build exposes the same Tauri bridge. Before the first
+  // snapshot arrives there is nothing to read, so the WebView's user agent is
+  // the fallback - it is the only signal available that early.
+  const mobile = () => {
+    const platform = snapshot()?.status.platform;
+    if (platform) return platform === "android";
+    return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  };
   const { t } = useI18n();
 
   createEffect(() => {
@@ -1222,6 +1237,7 @@ export function EngineProvider(props: ParentProps) {
         error,
         loading,
         desktop,
+        mobile,
         pairing,
         pairingNotice,
         pairingBusy,

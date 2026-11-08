@@ -256,7 +256,10 @@ export function LocalDeviceSettings() {
         </Show>
       </section>
 
-      <Show when={engine.desktop}>
+      {/* A phone has no login item. `desktop` alone is not enough: it only
+          checks for the Tauri bridge, which the Android shell has too, so the
+          section used to appear on the phone with a Linux-style path. */}
+      <Show when={engine.desktop && !engine.mobile()}>
         <section
           class="overflow-hidden rounded-lg border border-border bg-card"
           aria-labelledby="autostart-heading"
