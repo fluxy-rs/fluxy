@@ -1319,6 +1319,7 @@ async fn handle_envelope(
             | MessageKind::TransferReject
             | MessageKind::TransferProgress
             | MessageKind::TransferComplete
+            | MessageKind::TransferDuplicate
             | MessageKind::TransferError
             | MessageKind::TransferPause
             | MessageKind::TransferCancel
@@ -1751,6 +1752,86 @@ mod tests {
                 assert_eq!(sequence, 1);
             }
             other => panic!("expected message, got {other:?}"),
+        }
+        control.close().await;
+        connection.close(0u32.into(), b"done");
+        endpoint.wait_idle().await;
+    }
+
+    #[tokio::test]
+    async fn a_transfer_duplicate_reaches_the_event_stream() {
+        let server_identity = Identity::generate();
+        let server_tls = crate::tls::TlsIdentity::generate("server").unwrap();
+        let server_fingerprint = server_tls.fingerprint;
+        let server = server_endpoint(&server_tls, loopback()).await.unwrap();
+        let addr = server.local_addr().unwrap();
+        let server_task = tokio::spawn(async move {
+            let connection = accept(&server).await.unwrap();
+            let mut trust = TrustStore::default();
+            let peer = crate::handshake::server_pair(
+                &connection,
+                &server_identity,
+                &server_tls,
+                &mut trust,
+                &mut PairingLimiter::default(),
+                |_| true,
+            )
+            .await
+            .unwrap();
+            let mut control = ControlSession::accept_with_config(
+                &connection,
+                &server_identity,
+                &peer,
+                test_config(),
+                None,
+            )
+            .await
+            .unwrap();
+            let event = timeout(Duration::from_secs(2), control.next_event())
+                .await
+                .unwrap()
+                .unwrap();
+            control.close().await;
+            event
+        });
+
+        let client_identity = Identity::generate();
+        let client_tls = crate::tls::TlsIdentity::generate("client").unwrap();
+        let endpoint = client_endpoint(loopback(), &client_tls, server_fingerprint)
+            .await
+            .unwrap();
+        let connection = connect(&endpoint, addr).await.unwrap();
+        let mut trust = TrustStore::default();
+        let peer = client_pair(
+            &connection,
+            &client_identity,
+            &client_tls,
+            &mut trust,
+            |_| true,
+        )
+        .await
+        .unwrap();
+        let control = ControlSession::open_with_config(
+            &connection,
+            &client_identity,
+            &peer,
+            test_config(),
+            None,
+        )
+        .await
+        .unwrap();
+        let transfer_id = Uuid::now_v7();
+        control
+            .sender()
+            .send_transfer(TransferMessage::Duplicate { transfer_id })
+            .await
+            .unwrap();
+
+        match server_task.await.unwrap() {
+            SessionEvent::TransferDuplicate { transfer_id: seen } => {
+                assert_eq!(seen, transfer_id);
+            }
+            other => panic!("expected a duplicate event, got {other:?}"),
         }
         control.close().await;
         connection.close(0u32.into(), b"done");
