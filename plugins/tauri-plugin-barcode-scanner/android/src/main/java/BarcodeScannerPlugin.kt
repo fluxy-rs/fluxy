@@ -24,6 +24,8 @@ import android.util.Size
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.FrameLayout
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResult
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -93,6 +95,12 @@ class BarcodeScannerPlugin(private val activity: Activity) : Plugin(activity),
 
     private var savedInvoke: Invoke? = null
     private var webViewBackground: Drawable? = null
+
+    // While the camera is up, Back is the platform's cancel gesture. Without
+    // this the preview had no way out: the WebView behind it does not own the
+    // camera view, and the activity's default back handling does not know a
+    // scan is running, so the key was swallowed and the camera stayed on.
+    private var backCallback: OnBackPressedCallback? = null
 
     override fun load(webView: WebView) {
         super.load(webView)
@@ -232,7 +240,24 @@ class BarcodeScannerPlugin(private val activity: Activity) : Plugin(activity),
         setupCamera(direction, windowed)
     }
 
+    private fun installBackHandler() {
+        if (backCallback != null) return
+        val host = activity as? ComponentActivity ?: return
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Same order as cancel(): settle the waiting scan before
+                // destroy() clears it, then tear the preview down.
+                savedInvoke?.reject("cancelled")
+                destroy()
+            }
+        }
+        host.onBackPressedDispatcher.addCallback(host, callback)
+        backCallback = callback
+    }
+
     private fun destroy() {
+        backCallback?.remove()
+        backCallback = null
         dismantleCamera()
         savedInvoke = null
         if (windowed) {
@@ -375,6 +400,9 @@ class BarcodeScannerPlugin(private val activity: Activity) : Plugin(activity),
                 // removes the race entirely.
                 configureCamera(getFormats(args))
                 prepare(args.cameraDirection ?: "back", args.windowed)
+                // The dispatcher is UI-thread state; the command itself may not
+                // be, and registering twice from two callers would double-reject.
+                activity.runOnUiThread { installBackHandler() }
             }
         }
     }
