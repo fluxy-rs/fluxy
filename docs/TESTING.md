@@ -1276,9 +1276,11 @@ bun run check && bun run test:frontend && bun run check:security && bun run buil
 bun run test:e2e
 ~~~
 
-The commands are the same everywhere; what differs is where they run. `.github/workflows/ci.yml` runs the Rust set on Ubuntu, macOS, and Windows,
-the web set on Linux, the CLI scenario on all three, and `tauri build --no-bundle` on
-all three when the bundle job is dispatched or a tag is pushed.
+The commands are the same everywhere; what differs is where they run. `.github/workflows/ci.yml` runs the matrix on pull requests: the Rust set on Ubuntu,
+macOS, and Windows, the web set on Linux, and the CLI scenario on all three. A merge
+to main does not repeat it - the tree is the one the pull request just tested - so
+`.github/workflows/warm-cache.yml` runs after a dependency change instead and
+refills the caches the next pull request restores.
 
 - `docs/RELEASE_MATRIX.md` is the authoritative matrix: one row per check,
   one column per platform, each marked local, CI, or manual, with the reproduce
