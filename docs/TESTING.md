@@ -1280,7 +1280,9 @@ The commands are the same everywhere; what differs is where they run. `.github/w
 macOS, and Windows, the web set on Linux, and the CLI scenario on all three. A merge
 to main does not repeat it - the tree is the one the pull request just tested - so
 `.github/workflows/warm-cache.yml` runs after a dependency change instead and
-refills the caches the next pull request restores.
+refills the caches the next pull request restores. A `v*` tag runs
+`.github/workflows/release.yml`, which builds the desktop bundles and the signed
+APK and publishes them as a GitHub release.
 
 - `docs/RELEASE_MATRIX.md` is the authoritative matrix: one row per check,
   one column per platform, each marked local, CI, or manual, with the reproduce

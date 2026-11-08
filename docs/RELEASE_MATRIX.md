@@ -27,8 +27,9 @@ means `.github/workflows/ci.yml`, which runs the same commands on
 `ubuntu-latest`, `macos-latest` and `windows-latest` for every pull request.
 A merge to main does not repeat the matrix - the merged tree is the one the pull
 request just tested - so `.github/workflows/warm-cache.yml` refills the cargo and
-bun caches after a dependency change instead. A platform is release-ready
-when its CI rows are green and its manual rows are recorded.
+bun caches after a dependency change instead, and `release.yml` builds and
+publishes the bundles from a `v*` tag. A platform is release-ready when its CI
+rows are green and its manual rows are recorded.
 
 ## What changed for this milestone
 
