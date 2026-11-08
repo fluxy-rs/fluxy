@@ -11,6 +11,8 @@ Every Fluxy mobile bridge command.
 - `allow-fs-open-source`
 - `allow-fs-export`
 - `allow-storage-available`
+- `allow-receive-dir-status`
+- `allow-fs-pick-receive-dir`
 - `allow-shared-files`
 - `allow-foreground-start`
 - `allow-foreground-stop`
@@ -322,6 +324,32 @@ Denies the fs_open_source command without any pre-configured scope.
 <tr>
 <td>
 
+`fluxy-mobile:allow-fs-pick-receive-dir`
+
+</td>
+<td>
+
+Enables the fs_pick_receive_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fluxy-mobile:deny-fs-pick-receive-dir`
+
+</td>
+<td>
+
+Denies the fs_pick_receive_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `fluxy-mobile:allow-fs-pick-source`
 
 </td>
@@ -497,6 +525,32 @@ Enables the open_file command without any pre-configured scope.
 <td>
 
 Denies the open_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fluxy-mobile:allow-receive-dir-status`
+
+</td>
+<td>
+
+Enables the receive_dir_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fluxy-mobile:deny-receive-dir-status`
+
+</td>
+<td>
+
+Denies the receive_dir_status command without any pre-configured scope.
 
 </td>
 </tr>

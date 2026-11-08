@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-receive-dir-status"
+description = "Enables the receive_dir_status command without any pre-configured scope."
+commands.allow = ["receive_dir_status"]
+
+[[permission]]
+identifier = "deny-receive-dir-status"
+description = "Denies the receive_dir_status command without any pre-configured scope."
+commands.deny = ["receive_dir_status"]

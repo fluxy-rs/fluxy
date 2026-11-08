@@ -476,8 +476,16 @@ export type SettingsSnapshot = {
 	 *  has no file or registry location to show.
 	 */
 	autostart_location: string,
-	/**  Where received files land, as the runtime currently has it. */
+	/**
+	 *  Where received files land, as the runtime currently has it. On Android
+	 *  this is the folder label (e.g. `Downloads/Fluxy`) rather than a path.
+	 */
 	receive_dir: string,
+	/**
+	 *  Whether a receive destination exists. Desktop always has one; Android
+	 *  needs the user to pick a folder through the system picker.
+	 */
+	receive_dir_ready: boolean,
 	dev_loopback: boolean,
 };
 

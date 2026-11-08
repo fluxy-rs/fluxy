@@ -569,6 +569,14 @@ pub struct TransferRuntime {
     /// Root received files land in. It can change at runtime; transfers already
     /// writing keep the sink they opened.
     receive_root: std::sync::RwLock<PathBuf>,
+    /// Whether an Android receive folder (a SAF tree) has been chosen. Without
+    /// one the file would only reach the app's private directory, which the
+    /// user cannot open, so an offer is refused until one is picked.
+    #[cfg(target_os = "android")]
+    receive_ready: std::sync::atomic::AtomicBool,
+    /// The folder as the settings page should show it, e.g. `Downloads/Fluxy`.
+    #[cfg(target_os = "android")]
+    receive_label: Mutex<String>,
     /// Set once the Tauri app exists; the Android export needs it to reach the
     /// mobile plugin. Desktop builds never look at it.
     app: Mutex<Option<tauri::AppHandle>>,
@@ -649,6 +657,10 @@ impl TransferRuntime {
             checkpoints: CheckpointStore::new(checkpoints),
             config: TransferConfig::default(),
             receive_root: std::sync::RwLock::new(received),
+            #[cfg(target_os = "android")]
+            receive_ready: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(target_os = "android")]
+            receive_label: Mutex::new(String::new()),
             app: Mutex::new(None),
             active_transfers: std::sync::atomic::AtomicUsize::new(0),
             folders: Mutex::new(HashMap::new()),
@@ -683,6 +695,33 @@ impl TransferRuntime {
             .read()
             .map(|root| root.clone())
             .unwrap_or_else(|_| PathBuf::from("received"))
+    }
+
+    /// Whether a receive folder has been chosen on Android. Always true on
+    /// desktop, where the directory is a settings value rather than a grant.
+    pub fn receive_dir_ready(&self) -> bool {
+        #[cfg(target_os = "android")]
+        {
+            return self.receive_ready.load(std::sync::atomic::Ordering::SeqCst);
+        }
+        #[cfg(not(target_os = "android"))]
+        true
+    }
+
+    /// The receive folder as the settings page should read it. Android shows the
+    /// SAF destination; desktop shows the path it already has.
+    #[cfg(target_os = "android")]
+    pub fn receive_dir_label(&self) -> String {
+        lock(&self.receive_label).clone()
+    }
+
+    /// Apply a destination the user picked. The Kotlin side has already stored
+    /// the grant; this mirrors it for the offer gate and the settings page.
+    #[cfg(target_os = "android")]
+    pub fn set_receive_dir_state(&self, ready: bool, label: &str) {
+        self.receive_ready
+            .store(ready, std::sync::atomic::Ordering::SeqCst);
+        *lock(&self.receive_label) = label.to_string();
     }
 
     /// Move the receive directory for the next transfer. Transfers already
@@ -1465,6 +1504,18 @@ impl TransferRuntime {
         if record.state() != TransferState::Offered {
             return Ok(record.summary());
         }
+        // Android can only write a file the user can open after a folder was
+        // chosen; refusing here leaves the offer answerable instead of
+        // completing into a private directory nobody can reach.
+        #[cfg(target_os = "android")]
+        if accepted && !self.receive_dir_ready() {
+            return Err(IpcError {
+                code: "receive_dir_missing".into(),
+                code_number: 4602,
+                message: "choose a receive folder before accepting".into(),
+                retryable: false,
+            });
+        }
         // Remember the answer for the whole gesture: a batch reaches the
         // receiver as one offer per file, and a file that arrives late must
         // follow the answer already given instead of asking again.
@@ -1505,6 +1556,18 @@ impl TransferRuntime {
     }
 
     fn accept(self: &Arc<Self>, record: Arc<TransferRecord>) {
+        // Auto-accept reaches this without going through respond(); without a
+        // chosen folder the file would land where the user cannot see it, so the
+        // offer is declined with a code the sender can report.
+        #[cfg(target_os = "android")]
+        if !self.receive_dir_ready() {
+            self.reject(
+                record,
+                "receive_dir_missing",
+                "choose a receive folder before accepting",
+            );
+            return;
+        }
         // Accepted, not started. The user answers one prompt for a whole batch,
         // so every file of it is accepted here; the pull itself waits for a
         // free slot, which is what keeps the transfers at the configured

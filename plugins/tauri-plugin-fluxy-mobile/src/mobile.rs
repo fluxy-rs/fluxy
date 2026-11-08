@@ -245,6 +245,20 @@ impl<R: Runtime> FluxyMobile<R> {
             .map_err(|error| error.to_string())
     }
 
+    /// Whether a receive folder has been chosen on the phone.
+    pub async fn receive_dir_status(&self) -> Result<crate::ReceiveDirState, String> {
+        self.0
+            .run_mobile_plugin("receiveDirStatus", Empty {})
+            .map_err(|error| error.to_string())
+    }
+
+    /// Show the Storage Access Framework picker and remember the choice.
+    pub async fn pick_receive_dir(&self) -> Result<crate::ReceiveDirState, String> {
+        self.0
+            .run_mobile_plugin("fsPickReceiveDir", Empty {})
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn storage_available(&self) -> Result<i64, String> {
         #[derive(Deserialize, Serialize)]
         struct Storage {

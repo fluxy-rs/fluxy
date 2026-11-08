@@ -11,6 +11,7 @@ import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
 import { ToastOutlet, toast } from "../ui";
 import { IncomingOfferDialog } from "./IncomingOfferDialog";
+import { ReceiveDirDialog } from "./ReceiveDirDialog";
 
 function titleKey(pathname: string): string {
   if (pathname.startsWith("/transfers")) return "transfers.title";
@@ -135,6 +136,7 @@ export function AppShell(props: ParentProps) {
           as a grid item it claimed a whole row of the shell - 102 px of empty
           space above every page. */}
       <IncomingOfferDialog />
+      <ReceiveDirDialog />
     </TooltipProvider>
   );
 }

@@ -235,7 +235,10 @@ export function LocalDeviceSettings() {
           />
         </SettingsRow>
 
-        <SettingsRow label={t("settings.receiveTitle")} description={settings().receive_dir}>
+        <SettingsRow
+          label={t("settings.receiveTitle")}
+          description={settings().receive_dir || t("settings.receiveNotChosen")}
+        >
           <Button
             variant="outline"
             size="sm"
@@ -246,6 +249,11 @@ export function LocalDeviceSettings() {
             {t("settings.receiveChoose")}
           </Button>
         </SettingsRow>
+        <Show when={engine.snapshot()?.status.platform === "android"}>
+          <p class="px-4 pb-3 text-label text-muted-foreground">
+            {t("settings.receiveMobileNote")}
+          </p>
+        </Show>
       </section>
 
       <Show when={engine.desktop}>

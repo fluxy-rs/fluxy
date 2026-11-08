@@ -561,7 +561,31 @@ pub async fn pick_receive_dir(
     app: tauri::AppHandle,
     title: Option<String>,
 ) -> Result<Option<String>, IpcError> {
-    #[cfg(not(desktop))]
+    // Android has no path picker: the destination is a Storage Access Framework
+    // grant, and the plugin owns both the system dialog and the persisted tree.
+    // The label it returns is what the settings page shows.
+    #[cfg(target_os = "android")]
+    {
+        use tauri::Manager;
+        let _ = title;
+        let handle = app.state::<tauri_plugin_fluxy_mobile::FluxyMobile<tauri::Wry>>();
+        let state = handle
+            .pick_receive_dir()
+            .await
+            .map_err(|message| IpcError {
+                code: "unsupported".into(),
+                code_number: 4602,
+                message,
+                retryable: false,
+            })?;
+        if state.cancelled {
+            return Ok(None);
+        }
+        app.state::<AppState>()
+            .set_receive_dir_state(state.configured, &state.label);
+        return Ok(Some(state.label));
+    }
+    #[cfg(all(not(desktop), not(target_os = "android")))]
     {
         let _ = (&app, &title);
         return Err(IpcError {

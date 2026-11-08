@@ -3,7 +3,6 @@ package com.thep0y.fluxy.mobile
 import android.app.Activity
 import android.content.Intent
 import android.os.Build
-import android.os.Environment
 import android.webkit.WebView
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -75,6 +74,9 @@ class FluxyMobilePlugin(private val host: Activity) : Plugin(host) {
     /** Pending picker call, resolved from the registry callback. */
     private var pendingPick: Invoke? = null
 
+    /** Pending receive-folder pick, resolved from the registry callback. */
+    private var pendingTree: Invoke? = null
+
     private val pickLauncher = try {
         (host as androidx.activity.ComponentActivity).activityResultRegistry.register(
             "fluxy-pick-source",
@@ -110,36 +112,55 @@ class FluxyMobilePlugin(private val host: Activity) : Plugin(host) {
         null
     }
 
+    /** The Storage Access Framework folder picker for the receive destination. */
+    private val treeLauncher = try {
+        (host as androidx.activity.ComponentActivity).activityResultRegistry.register(
+            "fluxy-pick-receive-dir",
+            androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
+        ) { uri: android.net.Uri? ->
+            val invoke = pendingTree
+            pendingTree = null
+            if (invoke == null) return@register
+            try {
+                val result = JSObject()
+                if (uri == null) {
+                    result.put("configured", false)
+                    result.put("label", "")
+                    result.put("cancelled", true)
+                } else {
+                    val state = exports.accept(uri)
+                    result.put("configured", state.configured)
+                    result.put("label", state.label)
+                    result.put("cancelled", false)
+                }
+                invoke.resolve(result)
+            } catch (error: Exception) {
+                android.util.Log.w("FluxyPlugin", "using the picked folder failed: " + error.message)
+                invoke.reject(error.message ?: "the folder could not be used")
+            }
+        }
+    } catch (error: Exception) {
+        null
+    }
+
     private val secrets: KeystoreSecrets by lazy {
         KeystoreSecrets(File(host.dataDir, "fluxy-identity.bin"))
     }
 
     init {
-        // Ask for all-files access once, so received files can land in the
-        // public Download/Fluxy folder instead of the private directory the
-        // user cannot open. The system shows its own consent screen; the marker
-        // keeps a declined user from being redirected on every launch.
-        runCatching {
-            val marker = File(host.dataDir, "storage-access-asked.txt")
-            if (!Environment.isExternalStorageManager() && !marker.exists()) {
-                marker.writeText("1", Charsets.UTF_8)
-                host.startActivity(
-                    Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    },
-                )
-            }
-        }
         // Rust loads the identity synchronously in the setup hook, so the
         // sealed copy has to become a plain file before that runs.
         runCatching {
             secrets.materializeIdentity(File(host.dataDir, "identity.json"))
         }
-        // Rust also needs the receive directory before it can accept a file.
-        // A marker file keeps that a plain synchronous read on its side.
+        // The staging directory has to exist before the first offer can be
+        // accepted. The destination itself (a SAF tree) is remembered in the
+        // plugin's preferences and written as a marker too, so Rust can tell
+        // whether the user has chosen one before the WebView exists.
         runCatching {
             File(host.dataDir, "receive-dir.txt")
-                .writeText(exports.receiveDir().absolutePath, Charsets.UTF_8)
+                .writeText(exports.stagingDir().absolutePath, Charsets.UTF_8)
+            exports.writeMarker()
         }
     }
 
@@ -509,6 +530,49 @@ class FluxyMobilePlugin(private val host: Activity) : Plugin(host) {
     fun storageAvailable(invoke: Invoke) {
         val result = JSObject()
         result.put("freeBytes", exports.availableBytes())
+        invoke.resolve(result)
+    }
+
+    /**
+     * Ask where received files should land. Android 11 has no way to write a
+     * public folder without a user grant, so the choice is the Storage Access
+     * Framework picker and the app creates a Fluxy folder inside it.
+     */
+    @Command
+    fun fsPickReceiveDir(invoke: Invoke) {
+        val launcher = treeLauncher
+        if (launcher == null) {
+            invoke.reject("the folder picker is not available")
+            return
+        }
+        if (pendingTree != null) {
+            invoke.reject("a folder picker is already open")
+            return
+        }
+        pendingTree = invoke
+        // Download is where most people want received files, but Android refuses
+        // to grant that folder itself (it is a restricted root). Opening the
+        // picker there means one tap on a folder - or on New folder - instead of
+        // navigating from Recents.
+        val initial = runCatching {
+            android.provider.DocumentsContract.buildDocumentUri(
+                "com.android.externalstorage.documents",
+                "primary:Download",
+            )
+        }.getOrNull()
+        runCatching { launcher.launch(initial) }.onFailure { error ->
+            pendingTree = null
+            invoke.reject(error.message ?: "the folder picker could not open")
+        }
+    }
+
+    /** Whether the user has chosen a receive folder, and how it reads. */
+    @Command
+    fun receiveDirStatus(invoke: Invoke) {
+        val state = exports.status()
+        val result = JSObject()
+        result.put("configured", state.configured)
+        result.put("label", state.label)
         invoke.resolve(result)
     }
 
