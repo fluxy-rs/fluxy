@@ -14,6 +14,9 @@ use specta::Type;
 #[cfg(desktop)]
 use tauri::menu::{CheckMenuItem, MenuItem};
 use tauri::{AppHandle, Manager, Wry};
+// Android posts through the mobile bridge instead (see `dispatch`), so the
+// plugin trait would be unused there and the build warns about it.
+#[cfg(not(target_os = "android"))]
 use tauri_plugin_notification::NotificationExt;
 
 const MAX_LABEL_CHARS: usize = 64;
