@@ -1889,6 +1889,47 @@ mod tests {
         }
     }
 
+    /// Serves one chunk, then holds the next read until the test releases it.
+    ///
+    /// The abort test has to stop the receiver while it is still mid-transfer.
+    /// A 2 MiB loopback transfer can finish inside the poll interval, leaving a
+    /// Completed checkpoint behind and turning the assertion into a race;
+    /// holding the second read keeps the transfer paused until the receiver is
+    /// gone, whatever the speed of the machine.
+    struct HeldSecondRead {
+        inner: Arc<dyn FileSource>,
+        reads: AtomicUsize,
+        release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+
+    impl FileSource for HeldSecondRead {
+        fn meta(&self) -> FileMeta {
+            self.inner.meta()
+        }
+
+        fn capabilities(&self) -> FileCapabilities {
+            self.inner.capabilities()
+        }
+
+        fn read_at(&self, offset: u64, len: usize) -> Result<Bytes, FileError> {
+            // Serve the initial window (two chunks, one per stream) so the
+            // receiver has something to checkpoint, then hold every later read.
+            if self.reads.fetch_add(1, Ordering::SeqCst) >= 2 {
+                let release = self.release.lock().expect("the release gate");
+                let _ = release.recv();
+            }
+            self.inner.read_at(offset, len)
+        }
+
+        fn identity(&self) -> SourceIdentity {
+            self.inner.identity()
+        }
+
+        fn stat(&self) -> Result<SourceIdentity, FileError> {
+            self.inner.stat()
+        }
+    }
+
     struct CountingSource {
         inner: Arc<dyn FileSource>,
         bytes: Arc<AtomicU64>,
@@ -2280,11 +2321,17 @@ mod tests {
         });
         let server_identity = Identity::generate();
         let session_id = Uuid::now_v7();
+        let (release, gate) = std::sync::mpsc::channel::<()>();
+        let held: Arc<dyn FileSource> = Arc::new(HeldSecondRead {
+            inner: source.clone(),
+            reads: AtomicUsize::new(0),
+            release: std::sync::Mutex::new(gate),
+        });
         let server_task = tokio::spawn(spawn_two_round_server(
             server,
             transfer_id,
             manifest.clone(),
-            source.clone(),
+            held,
             counting,
             server_identity,
             session_id,
@@ -2345,6 +2392,9 @@ mod tests {
             .expect("the checkpoint must be on disk after the abort");
         assert_eq!(plan.checkpoint.state, TransferState::Transferring);
         assert!(plan.checkpoint.blocks_done() < total_blocks);
+        // The first round is paused on the gated read; let it fail on the
+        // abandoned stream so the server can accept the resume connection.
+        let _ = release.send(());
         let missing = plan.missing_bytes(&manifest);
 
         let store = CheckpointStore::new(store_dir.path());
