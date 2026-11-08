@@ -538,8 +538,13 @@ export type TransferDirection = "send" | "receive";
 export type TransferEvent = 
 /**  An incoming offer that needs the user's approval before it can start. */
 { type: "offered"; transfer_id: string; device_id: string; device_name: string; file_name: string; file_size: number; total_files: number } | 
-/**  A send that is waiting for a free active-transfer slot. */
-{ type: "queued"; transfer_id: string; device_id: string; device_name: string; file_name: string; total_files: number; total_bytes: number } | { type: "prepared"; transfer_id: string; device_id: string; device_name: string; file_name: string; total_files: number; total_bytes: number } | 
+/**
+ *  A transfer waiting for a free active-transfer slot: a queued send, or an
+ *  accepted receive whose pull has not started yet.
+ */
+{ type: "queued"; transfer_id: string; direction: TransferDirection; device_id: string; device_name: string; file_name: string; total_files: number; total_bytes: number } | 
+/**  A transfer that just started: it owns a slot now. */
+{ type: "prepared"; transfer_id: string; direction: TransferDirection; device_id: string; device_name: string; file_name: string; total_files: number; total_bytes: number } | 
 /**  Throttled to at most one event per 100 ms by the runtime. */
 { type: "progress"; transfer_id: string; bytes_done: number; bytes_total: number; bytes_per_second: number } | { type: "paused"; transfer_id: string } | { type: "resumed"; transfer_id: string } | { type: "completed"; transfer_id: string } | { type: "cancelled"; transfer_id: string } | { type: "failed"; transfer_id: string; code: string; message: string; retryable: boolean } | { type: "file_access_required"; transfer_id: string; file_id: string } | 
 /**  The window drag state changed; drives the drop overlay. */
@@ -557,7 +562,10 @@ skipped: number };
 export type TransferState = 
 /**  An incoming offer that is waiting for the user's decision. */
 "offered" | 
-/**  A send that is waiting for a free active-transfer slot. */
+/**
+ *  Waiting for a free active-transfer slot: a queued send, or an accepted
+ *  receive whose pull has not started yet.
+ */
 "queued" | 
 /**
  *  Left over from a previous run: the checkpoint is on disk but nothing is

@@ -64,6 +64,10 @@ function transferLabel(transfer: TransferSummary, t: (key: string) => string): s
       return t("transfers.state.cancelled");
     case "offered":
       return t("transfers.state.offered");
+    case "queued":
+      return t("transfers.state.queued");
+    case "preparing":
+      return t("transfers.state.preparing");
     default:
       return t("transfers.state.transferring");
   }

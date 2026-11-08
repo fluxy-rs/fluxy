@@ -172,9 +172,10 @@ pub fn client_config(
 
 fn transport_config() -> TransportConfig {
     let mut config = TransportConfig::default();
-    // The windows have to cover the whole in-flight window of a fast LAN
-    // transfer: four chunk streams with two 4 MiB chunks each is 32 MiB, and a
-    // window smaller than that stalls the sender at every acknowledgement.
+    // The windows have to cover the in-flight window of a fast LAN transfer: a
+    // transfer keeps all of its chunks on one stream, and the receiver's request
+    // window is up to 16 chunks of 4 MiB, so a stream window smaller than that
+    // stalls the sender at every acknowledgement.
     config
         .max_concurrent_bidi_streams(VarInt::from_u32(16))
         .max_concurrent_uni_streams(VarInt::from_u32(32))

@@ -135,10 +135,12 @@ FLUXY_BENCH_FILE=/path/to/10gib.bin cargo test -p fluxy-core --release --lib ben
 ~~~
 
 The receiver then pulls the file with a bounded window: `fluxy-core::transfer`
-owns the chunk bitmap and the pull scheduler (4 streams × 2 outstanding, 15 s
-retry deadline, 3 attempts), and `fluxy-net::transfer` serves each request on a
-fresh `FCH1`-framed QUIC uni stream and hash-verifies every chunk against the
-manifest before writing it. Loopback tests exercise four-stream transfers,
+owns the chunk bitmap and the pull scheduler (16 outstanding requests, 15 s
+retry deadline, 3 attempts), and `fluxy-net::transfer` serves each request on
+the transfer's own stream as an `FCH1` frame and hash-verifies every chunk
+against the manifest before writing it. Each transfer names its stream with its
+transfer id before anything else, so several files can move over one connection
+without swapping streams. Loopback tests exercise concurrent transfers,
 out-of-order duplicates, repeated transfers on one connection, and the
 missing-chunk failure path:
 
@@ -407,7 +409,7 @@ including the advisories check that needs network access - are in
 ## Performance
 
 Transfers are measured, not estimated. The repeatable benchmark moves 256 MiB
-through two endpoints over loopback with four chunk streams and writes the
+through two endpoints over loopback on one transfer stream and writes the
 received file to disk:
 
 ```bash

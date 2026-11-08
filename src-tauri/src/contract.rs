@@ -277,7 +277,8 @@ pub enum TransferDirection {
 pub enum TransferState {
     /// An incoming offer that is waiting for the user's decision.
     Offered,
-    /// A send that is waiting for a free active-transfer slot.
+    /// Waiting for a free active-transfer slot: a queued send, or an accepted
+    /// receive whose pull has not started yet.
     Queued,
     /// Left over from a previous run: the checkpoint is on disk but nothing is
     /// driving it, so the user can decide to retry or drop it.
@@ -649,17 +650,21 @@ pub enum TransferEvent {
         file_size: u64,
         total_files: u32,
     },
-    /// A send that is waiting for a free active-transfer slot.
+    /// A transfer waiting for a free active-transfer slot: a queued send, or an
+    /// accepted receive whose pull has not started yet.
     Queued {
         transfer_id: String,
+        direction: TransferDirection,
         device_id: String,
         device_name: String,
         file_name: String,
         total_files: u32,
         total_bytes: u64,
     },
+    /// A transfer that just started: it owns a slot now.
     Prepared {
         transfer_id: String,
+        direction: TransferDirection,
         device_id: String,
         device_name: String,
         file_name: String,

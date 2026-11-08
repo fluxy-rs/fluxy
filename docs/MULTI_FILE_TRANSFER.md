@@ -1,11 +1,15 @@
-# 多文件传输：按流身份配对的重新设计
+# 多文件传输：按流身份配对，一次确认整批
 
-本文记录一次未完成的重构。起因是多文件发送只能成功一个，
-下面写清楚根因、目标设计、已经试过并失败的方案，以及接下来该怎么做。
+本文记录一次已经完成的重构。起因是多文件发送只能成功一个，
+下面写清楚根因、最终设计、已经试过并失败的方案，以及验证方式。
+
+状态：**已实现**（分支 `fix/multi-file-stream-identity`）。
+两部分：**流身份**让多个文件能同时传下去；**批次身份**让一次手势只确认一次，
+并按并发数拉取。
 
 ## 症状
 
-发送三个文件，接收端弹出**一个**对话框列出三个文件，点接收后：
+发送三个文件，接收端弹出一个对话框列出三个文件，点接收后：
 
 - 一个文件传完
 - 另外两个以 `invalid manifest: manifest has a different transfer id` 或
@@ -16,35 +20,121 @@
 
 QUIC 的双向流**不带任何身份信息**。
 
-```
+~~~text
 接收端 A: open_bi()  →  流 1
 接收端 B: open_bi()  →  流 2
 发送端 X: accept_bi() → 拿到流 1 或流 2，无从判断
-```
+~~~
 
 发送端拿到一条流之后，会把自己文件的 manifest 写上去。如果拿到的是对方的流，
-对端读到的 manifest 里 transfer_id 不符，于是失败。
+对端读到的 manifest 里 transfer_id 不符，于是失败。单向流同样会串，所以块数据
+走 `open_uni` / `accept_uni` 也躲不开。
 
-**单向流同样如此**：块数据走 `open_uni` / `accept_uni`，一样会串。
+这不是并发数的问题，是**协议层缺少流归属的声明**。默认并发改成 1 只对新配置
+生效，用户已有的配置里存着 2，所以线上的失败一直存在。
 
-所以这不是并发数的问题，是**协议层缺少流归属的声明**。
+## 最终设计（已实现）
 
-## 目标设计（采纳接收端控制并发的方案）
+~~~text
+接收端：open_bi() → 先写 16 字节 transfer_id → 发首批 chunk 请求 → 收 manifest
+发送端：每个连接一个 accept 循环 → 读那 16 字节 → 查登记表 → 在这条流上服务
+~~~
 
-```
-发送端：把选中的文件挂成一个 file server，等别人来取
-接收端：按自己的任务数，open 一条流，先写「我要哪个文件」，再拉
-发送端：accept → 读那 16 字节 → 查表 → 服务那个文件
-```
+一条双向流承载一个文件的全部交互：流名、manifest、块请求、块应答、块数据。
+接收端的每一条流都带名字，发送端按名字把它交给对应的 `send_file`。
 
 四条约束：
 
 1. **一条双向流承载一个文件的全部交互**——流名、manifest、块请求、块数据。
-2. **接收端决定并发**，`max_active_transfers` 的语义从「发送端同时发几个」
-   变成「接收端同时拉几个」。
-3. **发送端不得丢弃不匹配的流**。那条流属于另一个接收端，它只有这一条；
-   reset 它等于让对方的传输必然失败。（这一条是上一轮 hello 方案全部超时的原因。）
-4. **块按定长头 + 长度读**，不能用 `read_to_end`——同一双向流不会结束。
+2. **接收端决定并发**：每条 `pull_file` 自己 open 一条流，不共享。
+3. **发送端不得丢弃不匹配的流**：一条流属于另一个接收端，它只有这一条；
+   reset 它等于让对方的传输必然失败。名字暂时没登记的流先挂起（park），
+   等对应的 `send_file` 登记后再取走。
+4. **块按定长头 + 长度读**，不能用 `read_to_end`——同一条双向流不会结束。
+
+### 帧的区分
+
+同一条流上既有控制帧又有块帧，用前 4 个字节区分：
+
+- 控制帧：4 字节大端长度 + `Envelope`（上限 8 MiB）。
+- 块帧：以 `FCH1` 开头。`0x46434831` 远大于 8 MiB，两者不可能混淆。
+
+块帧先读满 68 字节定长头（`ChunkHeader::decode_fixed`），由 `payload_len`
+决定再读多少字节。两端都不再对这条流调用 `read_to_end`。
+
+### 读取与取消
+
+帧读取不是 cancel-safe 的：`select!` 里被 tick 打断的 `read_exact` 会把已经
+读掉的字节丢掉。所以每条传输流由一个独占的读取任务持有，主循环只从 channel
+接收**整帧**；任务用 `AbortOnDrop` 管理，任何返回路径都会中止它。
+
+### 发送端路由
+
+- 每个 QUIC 连接一个 `StreamRouter`（`stable_id` 索引，全局表只存 Weak），
+  懒启动，连接关闭时 accept 循环退出。
+- 登记表按 transfer_id 找到等待中的 `send_file`；先到、还没登记的流进入
+  parked 表（上限 256 条，超过丢最旧的），登记时先取 parked。
+- 连接断开时，所有等待者立即收到错误，而不是各自等满 30 秒。
+
+### 一次确认，按并发数传输
+
+流配对解决的是“传得下去”，但一次多选发送还有第二个问题：发送端按
+`max_active_transfers` 逐个领取发送任务，三个文件并不是一起 offer 的。
+接收端先看到 2 个，点接收后第一个传完、槽位空出来，第三个 offer 才到，
+于是弹出第二个确认框。
+
+- **多选也带 `batch_id`**：记录新增 `group` 字段，只表示“同一次手势”，
+  与文件夹落盘用的 `BatchTag` 分开。发送端把 `batch_id` 放进每一条
+  offer，接收端用它分组、计槽位。注意多选的 offer **只有 `batch_id`**，
+  没有 `root_name`/`relative_path`：接收端不能把它当成“缺字段的文件夹批次”
+  拒掉（`place_batch_offer` 为此放行“有 id、没有落盘字段、也没有 entries”）。
+- **整批领取、一起 offer**：`pump_queue` 领到第一条后把同组的全部领走；
+  每个发送任务在“算完 manifest、还没发 offer”之间停在 `BatchBarrier` 上，
+  整批都算完才一起发出。某个文件失败或拿不到会话时，它的 guard 会释放
+  其余成员，不会让整批等下去。哈希本身一次只允许一个（一次 pass 会占 64 MiB
+  窗口），所以 100 个文件的批次不会同时开 100 个哈希。
+- **一批只算一个槽位**：`offered_count` 按 `group` 去重；同组已经有记录
+  在飞时，后续文件不再被并发上限拒成 `peer_busy`。所以上限是 1 时，
+  3 个文件的批次也能一次全部进入确认框。
+- **确认一次，按并发拉取**：用户确认后每条记录进入 `queued`，由
+  `pump_receives` 按 `max_active_transfers` 逐个开始；这就是
+  “一次确认、传输并发 2 个”。上限对收、发两个方向都生效。
+- **迟到的同批文件沿用答复**：接收端记住这一批的答复（`answers`，5 分钟
+  有效），晚到的文件直接按同一答复接收或拒绝，不再第二次弹窗。
+- **发送端可以等**：排在后面的文件可能要等前面的传完，所以 `claim` 不再
+  有 30 秒上限，只有连接断开或用户取消才放弃。
+
+`queued` 这个状态原来只给发送用，现在也表示“已确认、等槽位”的接收；
+`pump_receives` 与 `pump_queue` 共用 `active_count()`，所以收发两个
+方向的并发合起来不超过配置值。
+
+### 重复内容（dedup）顺带修好
+
+旧代码在接收端判定“已经有了”时，打开一条流去读对方写的 manifest。但发送端
+此时还停在 `wait_for_decision` 上，根本没去 accept 那条流，所以这条路径只会
+超时。现在“已有此内容”的答复走控制会话的 `TRANSFER_DUPLICATE`，正好是
+`SessionEvent::TransferDuplicate` 一直在等的那条消息，也不再产生一条无名的流。
+
+## 代码位置
+
+~~~text
+crates/fluxy-net/src/transfer.rs
+  StreamRouter / router_for / claim / dispatch    发送端按流名路由
+  serve_on_stream                                 单条流上的 manifest + 块应答
+  pull_file                                       写流名、收 manifest、收块
+  read_transfer_frame / TransferFrame             控制帧与块帧的统一读取
+crates/fluxy-core/src/transfer/chunk.rs
+  ChunkHeader::decode_fixed                       只有定长头、不含负载的解析
+src-tauri/src/transfer.rs
+  BatchBarrier / BatchArrival                     整批算完再一起 offer
+  GroupTag（记录的 group 字段）                    一次手势的批次身份
+  start_transfers / start_folder                  先解析、再按批登记
+  pump_queue / claim_next_queued_in               整批领取发送任务
+  pump_receives / claim_next_queued_receive       按上限开始拉取
+  accept / respond / reject                       确认即入队，等槽位再拉
+  answered / remember_answer                      迟到文件沿用同一答复
+  receive_inner                                   dedup 改写控制会话消息
+~~~
 
 ## 已试过并失败的方案
 
@@ -56,39 +146,49 @@ QUIC 的双向流**不带任何身份信息**。
 | 发送端串行（整批 claim 后顺序跑） | offer 发不出去 | 卡在 `wait_for_session` |
 | 十六字节流名 + 发送端串行 | 全部 timeout | `max_active_transfers` 仍是 2，两个并发 accept 仍在抢流 |
 
-## 代码现状
+最后一行说明：光有流名不够，**发送端必须能按名字把流交给对应的任务**。
+只加名字、仍然各自 `accept_bi` 的实现，会把别人的流拿到自己手里再丢掉。
 
-```
-crates/fluxy-net/src/transfer.rs
-  send_file            已拆成「配对流」+ send_file_on_stream
-                       块改在同一双向流上顺序写（未验证）
-  pull_file            仍用 accept_uni 收块、read_to_end 读帧 —— 必须跟着改
-  read_chunk           用 read_to_end，依赖流结束；同一条双向流上会死锁
-```
+## 测试
 
-**发送端已改、接收端未改，工作树跑不起来。** 那部分改动存在
-`git stash` 里（`wip: stream identity refactor (unfinished)`），
-当前工作树已恢复到 `13a0ba0`。
+~~~text
+cargo test -p fluxy-core -p fluxy-net --lib
+~~~
 
-## 接下来的步骤
+新增的回归用例：
 
-1. **`read_chunk` 改为按帧读**：先 `read_exact(CHUNK_HEADER_LEN)`，解析出负载
-   长度，再 `read_exact` 读负载。不要用 `read_to_end`。
-2. **`pull_file` 的 `select!` 区分控制帧和块**：控制帧有 4 字节长度前缀，
-   块以定长头开始。需要一个明确的判别方式——建议先读 4 字节，
-   若长度值落在合理区间则当作控制帧，否则视为块头的前 4 字节。
-3. **`pull_file` 去掉 `accept_uni` 分支**，块直接从 `control_recv` 读。
-4. **`start_transfers` 改为登记表 + 一个 accept 循环**：不再为每个文件 spawn
-   `run_sender`，而是把这批文件登记进可查询的表，由 accept 循环读 id 查表服务。
-5. **`accept()` 加接收端并发限制**（目前直接 `spawn(run_receiver)`，没有限制）。
-6. 测试：`serve_with_tampering`、`receiver_fails_when_no_chunks_arrive` 两个
-   假服务端要跟着改（它们 `accept_bi` 后直接写 manifest，不读流名）。
+- `two_transfers_run_at_once_on_one_connection`：同一连接上两个文件同时传，
+  两端都完成、内容一致。旧实现里两条流可能互换，正是线上失败的那条路径。
+- `a_stream_named_for_another_transfer_is_left_alone`：先开一条名字对不上的流，
+  再传真正的文件；发送端必须把先到的流挂起，不能往里面写 manifest。
+- `reads_the_header_before_the_payload_arrives`：`decode_fixed` 只吃定长头。
+- `a_batch_barrier_releases_every_member_at_once` / `a_failed_member_releases_the_rest_of_its_batch`
+  / `a_barrier_that_already_opened_lets_a_retry_through`：批次屏障的三个边界。
+- `offers_of_one_gesture_count_as_one_slot`：一批 3 条 offer 只占 1 个槽位。
+- `the_receive_queue_claims_only_accepted_receives`：拉取只从 `queued` 接收里领，
+  且不碰发送队列。
+- `a_batch_is_claimed_whole_behind_its_first_file`：同组发送任务整批领取。
+- `an_answer_is_remembered_for_its_gesture_only`：答复按批次记忆，不影响别的批次。
+
+## 兼容性
+
+传输流的格式变了（接收端先写流名，块数据不再走单向流）。新旧版本之间可以配对、
+聊天，但**传输会失败**。两端必须同时升级；`PROTOCOL_VERSION` 没有跟着改，
+因为改它会让新旧版本互相不可见（发现与握手都按版本过滤），影响面比传输更大。
+
+## 未做
+
+1. **接收端没有"每批文件数"上限**：一批 100 个文件会同时进入 offer 列表；
+   `MAX_BATCH_FILES` 只在发送端生效。对已配对的对端可以接受，但值得补。
+2. **大批次的 parked 上限**：256 是防御性上限，正常批次远小于它。
+3. `DEFAULT_ACTIVE_TRANSFERS` 仍是 1：这是吞吐选择，不再是正确性要求。
+   想一次传多个的用户可以在设置里调高；上限现在对收、发两个方向都生效。
 
 ## 验证方法
 
-```powershell
+~~~powershell
 bun tauri android dev          # 唯一可用于真机验证的方式
-```
+~~~
 
 **注意**：`eprintln!` 在 Android 上不进 logcat，只有被 `android_logger` 接管的
 `tracing` 才会显示。`fluxy-core` 的日志默认 target 会被 `fluxy=info` 过滤掉，
@@ -101,13 +201,10 @@ bun tauri android dev          # 唯一可用于真机验证的方式
 
 ## 相关 commit
 
-```
-13a0ba0  fix(transfer): recover from a stale checkpoint and report failures
-641176e  chore(transfer): trace the sender/receiver stream handshake
-637632c  fix(transfer): give a batch one offer slot, not one per file
-d137e57  perf(transfer): offer a batch only once every file is hashed
-e014d73  feat(chat): send and accept several files at once
-```
-
-前四个是真 bug 的修复，最后一个包含前端的多文件选择、批量弹窗和拖拽。
-多文件真正能传，取决于本文的重构。
+~~~text
+a940e13 Merge pull request #26 from fluxy-rs/feat/multi-file-send
+e014d73 feat(chat): send and accept several files at once
+13a0ba0 fix(transfer): recover from a stale checkpoint and report failures
+637632c fix(transfer): give a batch one offer slot, not one per file
+d137e57 perf(transfer): offer a batch only once every file is hashed
+~~~

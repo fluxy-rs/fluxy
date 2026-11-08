@@ -715,12 +715,13 @@ step is to profile the UDP send path; Windows has neither GSO nor `sendmmsg` in
 reaches about 70 MiB/s, so always benchmark with `--release`.
 
 The chat test found a real scheduling problem: the session control stream shared
-the connection with bulk chunk streams at the same priority, so chat frames
-queued behind chunk data and p95 reached 276 ms. `fluxy-net` now sets
-`CONTROL_STREAM_PRIORITY` (100) on the session control stream and
-`CHUNK_STREAM_PRIORITY` (-50) on chunk uni streams, which brought p95 down to
-about 140 ms. Setting `FLUXY_FAULT_TRACE=1` makes the test append stage markers
-to `%TEMP%/fluxy-fault-trace.log`, which is how a hung run can be inspected.
+the connection with bulk chunk data at the same priority, so chat frames queued
+behind it and p95 reached 276 ms. `fluxy-net` now sets
+`CONTROL_STREAM_PRIORITY` (100) on the session control stream, and chunk data
+rides the transfer's own stream at the default priority, which brought p95 down
+to about 140 ms. Setting `FLUXY_FAULT_TRACE=1` makes the test append stage
+markers to `%TEMP%/fluxy-fault-trace.log`, which is how a hung run can be
+inspected.
 
 ## Settings, i18n, and keyboard accessibility (M3-01)
 
