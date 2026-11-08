@@ -32,7 +32,7 @@ export function AppShell(props: ParentProps) {
   /// phone has no such page, so it must keep scrolling normally. This cannot be
   /// `engine.desktop`, which only asks whether the Tauri bridge exists and is
   /// equally true on Android.
-  const deviceColumn = () => engine.desktop && engine.snapshot()?.status.platform !== "android";
+  const deviceColumn = () => engine.desktop && !engine.mobile();
 
   createEffect(() => {
     document.title = `${t(titleKey(location.pathname))} · Fluxy`;
