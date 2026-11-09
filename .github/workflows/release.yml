@@ -240,4 +240,6 @@ jobs:
       - name: Un-draft the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "$TAG" --draft=false --title "$TAG"
+        # This job has no checkout, so gh cannot discover the repository from a
+        # git remote; name it explicitly.
+        run: gh release edit "$TAG" --draft=false --title "$TAG" -R "$GITHUB_REPOSITORY"
