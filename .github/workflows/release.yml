@@ -129,15 +129,33 @@ jobs:
         with:
           save: "true"
       - name: Build the bundles
-        run: bun x tauri build
+        shell: bash
+        run: |
+          args=()
+          case "$TAG" in
+            *-*)
+              # A pre-release identifier is a valid app version but not a valid
+              # RPM version (no hyphen allowed) or MSI version (numbers only).
+              # Build the formats that accept it; a stable tag builds all.
+              case "$RUNNER_OS" in
+                Linux) args+=(--bundles deb,appimage) ;;
+                Windows) args+=(--bundles nsis) ;;
+              esac
+              ;;
+          esac
+          bun x tauri build "${args[@]}"
       - name: Upload the bundles
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mapfile -t files < <(find target/release/bundle -type f \( \
+          # macOS still ships bash 3.2, where mapfile does not exist.
+          files=()
+          while IFS= read -r -d '' file; do
+            files+=("$file")
+          done < <(find target/release/bundle -type f \( \
             -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o \
-            -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \))
+            -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \) -print0)
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::tauri build produced no bundles"
             exit 1
