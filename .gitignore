@@ -14,10 +14,11 @@ src-tauri/target
 # Local secrets: an API key lives here, never commit it.
 .env
 
-# Produced by `tauri android init`, and it holds gigabytes of Gradle output.
-# Hand edits belong in plugins/tauri-plugin-fluxy-mobile/android/AndroidManifest.xml;
-# anything written here is lost the next time the project is generated.
-src-tauri/gen/android
+# The generated Android project is committed on purpose: it carries hand-written
+# pieces (manifest permissions and intents, the release signing config, the share
+# and notification handling in MainActivity) that `tauri android init` preserves
+# but a fresh generation would not have. Build output, the keystore and the
+# generated settings file stay out via src-tauri/gen/android/.gitignore.
 
 # Gradle intermediates inside the vendored plugins; some artefact names exceed
 # the Windows path limit and make `git add` fail outright.
