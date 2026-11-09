@@ -9,7 +9,6 @@ members = [
   "crates/fluxy-cli",
   "src-tauri",
   "plugins/tauri-plugin-fluxy-mobile",
-  "plugins/tauri-plugin-barcode-scanner",
   "tools/udp-chaos",
 ]
 
@@ -36,7 +35,10 @@ fluxy-app = { path = "crates/fluxy-app", version = "0.2.0-alpha.1" }
 # workspace version for the same reason the entries above do.
 fluxy-sysinfo = { path = "crates/fluxy-sysinfo", version = "0.2.0-alpha.1" }
 tauri-plugin-fluxy-mobile = { path = "plugins/tauri-plugin-fluxy-mobile", version = "0.2.0-alpha.1" }
-tauri-plugin-barcode-scanner = { path = "plugins/tauri-plugin-barcode-scanner", version = "0.2.0-alpha.1" }
+# The vendored scanner tracks its upstream crate and npm package (both 2.5.3);
+# Tauri refuses to build when the two disagree, so it does not follow the app
+# version the way our own plugins do.
+tauri-plugin-barcode-scanner = { path = "plugins/tauri-plugin-barcode-scanner", version = "2.5.3" }
 
 prost = "0.14"
 prost-build = "0.14"

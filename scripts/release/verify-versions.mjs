@@ -16,9 +16,11 @@ const workspaceVersion = /\[workspace\.package\][\s\S]*?version = "([^"]+)"/.exe
 // cargo-deny reads the path-only form as a wildcard. They all have to match the
 // workspace version, so the check derives its list from the file rather than
 // naming the crates and missing the next one that is added.
-const internal = [
-  ...cargo.matchAll(/^[a-z0-9-]+ = \{ path = "[^"]+", version = "([^"]+)" \}/gm),
-].map((match) => match[1]);
+// The vendored barcode scanner is the exception: its Rust crate has to match
+// the upstream npm package Tauri compares it against (2.5.3), not the app.
+const internal = [...cargo.matchAll(/^([a-z0-9-]+) = \{ path = "[^"]+", version = "([^"]+)" \}/gm)]
+  .filter((match) => match[1] !== "tauri-plugin-barcode-scanner")
+  .map((match) => match[2]);
 const packageJson = readJson("package.json").version;
 const tauri = readJson("src-tauri/tauri.conf.json").version;
 
