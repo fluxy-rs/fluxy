@@ -4809,7 +4809,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-barcode-scanner"
-version = "0.2.0-alpha.1"
+version = "2.5.3"
 dependencies = [
  "log",
  "serde",
