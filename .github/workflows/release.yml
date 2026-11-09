@@ -178,7 +178,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android, x86_64-linux-android
       # The debug APK job (dispatch-only) uses "android"; sharing it means the
       # release can hit an entry it then cannot extend, so only the ABIs of the
       # run that created the entry are ever cached.
@@ -219,9 +219,9 @@ jobs:
           keyAlias=${KEY_ALIAS:-fluxy}
           EOF
       - name: Build the signed APKs
-        # One APK per ABI, named after the target the Rust side was built for;
-        # a universal APK would carry every ABI and no one can tell them apart.
-        run: bun run android:build -- --release --split-per-abi --target aarch64 armv7 i686 x86_64
+        # One APK per ABI, named after the target the Rust side was built for.
+        # Only the two ABIs in use are built: arm64 phones and x86_64 emulators.
+        run: bun run android:build -- --release --split-per-abi --target aarch64 x86_64
       - name: Upload the APKs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
