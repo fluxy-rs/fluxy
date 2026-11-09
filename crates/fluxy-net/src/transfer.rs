@@ -2399,7 +2399,26 @@ mod tests {
 
         let store = CheckpointStore::new(store_dir.path());
         let manager = DesktopFileAccessManager::new(sink_dir.path());
-        let connection = connect(&endpoint, addr).await.unwrap();
+        // The server only begins accepting the resume connection once its first
+        // round has noticed the abort and returned, which can take one retry
+        // cycle of the transfer scheduler on a loaded runner. A single ten
+        // second attempt is not enough there, and the test would fail on the
+        // server's timing rather than on the resume it is checking.
+        let mut last_error = None;
+        let mut resumed = None;
+        for _ in 0..6 {
+            match connect(&endpoint, addr).await {
+                Ok(connection) => {
+                    resumed = Some(connection);
+                    break;
+                }
+                Err(error) => {
+                    last_error = Some(error);
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                }
+            }
+        }
+        let connection = resumed.unwrap_or_else(|| panic!("resume connect failed: {last_error:?}"));
         let mut sink =
             prepare_sink(&manager, transfer_id, "abort.bin", &manifest, Some(&plan)).unwrap();
         let received = timeout(
