@@ -294,7 +294,9 @@ mod tests {
         assert_eq!(second.identity().device_id(), device_id);
         assert!(paths.config_file.exists());
         assert!(paths.identity_file.exists());
-        assert_eq!(second.status().version, "0.2.0");
+        // The crate version is the reported version; comparing against the
+        // literal only made every release bump fail this test.
+        assert_eq!(second.status().version, env!("CARGO_PKG_VERSION"));
     }
 
     #[test]
