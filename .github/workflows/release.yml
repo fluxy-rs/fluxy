@@ -165,9 +165,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
-      - name: NDK
-        run: sdkmanager --install 'ndk;27.0.12077973' 'platform-tools'
+      # setup-android@v3 runs `sdkmanager tools`, and Google removed that package
+      # from the SDK repository, so the action fails before the build starts. The
+      # runner image already ships the SDK; accept its licences and install the
+      # NDK the Rust target links against.
+      - name: Android SDK and NDK
+        run: |
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null
+          "$sdkmanager" --install "ndk;27.0.12077973" "platform-tools"
       - uses: ./.github/actions/bun-install
         with:
           save: "true"
