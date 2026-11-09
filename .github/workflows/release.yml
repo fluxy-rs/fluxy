@@ -112,6 +112,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      # The AppImage bundler runs linuxdeploy, itself an AppImage. Runners
+      # without FUSE cannot mount it; this makes it self-extract instead.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -146,7 +150,17 @@ jobs:
               esac
               ;;
           esac
-          bun x tauri build "${args[@]}"
+          # The bundler downloads NSIS and linuxdeploy from GitHub. A 5xx there
+          # fails an otherwise complete build, so retry; cargo is cached and a
+          # retry only repeats the bundling step.
+          for attempt in 1 2 3; do
+            if bun x tauri build "${args[@]}"; then
+              exit 0
+            fi
+            echo "bundle attempt $attempt failed; retrying" >&2
+            sleep 15
+          done
+          exit 1
       - name: Upload the bundles
         shell: bash
         env:
@@ -221,7 +235,17 @@ jobs:
       - name: Build the signed APKs
         # One APK per ABI, named after the target the Rust side was built for.
         # Only the two ABIs in use are built: arm64 phones and x86_64 emulators.
-        run: bun run android:build -- --release --split-per-abi --target aarch64 x86_64
+        # Gradle downloads the Kotlin compiler on the first build of a fresh
+        # runner; a 5xx from Maven or its GitHub redirect fails the job, so retry.
+        run: |
+          for attempt in 1 2 3; do
+            if bun run android:build -- --release --split-per-abi --target aarch64 x86_64; then
+              exit 0
+            fi
+            echo "android build attempt $attempt failed; retrying" >&2
+            sleep 15
+          done
+          exit 1
       - name: Upload the APKs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
