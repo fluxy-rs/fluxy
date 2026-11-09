@@ -223,7 +223,13 @@ jobs:
             echo "::error::no APK was produced"
             exit 1
           fi
-          gh release upload "$TAG" "$apk#Fluxy-$TAG-arm64.apk" --clobber
+          # gh's #suffix sets the display label, not the asset name. The name,
+          # and so the file a browser saves, is the uploaded file's basename.
+          # The build is universal (no --target), so the name says that rather
+          # than claiming arm64.
+          asset="Fluxy-${TAG}-universal.apk"
+          cp "$apk" "$asset"
+          gh release upload "$TAG" "$asset" --clobber
 
   publish:
     name: Publish the release
