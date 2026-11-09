@@ -175,6 +175,11 @@ pub fn run() {
             // transfers so the user can resume or drop them.
             state.transfer.restore_interrupted();
             state.reconcile_autostart();
+            // The handshake carries this name. Set it before the listener opens so
+            // the first pairing request cannot announce the placeholder.
+            if let Some(name) = state.device_name() {
+                fluxy_net::set_local_device_name(name);
+            }
             state.start_network();
             // Reads the clipboard only while the automatic-send switch is on.
             state.start_clipboard_watch();
