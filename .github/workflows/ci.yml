@@ -218,9 +218,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
-      - name: NDK
-        run: sdkmanager --install 'ndk;27.0.12077973' 'platform-tools'
+      # setup-android@v3 runs `sdkmanager tools`, and Google removed that package
+      # from the SDK repository, so the action fails before the build starts.
+      - name: Android SDK and NDK
+        run: |
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null
+          "$sdkmanager" --install "ndk;27.0.12077973" "platform-tools"
       - uses: ./.github/actions/bun-install
       # The APK build runs beforeBuildCommand itself, so the frontend is built
       # there; doing it here as well only builds the bundle twice.
@@ -234,7 +239,9 @@ jobs:
           set -e
           apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' | head -1)
           mkdir -p /tmp/apk && unzip -o "$apk" -d /tmp/apk >/dev/null
-          readelf="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          # The runner's NDK is not necessarily the one this step installed.
+          ndk_dir=$(ls -d "$ANDROID_HOME/ndk/"* | sort -V | tail -1)
+          readelf="$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           for so in /tmp/apk/lib/*/*.so; do
             echo "$so"
             "$readelf" -lW "$so" | awk '$1 == "LOAD" { print "  align " $NF }'
