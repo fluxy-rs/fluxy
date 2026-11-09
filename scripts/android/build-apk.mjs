@@ -5,21 +5,37 @@
 //   bun run android:build                 # debug, arm64
 //   bun run android:build -- --release    # release (needs a keystore)
 //   bun run android:build -- --target x86_64
+//   bun run android:build -- --target aarch64 armv7 x86_64 --split-per-abi
+//
+// Several targets with --split-per-abi produce one APK per ABI and write
+// target/android-apks.txt ("<abi> <path>" per line) for the release workflow.
 //
 // Requires a JDK and an Android SDK with platform-tools, build-tools and an NDK.
 // JAVA_HOME and ANDROID_HOME are honoured; otherwise the usual per-platform
 // install locations are tried. Everything here runs on Windows, macOS and Linux.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const args = process.argv.slice(2);
 const release = args.includes("--release");
-const targetIndex = args.indexOf("--target");
-const target = targetIndex >= 0 ? args[targetIndex + 1] : "aarch64";
-if (!target) fail("--target needs an architecture");
+const splitPerAbi = args.includes("--split-per-abi");
+
+// --target takes one or more architectures, either as separate values
+// (--target aarch64 armv7) or by repeating the flag.
+const requested = [];
+for (let index = 0; index < args.length; index += 1) {
+  if (args[index] !== "--target") continue;
+  let next = index + 1;
+  while (next < args.length && !args[next].startsWith("-")) {
+    requested.push(args[next]);
+    next += 1;
+  }
+  index = next - 1;
+}
+const targets = requested.length > 0 ? requested : ["aarch64"];
 
 const triples = {
   aarch64: "aarch64-linux-android",
@@ -27,8 +43,10 @@ const triples = {
   i686: "i686-linux-android",
   x86_64: "x86_64-linux-android",
 };
-const triple = triples[target];
-if (!triple) fail(`unknown target ${target}; pick one of ${Object.keys(triples).join(", ")}`);
+for (const target of targets) {
+  if (!triples[target])
+    fail(`unknown target ${target}; pick one of ${Object.keys(triples).join(", ")}`);
+}
 
 const isWindows = process.platform === "win32";
 const exe = (name) => (isWindows ? `${name}.exe` : name);
@@ -127,32 +145,41 @@ if (release) {
   }
 }
 const skipBuild = args.includes("--skip-build");
-if (!skipBuild) console.log(`building APK (${flavor}, ${target})`);
+if (!skipBuild) console.log(`building APK (${flavor}, ${targets.join(", ")})`);
+const apkRoot = join(root, "src-tauri", "gen", "android", "app", "build", "outputs", "apk");
 const buildArgs = ["x", "tauri", "android", "build"];
 if (!release) buildArgs.push("--debug");
-buildArgs.push("--apk", "--target", target);
+buildArgs.push("--apk");
+for (const target of targets) buildArgs.push("--target", target);
+if (splitPerAbi) buildArgs.push("--split-per-abi");
 if (!skipBuild) {
+  // Start from an empty output directory. Gradle leaves earlier APKs in place,
+  // and a stale universal archive among split ones is exactly the artefact that
+  // gets uploaded by accident.
+  rmSync(apkRoot, { recursive: true, force: true });
   const status = run("bun", buildArgs, { env });
   if (status !== 0) fail(`tauri android build exited with ${status}`);
 }
 
-const apkRoot = join(root, "src-tauri", "gen", "android", "app", "build", "outputs", "apk");
-const apks = [];
+const built = [];
 (function collect(directory) {
   if (!existsSync(directory)) return;
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) collect(path);
-    else if (entry.name.endsWith(".apk") && entry.name.includes(flavor)) apks.push(path);
+    else if (entry.name.endsWith(".apk") && entry.name.includes(flavor)) built.push(path);
   }
 })(apkRoot);
-if (apks.length === 0) fail("the APK was not produced");
-if (release && apks.every((path) => path.includes("unsigned"))) {
+const isUniversal = (path) => /[\\/]universal[\\/]/.test(path);
+const fresh = built.filter((path) => !(splitPerAbi && isUniversal(path)));
+if (fresh.length === 0) fail("the APK was not produced");
+if (release && fresh.every((path) => path.includes("unsigned"))) {
   fail("the release APK came out unsigned, so a phone will refuse it; check keystore.properties");
 }
-apks.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-const apk = apks[0];
-console.log(`apk: ${apk} (${statSync(apk).size} bytes)`);
+fresh.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+// --split-per-abi writes one APK per ABI and every one of them is new; without
+// it a multi-target build is a single archive and the newest file is the build.
+const apks = splitPerAbi ? fresh : [fresh[0]];
 
 // Tauri names every APK "universal" even when it holds a single ABI, so read the
 // archive and report what it actually contains.
@@ -178,8 +205,13 @@ function apkAbis(path) {
   return [...abis].sort();
 }
 
-const abis = apkAbis(apk);
-if (abis.length > 0) console.log(`abis: ${abis.join(", ")}`);
+const abisByApk = new Map();
+for (const apk of apks) {
+  const abis = apkAbis(apk);
+  abisByApk.set(apk, abis);
+  console.log(`apk: ${apk} (${statSync(apk).size} bytes)`);
+  if (abis.length > 0) console.log(`abis: ${abis.join(", ")}`);
+}
 
 // 16 KB page check. The library that ships is the one cargo just linked, so the
 // build output is what gets inspected: no zip parsing, no temp directory.
@@ -188,27 +220,38 @@ if (!prebuilt) fail(`no LLVM toolchain under ${ndkHome}`);
 const readelf = join(prebuilt, "bin", exe("llvm-readelf"));
 if (!existsSync(readelf)) fail(`llvm-readelf not found under ${prebuilt}`);
 
-const buildDir = join(root, "target", triple, flavor);
-if (!existsSync(buildDir)) fail(`no build output at ${buildDir}`);
-const libraries = readdirSync(buildDir).filter((name) => name.endsWith(".so"));
-if (libraries.length === 0) fail(`no .so in ${buildDir}`);
-
 let bad = 0;
-for (const library of libraries) {
-  const result = spawnSync(readelf, ["-lW", join(buildDir, library)], { encoding: "utf8" });
-  const aligns = new Set(
-    (result.stdout ?? "")
-      .split("\n")
-      .filter((line) => line.trimStart().startsWith("LOAD"))
-      .map((line) => line.trim().split(/\s+/).at(-1)),
-  );
-  const ok = aligns.size === 1 && aligns.has("0x4000");
-  console.log(
-    `${library}: LOAD align ${[...aligns].join(",") || "none"} ${ok ? "OK (16 KB)" : "NOT 16 KB"}`,
-  );
-  if (!ok) bad += 1;
+for (const target of targets) {
+  const buildDir = join(root, "target", triples[target], flavor);
+  if (!existsSync(buildDir)) fail(`no build output at ${buildDir}`);
+  const libraries = readdirSync(buildDir).filter((name) => name.endsWith(".so"));
+  if (libraries.length === 0) fail(`no .so in ${buildDir}`);
+  for (const library of libraries) {
+    const result = spawnSync(readelf, ["-lW", join(buildDir, library)], { encoding: "utf8" });
+    const aligns = new Set(
+      (result.stdout ?? "")
+        .split("\n")
+        .filter((line) => line.trimStart().startsWith("LOAD"))
+        .map((line) => line.trim().split(/\s+/).at(-1)),
+    );
+    const ok = aligns.size === 1 && aligns.has("0x4000");
+    console.log(
+      `${library}: LOAD align ${[...aligns].join(",") || "none"} ${ok ? "OK (16 KB)" : "NOT 16 KB"}`,
+    );
+    if (!ok) bad += 1;
+  }
 }
 if (bad > 0) fail(`${bad} native libraries are not 16 KB aligned`);
+
+// The release workflow names each asset from the ABI next to its path.
+if (splitPerAbi) {
+  const manifest = join(root, "target", "android-apks.txt");
+  writeFileSync(
+    manifest,
+    `${apks.map((apk) => `${abisByApk.get(apk).join(",") || "unknown"} ${apk}`).join("\n")}\n`,
+  );
+  console.log(`manifest: ${manifest}`);
+}
 
 // Not every build-tools version ships the signer (37.0.0 does not), so scan
 // from the newest down and take the first that has one.
@@ -234,15 +277,22 @@ if (!apksigner) {
 }
 // The signer is a wrapper script that needs JAVA_HOME, so it gets the same
 // environment the build had.
-const verified = spawnSync(apksigner, ["verify", "--print-certs", apk], {
-  encoding: "utf8",
-  env,
-  // apksigner is a .bat on Windows, which needs a shell to run.
-  shell: isWindows,
-});
-for (const line of `${verified.stdout ?? ""}${verified.stderr ?? ""}`.split("\n")) {
-  if (line.includes("certificate DN") || line.includes("SHA-256 digest")) {
-    console.log(line.trim());
+let rejected = 0;
+for (const apk of apks) {
+  const verified = spawnSync(apksigner, ["verify", "--print-certs", apk], {
+    encoding: "utf8",
+    env,
+    // apksigner is a .bat on Windows, which needs a shell to run.
+    shell: isWindows,
+  });
+  for (const line of `${verified.stdout ?? ""}${verified.stderr ?? ""}`.split("\n")) {
+    if (line.includes("certificate DN") || line.includes("SHA-256 digest")) {
+      console.log(line.trim());
+    }
+  }
+  if (verified.status !== 0) {
+    console.error(`apksigner rejected ${apk}`);
+    rejected += 1;
   }
 }
-if (verified.status !== 0) fail(`apksigner rejected ${apk}`);
+if (rejected > 0) fail(`apksigner rejected ${rejected} APK(s)`);

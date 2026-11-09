@@ -212,24 +212,23 @@ jobs:
           password=$KEYSTORE_PASSWORD
           keyAlias=${KEY_ALIAS:-fluxy}
           EOF
-      - name: Build the signed APK
-        run: bun run android:build -- --release
-      - name: Upload the APK
+      - name: Build the signed APKs
+        # One APK per ABI, named after the target the Rust side was built for;
+        # a universal APK would carry every ABI and no one can tell them apart.
+        run: bun run android:build -- --release --split-per-abi --target aarch64 armv7 i686 x86_64
+      - name: Upload the APKs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
-          if [ -z "$apk" ]; then
-            echo "::error::no APK was produced"
+          if [ ! -s target/android-apks.txt ]; then
+            echo "::error::the build produced no APK manifest"
             exit 1
           fi
-          # gh's #suffix sets the display label, not the asset name. The name,
-          # and so the file a browser saves, is the uploaded file's basename.
-          # The build is universal (no --target), so the name says that rather
-          # than claiming arm64.
-          asset="Fluxy-${TAG}-universal.apk"
-          cp "$apk" "$asset"
-          gh release upload "$TAG" "$asset" --clobber
+          while read -r abi apk; do
+            asset="Fluxy-${TAG}-${abi}.apk"
+            cp "$apk" "$asset"
+            gh release upload "$TAG" "$asset" --clobber
+          done < target/android-apks.txt
 
   publish:
     name: Publish the release
