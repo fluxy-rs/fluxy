@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.90"
 name = "tauri-plugin-barcode-scanner"
-version = "2.5.3"
+version.workspace = true
 authors = ["Tauri Programme within The Commons Conservancy"]
 build = "build.rs"
 links = "tauri-plugin-barcode-scanner"

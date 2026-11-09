@@ -12,8 +12,12 @@ function readJson(file) {
 
 const cargo = readFileSync("Cargo.toml", "utf8");
 const workspaceVersion = /\[workspace\.package\][\s\S]*?version = "([^"]+)"/.exec(cargo)?.[1];
+// Every workspace dependency that names a path also has to name a version:
+// cargo-deny reads the path-only form as a wildcard. They all have to match the
+// workspace version, so the check derives its list from the file rather than
+// naming the crates and missing the next one that is added.
 const internal = [
-  ...cargo.matchAll(/fluxy-(?:proto|core|net|app) = \{ path = "[^"]+", version = "([^"]+)" \}/g),
+  ...cargo.matchAll(/^[a-z0-9-]+ = \{ path = "[^"]+", version = "([^"]+)" \}/gm),
 ].map((match) => match[1]);
 const packageJson = readJson("package.json").version;
 const tauri = readJson("src-tauri/tauri.conf.json").version;

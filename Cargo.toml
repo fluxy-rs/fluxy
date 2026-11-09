@@ -9,6 +9,7 @@ members = [
   "crates/fluxy-cli",
   "src-tauri",
   "plugins/tauri-plugin-fluxy-mobile",
+  "plugins/tauri-plugin-barcode-scanner",
   "tools/udp-chaos",
 ]
 
@@ -30,6 +31,12 @@ fluxy-proto = { path = "crates/fluxy-proto", version = "0.2.0-alpha.1" }
 fluxy-core = { path = "crates/fluxy-core", version = "0.2.0-alpha.1" }
 fluxy-net = { path = "crates/fluxy-net", version = "0.2.0-alpha.1" }
 fluxy-app = { path = "crates/fluxy-app", version = "0.2.0-alpha.1" }
+# The two plugins and the hardware crate are path dependencies as well, and
+# cargo-deny treats a path-only dependency as a wildcard. They carry the
+# workspace version for the same reason the entries above do.
+fluxy-sysinfo = { path = "crates/fluxy-sysinfo", version = "0.2.0-alpha.1" }
+tauri-plugin-fluxy-mobile = { path = "plugins/tauri-plugin-fluxy-mobile", version = "0.2.0-alpha.1" }
+tauri-plugin-barcode-scanner = { path = "plugins/tauri-plugin-barcode-scanner", version = "0.2.0-alpha.1" }
 
 prost = "0.14"
 prost-build = "0.14"
