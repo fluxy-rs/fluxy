@@ -71,3 +71,31 @@ jobs:
       - run: cargo build --workspace --exclude udp-chaos --all-targets
       # The decoder fuzz step is the only release-profile build in CI.
       - run: cargo build --release -p fluxy-core --tests
+
+  # The release jobs restore this cache, so it has to hold the same artefacts
+  # that "bun x tauri build" produces: the whole dependency graph in the release
+  # profile. A version bump changes Cargo.lock and therefore the cache key, which
+  # is why this runs on every merge that touches a dependency file.
+  warm-release:
+    name: Warm release (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: desktop-release
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: ./.github/actions/bun-install
+        with:
+          save: "true"
+      - run: bun x tauri build --no-bundle
