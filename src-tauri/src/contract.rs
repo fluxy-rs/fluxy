@@ -1085,6 +1085,8 @@ impl AppState {
             let changed = config.device_name != previous;
             (config, changed)
         };
+        // The handshake announces this name; keep it in step with the config.
+        fluxy_net::set_local_device_name(config.device_name.clone());
         if changed {
             self.network.restart();
         }

@@ -25,7 +25,7 @@ pub use fallback::{
 };
 pub use handshake::{
     HandshakeError, PairingLimiter, PairingPrompt, PeerSession, client_pair, client_pair_async,
-    client_resume, server_pair, server_pair_async,
+    client_resume, server_pair, server_pair_async, set_local_device_name,
 };
 pub use interface::{
     AddressInfo, InterfaceBinding, InterfaceInfo, InterfaceKind, Selection, SelectionError,

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::net::IpAddr;
+use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 use quinn::{Connection, SendStream};
@@ -935,7 +936,31 @@ fn random_nonce() -> Result<[u8; 32], getrandom::Error> {
     Ok(nonce)
 }
 
+/// The name this process announces in Hello and HelloAck. The app owns the
+/// configured device name and calls this when it loads and changes; without it
+/// the handshake fell back to $COMPUTERNAME, which does not exist on Android,
+/// so every phone announced the "Fluxy device" placeholder while discovery and
+/// the UI showed the real name.
+static LOCAL_DEVICE_NAME: RwLock<Option<String>> = RwLock::new(None);
+
+pub fn set_local_device_name(name: impl Into<String>) {
+    let name = name.into();
+    if name.trim().is_empty() {
+        return;
+    }
+    if let Ok(mut slot) = LOCAL_DEVICE_NAME.write() {
+        *slot = Some(name);
+    }
+}
+
 fn device_name() -> String {
+    let configured = LOCAL_DEVICE_NAME
+        .read()
+        .ok()
+        .and_then(|slot| slot.as_deref().map(str::to_string));
+    if let Some(name) = configured {
+        return name;
+    }
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_else(|_| "Fluxy device".into())
