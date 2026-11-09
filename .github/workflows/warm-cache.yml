@@ -100,10 +100,9 @@ jobs:
           save: "true"
       - run: bun x tauri build --no-bundle
 
-  # The Android release job cannot warm this cache itself: a cache a tag run
-  # creates lives under refs/tags/<tag>, and the next release has a different
-  # tag, so it would never be restored. This builds the same APKs on the default
-  # branch, whose caches tag runs can restore.
+  # The release workflow is dispatched on main and saves this cache itself now,
+  # so this job only keeps it fresh ahead of a release: after a dependency bump
+  # the first dispatch would otherwise compile the whole Android graph cold.
   warm-android:
     name: Warm Android release
     runs-on: ubuntu-latest

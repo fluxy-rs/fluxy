@@ -1,10 +1,20 @@
 name: Release
 
 # Cutting a release is: bump the version in the four declarations that
-# check:versions reads, commit, tag vX.Y.Z, push the tag. This workflow checks
-# the tag against the declared version, builds the desktop bundles on each
-# platform and the signed APK when a keystore is configured, uploads them to a
-# draft release, and only undrafts it once every build succeeded.
+# check:versions reads, commit, tag vX.Y.Z, push the tag, then dispatch this
+# workflow from main - `gh workflow run release.yml -f tag=vX.Y.Z`.
+#
+# The dispatch is not a convenience. GitHub scopes a cache to the ref that
+# created it, and a run started by a tag push asks for refs/tags/<tag>; the
+# backend stores that as refs/heads/refs/tags/<tag>, a branch name no other ref
+# can ever address. The build is then reused by nothing and still spends quota.
+# A run on main writes to refs/heads/main, which every later run restores, so
+# each release warms the next one. Preflight refuses any other ref.
+#
+# This workflow checks the tag against the declared version, builds the desktop
+# bundles on each platform and the signed APK when a keystore is configured,
+# uploads them to a draft release, and only undrafts it once every build
+# succeeded.
 #
 # Android signing secrets (all optional; without them the APK is skipped and the
 # desktop bundles still publish):
@@ -15,12 +25,10 @@ name: Release
 # The desktop bundles are unsigned: macOS Gatekeeper and Windows SmartScreen will
 # warn until APPLE_* / WINDOWS_* certificates are wired into the build step.
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to publish, for example v0.2.0"
+        description: "Tag to publish, for example v0.2.0; it must already be pushed"
         required: true
 
 permissions:
@@ -45,6 +53,14 @@ jobs:
     outputs:
       android_signed: ${{ steps.android.outputs.signed }}
     steps:
+      # A run on a branch other than main writes its caches to that branch, where
+      # the next release cannot see them. Refuse before ten minutes of building.
+      - name: Check the ref
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::dispatch this workflow from main; on $GITHUB_REF the caches it writes are unusable"
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
@@ -127,6 +143,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: desktop-release
+          # Belt and braces with the preflight guard: a tag run's entry would be
+          # stored where nothing can read it, so only main is allowed to write.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |
@@ -199,6 +218,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: android-release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
