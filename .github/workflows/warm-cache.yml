@@ -99,3 +99,56 @@ jobs:
         with:
           save: "true"
       - run: bun x tauri build --no-bundle
+
+  # The Android release job cannot warm this cache itself: a cache a tag run
+  # creates lives under refs/tags/<tag>, and the next release has a different
+  # tag, so it would never be restored. This builds the same APKs on the default
+  # branch, whose caches tag runs can restore.
+  warm-android:
+    name: Warm Android release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: android-release
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Android SDK and NDK
+        run: |
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null
+          "$sdkmanager" --install "ndk;27.0.12077973" "platform-tools"
+      - uses: ./.github/actions/bun-install
+        with:
+          save: "true"
+      - name: Materialise the release keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "save=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; the Android cache stays cold"
+            exit 0
+          fi
+          mkdir -p .android-secrets
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > .android-secrets/fluxy-release.jks
+          bun x tauri android init
+          cat > src-tauri/gen/android/keystore.properties <<EOF
+          storeFile=$GITHUB_WORKSPACE/.android-secrets/fluxy-release.jks
+          password=$KEYSTORE_PASSWORD
+          keyAlias=${KEY_ALIAS:-fluxy}
+          EOF
+          echo "save=true" >> "$GITHUB_OUTPUT"
+      - if: steps.keystore.outputs.save == 'true'
+        run: bun run android:build -- --release --split-per-abi --target aarch64 x86_64
