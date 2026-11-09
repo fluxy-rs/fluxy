@@ -179,9 +179,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
+      # The debug APK job (dispatch-only) uses "android"; sharing it means the
+      # release can hit an entry it then cannot extend, so only the ABIs of the
+      # run that created the entry are ever cached.
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: android
+          shared-key: android-release
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
