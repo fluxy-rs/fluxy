@@ -117,9 +117,12 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
+      # A release-only key: the pull request caches hold debug artefacts, and a
+      # hit on one of those is why every release used to rebuild the whole
+      # dependency graph in release mode. warm-cache.yml fills this one.
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: desktop
+          shared-key: desktop-release
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |
