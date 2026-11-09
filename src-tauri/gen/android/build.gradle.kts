@@ -1,10 +1,9 @@
 buildscript {
+    // Standard repositories only. An earlier local copy listed Aliyun mirrors
+    // first; they answer 502 from GitHub's runners, and Gradle treats a 5xx as
+    // fatal instead of trying the next repository, so the Android build never
+    // resolved. Add mirrors through ~/.gradle/init.gradle when they are needed.
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/public/") }
-        maven { url = uri("https://maven.aliyun.com/repositories/jcenter") }
-        maven { url = uri("https://maven.aliyun.com/repositories/google") }
-        maven { url = uri("https://maven.aliyun.com/repositories/central") }
-
         google()
         mavenCentral()
     }
@@ -16,11 +15,6 @@ buildscript {
 
 allprojects {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/public/") }
-        maven { url = uri("https://maven.aliyun.com/repositories/jcenter") }
-        maven { url = uri("https://maven.aliyun.com/repositories/google") }
-        maven { url = uri("https://maven.aliyun.com/repositories/central") }
-
         google()
         mavenCentral()
     }
