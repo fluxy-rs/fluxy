@@ -13,7 +13,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.0-alpha.1"
 edition = "2024"
 license = "AGPL-3.0-only"
 authors = ["Fluxy contributors"]
@@ -26,10 +26,10 @@ fs2 = "0.4"
 # The version is repeated here because cargo-deny treats a path-only
 # dependency as a wildcard, and an internal crate without a version cannot be
 # published. Keep it in step with [workspace.package] version.
-fluxy-proto = { path = "crates/fluxy-proto", version = "0.2.0" }
-fluxy-core = { path = "crates/fluxy-core", version = "0.2.0" }
-fluxy-net = { path = "crates/fluxy-net", version = "0.2.0" }
-fluxy-app = { path = "crates/fluxy-app", version = "0.2.0" }
+fluxy-proto = { path = "crates/fluxy-proto", version = "0.2.0-alpha.1" }
+fluxy-core = { path = "crates/fluxy-core", version = "0.2.0-alpha.1" }
+fluxy-net = { path = "crates/fluxy-net", version = "0.2.0-alpha.1" }
+fluxy-app = { path = "crates/fluxy-app", version = "0.2.0-alpha.1" }
 
 prost = "0.14"
 prost-build = "0.14"

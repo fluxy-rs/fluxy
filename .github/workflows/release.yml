@@ -93,7 +93,14 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "release $TAG already exists; uploading to it"
           else
-            gh release create "$TAG" --draft --generate-notes --title "$TAG"
+            # A hyphen marks a pre-release (0.2.0-alpha.1). Without
+            # --prerelease GitHub would publish it as the latest stable
+            # release, and every user would be offered an alpha as an update.
+            args=(--draft --generate-notes --title "$TAG")
+            case "$TAG" in
+              *-*) args+=(--prerelease) ;;
+            esac
+            gh release create "$TAG" "${args[@]}"
           fi
 
   desktop:
