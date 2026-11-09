@@ -39,7 +39,11 @@ class SystemBars(private val activity: Activity) {
         target.setOnApplyWindowInsetsListener { view: View, insets: WindowInsets ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val bars = insets.getInsets(WindowInsets.Type.systemBars())
-                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                // The keyboard is not part of systemBars(). Without subtracting
+                // it the page keeps its full height and the field being edited
+                // stays underneath the keyboard.
+                val ime = insets.getInsets(WindowInsets.Type.ime())
+                view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
             } else {
                 @Suppress("DEPRECATION")
                 view.setPadding(
