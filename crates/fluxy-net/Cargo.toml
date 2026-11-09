@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-fluxy-sysinfo = { path = "../fluxy-sysinfo" }
+fluxy-sysinfo.workspace = true
 fluxy-core.workspace = true
 fluxy-proto.workspace = true
 thiserror.workspace = true

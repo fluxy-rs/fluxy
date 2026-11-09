@@ -46,8 +46,8 @@ tauri-plugin-dialog = "2"
 
 # The platform clipboard is a desktop capability; Android provides its own
 # through the mobile plugin (docs/MOBILE_PLAN.md, ClipboardPort).
-tauri-plugin-fluxy-mobile = { path = "../plugins/tauri-plugin-fluxy-mobile" }
-tauri-plugin-barcode-scanner = { path = "../plugins/tauri-plugin-barcode-scanner" }
+tauri-plugin-fluxy-mobile.workspace = true
+tauri-plugin-barcode-scanner.workspace = true
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 arboard.workspace = true
