@@ -17,6 +17,7 @@ import {
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { EmptyState } from "../components/EmptyState";
+import { PageTitle } from "../components/PageTitle";
 import { Button, toast } from "../ui";
 import { Switch } from "../ui/switch";
 import { formatClock, shortId } from "../lib/format";
@@ -201,24 +202,22 @@ export function ClipboardPage() {
 
   return (
     <div class="mx-auto flex w-full max-w-[60rem] flex-col gap-4">
-      <header class="flex items-end justify-between gap-4">
-        <div>
-          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
-            {t("clipboard.title")}
-          </h1>
-          <p class="text-body-sm text-muted-foreground">{t("clipboard.subtitle")}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground">
-            <ShieldCheck size={13} aria-hidden="true" />
-            {t("app.lanOnly")}
-          </span>
-          <span class="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground">
-            <LockKeyhole size={13} aria-hidden="true" />
-            {t("clipboard.policyChip")}
-          </span>
-        </div>
-      </header>
+      <PageTitle
+        title={t("clipboard.title")}
+        subtitle={t("clipboard.subtitle")}
+        aside={
+          <>
+            <span class="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground">
+              <ShieldCheck size={13} aria-hidden="true" />
+              {t("app.lanOnly")}
+            </span>
+            <span class="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground">
+              <LockKeyhole size={13} aria-hidden="true" />
+              {t("clipboard.policyChip")}
+            </span>
+          </>
+        }
+      />
 
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         <div class="flex flex-col gap-4">

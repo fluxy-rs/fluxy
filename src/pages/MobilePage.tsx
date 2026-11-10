@@ -3,6 +3,7 @@ import { createEffect, For, Show, createMemo, createSignal, onCleanup, onMount }
 import { Button, Dialog, Input, toast } from "../ui";
 import { checkPermissions, requestPermissions, scan } from "@tauri-apps/plugin-barcode-scanner";
 import { PairingQrDialog } from "../components/PairingQrDialog";
+import { PageTitle } from "../components/PageTitle";
 import { TrustedDevices } from "../components/TrustedDevices";
 import { useNavigate } from "@solidjs/router";
 import { takeOpenChatDevice } from "../api/engine";
@@ -357,47 +358,49 @@ export function MobilePage() {
 
   return (
     <main class="flex flex-col gap-3 px-4 pb-4">
-      <header class="flex items-center gap-3 border-b border-border py-3">
-        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h1 class="text-heading font-[620] tracking-[-0.015em]">{t("nav.devices")}</h1>
-          <span class="font-mono text-xs text-muted-foreground">
+      <PageTitle
+        title={t("nav.devices")}
+        subtitle={
+          <span class="font-mono text-xs">
             {status()?.device_name} · {status()?.listen_port}
           </span>
-        </div>
-        {/* The two pairing actions are the only ones this page performs, and
-            both are occasional. As icons in the header they stop costing a card
-            of vertical space on a 1:1 screen. */}
-        <div class="flex shrink-0 items-center gap-1">
-          <button
-            class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            type="button"
-            aria-label={t("mobile.scanAction")}
-            title={t("mobile.scanAction")}
-            disabled={busy()}
-            onClick={() => void scanCode()}
-          >
-            <ScanLine size={20} aria-hidden="true" />
-          </button>
-          <button
-            class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            type="button"
-            aria-label={t("pairing.myQrTitle")}
-            title={t("pairing.myQrTitle")}
-            onClick={() => setQrOpen(true)}
-          >
-            <QrCode size={20} aria-hidden="true" />
-          </button>
-          <button
-            class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            type="button"
-            aria-label={t("mobile.manualOpen")}
-            title={t("mobile.manualOpen")}
-            onClick={() => setManualOpen(true)}
-          >
-            <Keyboard size={20} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+        }
+        aside={
+          <>
+            {/* The three pairing actions are the only ones this page performs,
+                and all are occasional. As icons in the header they stop
+                costing a card of vertical space on a 1:1 screen. */}
+            <button
+              class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+              aria-label={t("mobile.scanAction")}
+              title={t("mobile.scanAction")}
+              disabled={busy()}
+              onClick={() => void scanCode()}
+            >
+              <ScanLine size={20} aria-hidden="true" />
+            </button>
+            <button
+              class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+              aria-label={t("pairing.myQrTitle")}
+              title={t("pairing.myQrTitle")}
+              onClick={() => setQrOpen(true)}
+            >
+              <QrCode size={20} aria-hidden="true" />
+            </button>
+            <button
+              class="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+              aria-label={t("mobile.manualOpen")}
+              title={t("mobile.manualOpen")}
+              onClick={() => setManualOpen(true)}
+            >
+              <Keyboard size={20} aria-hidden="true" />
+            </button>
+          </>
+        }
+      />
 
       <Show when={error()}>
         <p class="px-4 py-2 text-label text-destructive" role="alert">
