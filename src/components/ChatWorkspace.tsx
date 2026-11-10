@@ -41,6 +41,7 @@ import type { ChatMessageView, TransferSummary } from "../bindings";
 import { formatBytes, formatClock } from "../lib/format";
 import { fileKind } from "../lib/file-kind";
 import { failureReason } from "../lib/transfer-errors";
+import { TransferActions } from "./TransferActions";
 
 /// Sending a file from the conversation instead of the transfers page: the two
 /// belong together, and switching pages to attach something is the whole point of
@@ -665,6 +666,21 @@ export function ChatWorkspace(props: {
                                         <time class="font-mono text-label">
                                           {formatClock(transfer().created_at_ms, locale())}
                                         </time>
+                                        <TransferActions
+                                          transfer={transfer()}
+                                          busy={engine.transferBusy() === transfer().transfer_id}
+                                          onAction={(action) => {
+                                            void engine
+                                              .controlTransfer(transfer().transfer_id, action)
+                                              .catch((cause: unknown) => {
+                                                toast.error(
+                                                  cause instanceof Error
+                                                    ? cause.message
+                                                    : String(cause),
+                                                );
+                                              });
+                                          }}
+                                        />
                                       </div>
                                     </MessageContent>
                                   </Message>

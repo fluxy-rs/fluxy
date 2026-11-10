@@ -29,6 +29,10 @@ const zh: Messages = {
   "transfers.state.completed": "已完成",
   "transfers.state.failed": "失败",
   "transfers.state.cancelled": "已取消",
+  "transfers.pause": "暂停",
+  "transfers.resume": "继续",
+  "transfers.retry": "重试",
+  "transfers.cancel": "取消",
 
   "rail.nearby": "附近设备",
   "rail.noNearby": "还没有发现附近设备",
@@ -584,6 +588,10 @@ const en: Messages = {
   "transfers.state.completed": "Completed",
   "transfers.state.failed": "Failed",
   "transfers.state.cancelled": "Cancelled",
+  "transfers.pause": "Pause",
+  "transfers.resume": "Resume",
+  "transfers.retry": "Retry",
+  "transfers.cancel": "Cancel",
 
   "rail.nearby": "Nearby devices",
   "rail.noNearby": "No nearby devices yet",
