@@ -1,5 +1,6 @@
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 import { Sheet, SheetContent } from "../ui/sheet";
+import { PageFrame } from "./PageFrame";
 
 /**
  * A settings sub-page that is a side sheet on a desktop and a page on a phone.
@@ -27,12 +28,7 @@ export function RoutedSheet(props: { title: string; description?: string; childr
   };
 
   return (
-    <Show
-      when={wide()}
-      fallback={
-        <div class="mx-auto flex w-full max-w-[55rem] flex-col gap-4">{props.children}</div>
-      }
-    >
+    <Show when={wide()} fallback={<PageFrame width="max-w-[55rem]">{props.children}</PageFrame>}>
       <Sheet
         open
         onOpenChange={(open) => {

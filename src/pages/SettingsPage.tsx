@@ -2,6 +2,8 @@ import { For, createSignal } from "solid-js";
 import { LoaderCircle, Monitor, Moon, RotateCcw, ShieldAlert, Sun } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { LocalDeviceSettings } from "../components/LocalDeviceSettings";
+import { PageFrame } from "../components/PageFrame";
+import { PageTitle } from "../components/PageTitle";
 import { SettingsLinkRow } from "../components/SettingsRow";
 import { useI18n, type Locale } from "../i18n";
 import { useTheme, type ThemePreference } from "../theme";
@@ -51,20 +53,16 @@ export function SettingsPage() {
   }
 
   return (
-    <div class="mx-auto flex w-full max-w-[55rem] flex-col gap-4">
-      <header class="flex items-end justify-between gap-4">
-        <div>
-          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
-            {t("settings.title")}
-          </h1>
-          <p class="text-body-sm text-muted-foreground">{t("settings.subtitle")}</p>
-        </div>
-        <div class="flex items-center gap-2">
+    <PageFrame width="max-w-[55rem]">
+      <PageTitle
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
+        aside={
           <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
             {t("settings.thisVersion", { version: status().version })}
           </span>
-        </div>
-      </header>
+        }
+      />
 
       <div class="flex flex-col gap-4">
         <section
@@ -222,6 +220,6 @@ export function SettingsPage() {
       >
         <p class="text-xs text-destructive">{t("settings.rotateWarning")}</p>
       </Dialog>
-    </div>
+    </PageFrame>
   );
 }

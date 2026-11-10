@@ -16,9 +16,7 @@ describe("ChatWorkspace", () => {
     renderWithEngine(() => <ChatWorkspace />, engine);
     fireEvent.contextMenu(screen.getByText("report.bin"));
 
-    expect(
-      await screen.findByRole("menuitem", { name: "显示传输详情" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "显示传输详情" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "在目录中显示" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "删除此文件" })).toBeInTheDocument();
   });
@@ -34,6 +32,18 @@ describe("ChatWorkspace", () => {
     fireEvent.contextMenu(screen.getByText("report.bin"));
 
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("shows the rate next to the progress of a moving transfer", () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ state: "transferring", bytes_per_second: 12 * 1024 * 1024 })],
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    const { container } = renderWithEngine(() => <ChatWorkspace />, engine);
+
+    expect(container.textContent).toContain("12.0 MB/s");
   });
 
   it("renders the first conversation and its messages", () => {

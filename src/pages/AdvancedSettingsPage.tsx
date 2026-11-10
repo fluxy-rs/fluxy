@@ -6,6 +6,7 @@ import { NetworkDiagnostics } from "../components/NetworkDiagnostics";
 import { NetworkSettings } from "../components/NetworkSettings";
 import { useI18n } from "../i18n";
 import { RoutedSheet } from "../components/RoutedSheet";
+import { PageTitle } from "../components/PageTitle";
 import { Button, toast } from "../ui";
 import { copyText, errorDetails, eventName, shortId } from "../lib/format";
 
@@ -72,21 +73,16 @@ export function AdvancedSettingsPage() {
   return (
     <RoutedSheet title={t("settings.advancedTitle")}>
       <div class="flex flex-col gap-4">
-        <header class="flex flex-col gap-1">
-          <div>
-            <a
-              class="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              href="/settings"
-            >
-              <ArrowLeft size={15} aria-hidden="true" />
-              {t("settings.backToSettings")}
-            </a>
-            <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
-              {t("settings.advancedTitle")}
-            </h1>
-            <p class="text-body-sm text-muted-foreground">{t("settings.advancedBody")}</p>
-          </div>
-        </header>
+        <div class="flex flex-col gap-1">
+          <a
+            class="inline-flex w-fit items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            href="/settings"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+            {t("settings.backToSettings")}
+          </a>
+          <PageTitle title={t("settings.advancedTitle")} subtitle={t("settings.advancedBody")} />
+        </div>
 
         <div class="flex flex-col gap-4">
           <NetworkSettings />
