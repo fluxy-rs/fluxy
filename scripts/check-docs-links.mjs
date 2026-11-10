@@ -1,4 +1,4 @@
-// Verify every relative Markdown link in README and docs/*.md resolves.
+// Verify every relative Markdown link in the READMEs and docs/*.md resolves.
 // Anchors and external URLs are skipped; only file targets are checked.
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +6,7 @@ import path from "node:path";
 const root = process.cwd();
 const files = [
   "README.md",
+  "README.zh-CN.md",
   ...fs
     .readdirSync("docs")
     .filter((f) => f.endsWith(".md"))

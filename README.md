@@ -1,5 +1,7 @@
 # Fluxy
 
+English | [简体中文](README.zh-CN.md)
+
 Fluxy is a local-first, LAN-only desktop and mobile transfer tool. It provides
 device discovery, text chat, clipboard sharing, and resumable file/folder
 transfer without an account, cloud relay, or persisted chat history.
