@@ -18,6 +18,27 @@ describe("ChatWorkspace", () => {
     expect(container.textContent).toContain("12.0 MB/s");
   });
 
+  it("opens the conversation the route names, not the first one", () => {
+    const snapshot = makeSnapshot({
+      chat: {
+        conversations: [
+          makeConversation(),
+          makeConversation({ device_id: "peer-2", name: "Peer Two" }),
+        ],
+        messages: [],
+      },
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    const onSelect = vi.fn();
+    renderWithEngine(() => <ChatWorkspace selectedId="peer-2" onSelect={onSelect} />, engine);
+
+    expect(screen.getByRole("heading", { name: "Peer Two" })).toBeInTheDocument();
+    // Mounting used to select the first conversation, which navigated the
+    // route away from the device the URL named.
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("renders the first conversation and its messages", () => {
     const snapshot = makeSnapshot({
       chat: {
