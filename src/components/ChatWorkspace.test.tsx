@@ -1,11 +1,23 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { ChatWorkspace } from "./ChatWorkspace";
-import { makeConversation, makeMessage, makeSnapshot } from "../test/fixtures";
+import { makeConversation, makeMessage, makeSnapshot, makeTransfer } from "../test/fixtures";
 import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
 describe("ChatWorkspace", () => {
+  it("shows the rate next to the progress of a moving transfer", () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ state: "transferring", bytes_per_second: 12 * 1024 * 1024 })],
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    const { container } = renderWithEngine(() => <ChatWorkspace />, engine);
+
+    expect(container.textContent).toContain("12.0 MB/s");
+  });
+
   it("renders the first conversation and its messages", () => {
     const snapshot = makeSnapshot({
       chat: {

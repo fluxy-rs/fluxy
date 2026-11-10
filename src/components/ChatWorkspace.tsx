@@ -38,7 +38,7 @@ import {
   MessageScrollerViewport,
 } from "../ui/message-scroller";
 import type { ChatMessageView, TransferSummary } from "../bindings";
-import { formatBytes, formatClock } from "../lib/format";
+import { formatBytes, formatClock, formatSpeed } from "../lib/format";
 import { fileKind } from "../lib/file-kind";
 import { failureReason } from "../lib/transfer-errors";
 import { TransferActions } from "./TransferActions";
@@ -630,6 +630,10 @@ export function ChatWorkspace(props: {
                                             <span classList={{ invisible: !moving() }}>
                                               {" · "}
                                               {percent()}%
+                                              <Show when={transfer().bytes_per_second > 0}>
+                                                {" · "}
+                                                {formatSpeed(transfer().bytes_per_second)}
+                                              </Show>
                                             </span>
                                           </AttachmentDescription>
                                           {/* The track stays mounted and only its ink hides:
