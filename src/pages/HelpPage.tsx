@@ -3,6 +3,7 @@ import { Copy, LifeBuoy, MonitorSmartphone, ShieldAlert, Waypoints } from "lucid
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { RoutedSheet } from "../components/RoutedSheet";
+import { PageTitle } from "../components/PageTitle";
 import { Button, toast } from "../ui";
 import { copyText, errorDetails } from "../lib/format";
 
@@ -72,12 +73,7 @@ export function HelpPage() {
   return (
     <RoutedSheet title={t("help.title")}>
       <div class="flex flex-col gap-4">
-        <header class="flex flex-col gap-1">
-          <div>
-            <h1 class="text-heading font-[620] tracking-[-0.015em]">{t("help.title")}</h1>
-            <p class="text-body-sm text-muted-foreground">{t("help.body")}</p>
-          </div>
-        </header>
+        <PageTitle title={t("help.title")} subtitle={t("help.body")} />
 
         <section
           class="overflow-hidden rounded-lg border border-border bg-card"

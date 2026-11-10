@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { NearbyDevices } from "../components/NearbyDevices";
 import { TrustedDevices } from "../components/TrustedDevices";
 import { PairingQrDialog } from "../components/PairingQrDialog";
+import { PageTitle } from "../components/PageTitle";
 
 /**
  * The one screen an ordinary user needs: who is here, and how to talk to them.
@@ -26,29 +27,25 @@ export function HomePage() {
 
   return (
     <div class="mx-auto flex w-full max-w-[60rem] flex-col gap-4">
-      <header class="flex items-end justify-between gap-4">
-        <div>
-          <h1 class="text-display font-[620] leading-[1.04] tracking-[-0.035em]">
-            {t("home.title")}
-          </h1>
-          <p class="text-body-sm text-muted-foreground">{t("home.subtitle")}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
-            <ShieldCheck size={14} aria-hidden="true" />
-            {t("home.trustedCount", { count: peers().length })}
-          </span>
-          <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
-            <Wifi size={14} aria-hidden="true" />
-            {t("home.nearbyCount", { count: nearby().length })}
-          </span>
-          <div class="flex justify-center p-4">
+      <PageTitle
+        title={t("home.title")}
+        subtitle={t("home.subtitle")}
+        aside={
+          <>
+            <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+              <ShieldCheck size={14} aria-hidden="true" />
+              {t("home.trustedCount", { count: peers().length })}
+            </span>
+            <span class="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+              <Wifi size={14} aria-hidden="true" />
+              {t("home.nearbyCount", { count: nearby().length })}
+            </span>
             <Button variant="outline" onClick={() => setQrOpen(true)} icon={<QrCode size={15} />}>
               {t("pairing.myQrTitle")}
             </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
       <NearbyDevices />
 
       {/* A desktop cannot scan, but a phone needs something to scan. Without
