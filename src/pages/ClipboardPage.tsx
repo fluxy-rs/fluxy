@@ -17,6 +17,7 @@ import {
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { EmptyState } from "../components/EmptyState";
+import { PageFrame } from "../components/PageFrame";
 import { PageTitle } from "../components/PageTitle";
 import { Button, toast } from "../ui";
 import { Switch } from "../ui/switch";
@@ -201,7 +202,7 @@ export function ClipboardPage() {
   };
 
   return (
-    <div class="mx-auto flex w-full max-w-[60rem] flex-col gap-4">
+    <PageFrame>
       <PageTitle
         title={t("clipboard.title")}
         subtitle={t("clipboard.subtitle")}
@@ -557,6 +558,6 @@ export function ClipboardPage() {
           </section>
         </aside>
       </div>
-    </div>
+    </PageFrame>
   );
 }

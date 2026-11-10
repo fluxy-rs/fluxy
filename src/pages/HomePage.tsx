@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { NearbyDevices } from "../components/NearbyDevices";
 import { TrustedDevices } from "../components/TrustedDevices";
 import { PairingQrDialog } from "../components/PairingQrDialog";
+import { PageFrame } from "../components/PageFrame";
 import { PageTitle } from "../components/PageTitle";
 
 /**
@@ -26,7 +27,7 @@ export function HomePage() {
   const nearby = () => snapshot().peers.filter((peer) => !peer.trusted);
 
   return (
-    <div class="mx-auto flex w-full max-w-[60rem] flex-col gap-4">
+    <PageFrame>
       <PageTitle
         title={t("home.title")}
         subtitle={t("home.subtitle")}
@@ -59,6 +60,6 @@ export function HomePage() {
         <summary>{t("devices.trustedTitle")}</summary>
         <TrustedDevices />
       </details>
-    </div>
+    </PageFrame>
   );
 }

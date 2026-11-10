@@ -2,6 +2,7 @@ import { For, createSignal } from "solid-js";
 import { LoaderCircle, Monitor, Moon, RotateCcw, ShieldAlert, Sun } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { LocalDeviceSettings } from "../components/LocalDeviceSettings";
+import { PageFrame } from "../components/PageFrame";
 import { PageTitle } from "../components/PageTitle";
 import { SettingsLinkRow } from "../components/SettingsRow";
 import { useI18n, type Locale } from "../i18n";
@@ -52,7 +53,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div class="mx-auto flex w-full max-w-[55rem] flex-col gap-4">
+    <PageFrame width="max-w-[55rem]">
       <PageTitle
         title={t("settings.title")}
         subtitle={t("settings.subtitle")}
@@ -219,6 +220,6 @@ export function SettingsPage() {
       >
         <p class="text-xs text-destructive">{t("settings.rotateWarning")}</p>
       </Dialog>
-    </div>
+    </PageFrame>
   );
 }
