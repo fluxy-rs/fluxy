@@ -20,7 +20,15 @@ import {
 } from "lucide-solid";
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
-import { Button, Textarea, toast } from "../ui";
+import { Button, Dialog, Textarea, toast } from "../ui";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuPortal,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "../ui/context-menu";
 import { Bubble, BubbleContent } from "../ui/bubble";
 import { Message, MessageContent } from "../ui/message";
 import {
@@ -108,6 +116,11 @@ export function ChatWorkspace(props: {
   const [draft, setDraft] = createSignal("");
   const [sending, setSending] = createSignal(false);
   const [retrying, setRetrying] = createSignal<string | null>(null);
+  // The card's menu does its work outside the timeline, so the dialogs it
+  // opens are held here rather than inside the message list.
+  const [detailsOf, setDetailsOf] = createSignal<TransferSummary | null>(null);
+  const [deleteOf, setDeleteOf] = createSignal<TransferSummary | null>(null);
+  const [forwardOf, setForwardOf] = createSignal<TransferSummary | null>(null);
   // A phone-shaped viewport cannot show a conversation list and a thread side by
   // side: 218px of list squeezed the messages into a letterbox. Compact mode
   // swaps one for the other, the way a chat app does, instead of stacking two
@@ -145,6 +158,48 @@ export function ChatWorkspace(props: {
    * something you had to piece together from two screens. A message and the
    * file you sent with it are one exchange, so they belong in one list.
    */
+  /// Devices a finished file can be forwarded to.
+  ///
+  /// The peer it already reached is left out: sending it back is a plain
+  /// re-send of the same file, which is a different intention from forwarding
+  /// a copy somewhere else.
+  const forwardTargets = (transfer: TransferSummary) =>
+    (engine.snapshot()?.peers ?? []).filter(
+      (peer) => peer.online && peer.trusted && peer.device_id !== transfer.device_id,
+    );
+
+  const describe = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+
+  async function revealFile(transfer: TransferSummary) {
+    try {
+      await engine.revealTransfer(transfer.transfer_id);
+    } catch (cause) {
+      toast.error(t("transfers.revealFailed", { message: describe(cause) }));
+    }
+  }
+
+  async function deleteFile(transfer: TransferSummary) {
+    try {
+      await engine.deleteTransferFile(transfer.transfer_id);
+      toast.success(t("transfers.deleted", { name: transfer.file_name }));
+    } catch (cause) {
+      toast.error(t("transfers.deleteFailed", { message: describe(cause) }));
+    } finally {
+      setDeleteOf(null);
+    }
+  }
+
+  async function forwardFile(transfer: TransferSummary, deviceId: string) {
+    try {
+      await engine.forwardTransfer(transfer.transfer_id, deviceId);
+      toast.success(t("transfers.forwardStarted", { name: transfer.file_name }));
+    } catch (cause) {
+      toast.error(t("transfers.forwardFailed", { message: describe(cause) }));
+    } finally {
+      setForwardOf(null);
+    }
+  }
+
   const selectedTimeline = createMemo(() => {
     const peer = selected();
     if (!peer) return [] as TimelineEntry[];
@@ -594,67 +649,108 @@ export function ChatWorkspace(props: {
                                     align={transfer().direction === "send" ? "end" : "start"}
                                   >
                                     <MessageContent>
-                                      <Attachment
-                                        state={attachmentState(transfer().state)}
-                                        class="max-w-[min(22rem,80%)] cursor-pointer"
-                                        // Only a received, finished file is worth opening: the
-                                        // sender's copy is already theirs, and a file still
-                                        // moving cannot be handed to another app.
-                                        role={openable ? "button" : undefined}
-                                        tabindex={openable ? 0 : undefined}
-                                        onClick={() => {
-                                          if (openable)
-                                            void engine.openReceivedTransfer(
-                                              transfer().transfer_id,
-                                            );
-                                        }}
-                                        onKeyDown={(event) => {
-                                          if (!openable) return;
-                                          if (event.key !== "Enter" && event.key !== " ") return;
-                                          event.preventDefault();
-                                          void engine.openReceivedTransfer(transfer().transfer_id);
-                                        }}
+                                      <ContextMenu
+                                        disabled={
+                                          !engine.desktop || transfer().state !== "completed"
+                                        }
                                       >
-                                        <AttachmentMedia>
-                                          {(() => {
-                                            const Icon = fileKind(transfer().file_name).icon;
-                                            return <Icon size={18} aria-hidden="true" />;
-                                          })()}
-                                        </AttachmentMedia>
-                                        <AttachmentContent>
-                                          <AttachmentTitle>{transfer().file_name}</AttachmentTitle>
-                                          <AttachmentDescription>
-                                            {formatBytes(transfer().bytes_total)} ·{" "}
-                                            {transferLabel(transfer(), t)}
-                                            <span classList={{ invisible: !moving() }}>
-                                              {" · "}
-                                              {percent()}%
-                                            </span>
-                                          </AttachmentDescription>
-                                          {/* The track stays mounted and only its ink hides:
+                                        <ContextMenuTrigger class="contents">
+                                          <Attachment
+                                            state={attachmentState(transfer().state)}
+                                            class="max-w-[min(22rem,80%)] cursor-pointer"
+                                            // Only a received, finished file is worth opening: the
+                                            // sender's copy is already theirs, and a file still
+                                            // moving cannot be handed to another app.
+                                            role={openable ? "button" : undefined}
+                                            tabindex={openable ? 0 : undefined}
+                                            onClick={() => {
+                                              if (openable)
+                                                void engine.openReceivedTransfer(
+                                                  transfer().transfer_id,
+                                                );
+                                            }}
+                                            onKeyDown={(event) => {
+                                              if (!openable) return;
+                                              if (event.key !== "Enter" && event.key !== " ")
+                                                return;
+                                              event.preventDefault();
+                                              void engine.openReceivedTransfer(
+                                                transfer().transfer_id,
+                                              );
+                                            }}
+                                          >
+                                            <AttachmentMedia>
+                                              {(() => {
+                                                const Icon = fileKind(transfer().file_name).icon;
+                                                return <Icon size={18} aria-hidden="true" />;
+                                              })()}
+                                            </AttachmentMedia>
+                                            <AttachmentContent>
+                                              <AttachmentTitle>
+                                                {transfer().file_name}
+                                              </AttachmentTitle>
+                                              <AttachmentDescription>
+                                                {formatBytes(transfer().bytes_total)} ·{" "}
+                                                {transferLabel(transfer(), t)}
+                                                <span classList={{ invisible: !moving() }}>
+                                                  {" · "}
+                                                  {percent()}%
+                                                </span>
+                                              </AttachmentDescription>
+                                              {/* The track stays mounted and only its ink hides:
                                   unmounting it mid-batch collapses the card and
                                   makes the scrollbar jump. */}
-                                          <span
-                                            class="mt-1 block h-1 w-full overflow-hidden rounded-full bg-muted"
-                                            classList={{ invisible: !moving() }}
-                                            aria-hidden={!moving()}
-                                          >
-                                            <span
-                                              class="block h-full rounded-full bg-primary"
-                                              style={{ width: `${percent()}%` }}
-                                            />
-                                          </span>
-                                          <Show when={transfer().state === "failed"}>
-                                            <span class="text-label text-destructive">
-                                              {failureReason(
-                                                transfer().error_code,
-                                                locale(),
-                                                transfer().error_message ?? t("chat.errorGeneric"),
-                                              )}
-                                            </span>
-                                          </Show>
-                                        </AttachmentContent>
-                                      </Attachment>
+                                              <span
+                                                class="mt-1 block h-1 w-full overflow-hidden rounded-full bg-muted"
+                                                classList={{ invisible: !moving() }}
+                                                aria-hidden={!moving()}
+                                              >
+                                                <span
+                                                  class="block h-full rounded-full bg-primary"
+                                                  style={{ width: `${percent()}%` }}
+                                                />
+                                              </span>
+                                              <Show when={transfer().state === "failed"}>
+                                                <span class="text-label text-destructive">
+                                                  {failureReason(
+                                                    transfer().error_code,
+                                                    locale(),
+                                                    transfer().error_message ??
+                                                      t("chat.errorGeneric"),
+                                                  )}
+                                                </span>
+                                              </Show>
+                                            </AttachmentContent>
+                                          </Attachment>
+                                        </ContextMenuTrigger>
+                                        <ContextMenuPortal>
+                                          <ContextMenuContent>
+                                            <ContextMenuItem
+                                              onClick={() => void revealFile(transfer())}
+                                            >
+                                              {t("transfers.menuReveal")}
+                                            </ContextMenuItem>
+                                            <ContextMenuItem
+                                              variant="destructive"
+                                              onClick={() => setDeleteOf(transfer())}
+                                            >
+                                              {t("transfers.menuDelete")}
+                                            </ContextMenuItem>
+                                            <ContextMenuSeparator />
+                                            <ContextMenuItem
+                                              onClick={() => setDetailsOf(transfer())}
+                                            >
+                                              {t("transfers.menuDetails")}
+                                            </ContextMenuItem>
+                                            <ContextMenuItem
+                                              disabled={forwardTargets(transfer()).length === 0}
+                                              onClick={() => setForwardOf(transfer())}
+                                            >
+                                              {t("transfers.menuForward")}
+                                            </ContextMenuItem>
+                                          </ContextMenuContent>
+                                        </ContextMenuPortal>
+                                      </ContextMenu>
                                       <div
                                         class="flex flex-wrap items-center gap-2 text-label text-muted-foreground"
                                         classList={{
@@ -797,6 +893,103 @@ export function ChatWorkspace(props: {
           </div>
         </div>
       </Show>
+      {/* Details, delete and forward live outside the timeline so the list
+          keeps its own scroll position while a dialog is open. */}
+      <Dialog
+        open={detailsOf() !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailsOf(null);
+        }}
+        title={t("transfers.detailsTitle")}
+      >
+        <Show when={detailsOf()}>
+          {(transfer) => (
+            <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-body-sm">
+              <dt class="text-muted-foreground">{t("transfers.detailsFile")}</dt>
+              <dd class="break-all">{transfer().file_name}</dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsSize")}</dt>
+              <dd class="font-mono">{formatBytes(transfer().bytes_total)}</dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsDirection")}</dt>
+              <dd>
+                {transfer().direction === "send"
+                  ? t("transfers.sendDirection")
+                  : t("transfers.receiveDirection")}
+              </dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsPeer")}</dt>
+              <dd>{displayName(transfer().device_id, transfer().device_name)}</dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsState")}</dt>
+              <dd>{transferLabel(transfer(), t)}</dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsCreated")}</dt>
+              <dd class="font-mono">{formatClock(transfer().created_at_ms, locale())}</dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsUpdated")}</dt>
+              <dd class="font-mono">{formatClock(transfer().updated_at_ms, locale())}</dd>
+              <dt class="text-muted-foreground">{t("transfers.detailsTransferId")}</dt>
+              <dd class="font-mono text-xs break-all">{transfer().transfer_id}</dd>
+            </dl>
+          )}
+        </Show>
+      </Dialog>
+
+      <Dialog
+        open={deleteOf() !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteOf(null);
+        }}
+        title={t("transfers.deleteTitle")}
+        description={t("transfers.deleteBody", {
+          name: deleteOf()?.file_name ?? "",
+        })}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteOf(null)}>
+              {t("transfers.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const target = deleteOf();
+                if (target) void deleteFile(target);
+              }}
+            >
+              {t("transfers.deleteConfirm")}
+            </Button>
+          </>
+        }
+      />
+
+      <Dialog
+        open={forwardOf() !== null}
+        onOpenChange={(open) => {
+          if (!open) setForwardOf(null);
+        }}
+        title={t("transfers.forwardTitle")}
+        description={t("transfers.forwardBody", {
+          name: forwardOf()?.file_name ?? "",
+        })}
+      >
+        <Show
+          when={forwardOf()}
+          fallback={<p class="text-body-sm text-muted-foreground">{t("transfers.forwardEmpty")}</p>}
+        >
+          {(transfer) => (
+            <ul class="flex flex-col gap-1">
+              <For each={forwardTargets(transfer())}>
+                {(peer) => (
+                  <li>
+                    <Button
+                      variant="ghost"
+                      class="w-full justify-start"
+                      onClick={() => void forwardFile(transfer(), peer.device_id)}
+                    >
+                      {displayName(peer.device_id, peer.name)}
+                    </Button>
+                  </li>
+                )}
+              </For>
+            </ul>
+          )}
+        </Show>
+      </Dialog>
     </section>
   );
 }

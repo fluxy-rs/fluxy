@@ -27,6 +27,13 @@ if (!window.matchMedia) {
   });
 }
 
+// jsdom has no layout, so it ships no scrollIntoView. The context menu
+// scrolls the highlighted item into view as the pointer or the keyboard
+// moves, which throws without this stub.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 if (!globalThis.ResizeObserver) {
   class ResizeObserverStub {
     observe() {}
