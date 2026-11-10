@@ -2834,6 +2834,98 @@ impl TransferRuntime {
     /// Path a finished receive ended up at: the batch sub-directory when the
     /// offer carried one, otherwise the receive root. Used by the Android
     /// export step and by "open with the default app" on both platforms.
+    /// Where this transfer's file lives on this machine.
+    ///
+    /// A receive owns a copy under the receive root; a send points at the file
+    /// the user picked, still registered in `files`. Both are needed by the
+    /// card's context menu, which is why this resolves rather than stores.
+    fn local_path(&self, transfer_id: Uuid) -> Result<PathBuf, IpcError> {
+        let record = self.record(transfer_id)?;
+        let path = match record.direction {
+            TransferDirection::Receive => self.received_path(&record),
+            TransferDirection::Send => {
+                let plan = lock(&record.source).clone();
+                plan.and_then(|plan| {
+                    lock(&self.files)
+                        .values()
+                        .find(|file| file.handle == plan.handle)
+                        .map(|file| PathBuf::from(&file.source_key))
+                })
+            }
+        };
+        match path.filter(|path| path.exists()) {
+            Some(path) => Ok(path),
+            None => Err(IpcError {
+                code: "file_access".into(),
+                code_number: 3001,
+                message: "the file for this transfer is no longer on disk".into(),
+                retryable: false,
+            }),
+        }
+    }
+
+    /// Show the transfer's file in the platform's file manager.
+    pub fn reveal(&self, transfer_id: &str) -> Result<(), IpcError> {
+        #[cfg(target_os = "android")]
+        {
+            let _ = transfer_id;
+            return Err(IpcError {
+                code: "unsupported".into(),
+                code_number: 3001,
+                message: "showing a file in a folder is a desktop action".into(),
+                retryable: false,
+            });
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let path = self.local_path(parse_uuid(transfer_id, "transfer")?)?;
+            let mut command = if cfg!(target_os = "windows") {
+                let mut command = std::process::Command::new("explorer");
+                command.arg(format!("/select,{}", path.display()));
+                command
+            } else if cfg!(target_os = "macos") {
+                let mut command = std::process::Command::new("open");
+                command.arg("-R").arg(&path);
+                command
+            } else {
+                let mut command = std::process::Command::new("xdg-open");
+                command.arg(path.parent().unwrap_or(&path));
+                command
+            };
+            command.spawn().map(|_| ()).map_err(|error| IpcError {
+                code: "file_access".into(),
+                code_number: 3001,
+                message: format!("cannot open a file manager: {error}"),
+                retryable: false,
+            })
+        }
+    }
+
+    /// Delete the transfer's file from this machine.
+    ///
+    /// For a receive that is the copy under the receive root; for a send it is
+    /// the file the user picked, which is why the card asks before calling this.
+    pub fn delete_file(&self, transfer_id: &str) -> Result<(), IpcError> {
+        let path = self.local_path(parse_uuid(transfer_id, "transfer")?)?;
+        std::fs::remove_file(&path).map_err(|error| IpcError {
+            code: "file_access".into(),
+            code_number: 3001,
+            message: format!("cannot delete {}: {error}", path.display()),
+            retryable: false,
+        })
+    }
+
+    /// Send the same file again, to a different device.
+    pub async fn forward(
+        self: &Arc<Self>,
+        transfer_id: &str,
+        device_id: &str,
+    ) -> Result<Vec<TransferSummary>, IpcError> {
+        let path = self.local_path(parse_uuid(transfer_id, "transfer")?)?;
+        let file = self.register_file(&path.to_string_lossy())?;
+        self.start_transfers(device_id, &[file.file_id]).await
+    }
+
     fn received_path(&self, record: &Arc<TransferRecord>) -> Option<PathBuf> {
         let offer = lock(&record.offer).clone()?;
         let root = match offer.sink_dir {

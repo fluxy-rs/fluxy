@@ -329,6 +329,24 @@ export async function listTransfers(): Promise<TransferSummary[]> {
   return unwrap(await commands.transfersList());
 }
 
+/// Show a finished transfer's file in the platform's file manager.
+export async function revealTransfer(transferId: string): Promise<void> {
+  unwrap(await commands.transferReveal(transferId));
+}
+
+/// Delete the local file behind a finished transfer.
+export async function deleteTransferFile(transferId: string): Promise<void> {
+  unwrap(await commands.transferDeleteFile(transferId));
+}
+
+/// Send the same file to another trusted device.
+export async function forwardTransfer(
+  transferId: string,
+  deviceId: string,
+): Promise<TransferSummary[]> {
+  return unwrap(await commands.transferForward(transferId, deviceId));
+}
+
 export async function subscribeEvents(
   onEvent: (event: AppEventEnvelope) => void,
 ): Promise<SubscriptionInfo> {

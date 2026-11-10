@@ -797,6 +797,34 @@ pub fn transfer_control(
     state.transfer.control(&transfer_id, action)
 }
 
+/// Show a finished transfer's file in the platform's file manager.
+#[tauri::command]
+#[specta::specta]
+pub fn transfer_reveal(state: State<'_, AppState>, transfer_id: String) -> Result<(), IpcError> {
+    state.transfer.reveal(&transfer_id)
+}
+
+/// Delete a finished transfer's file from this machine.
+#[tauri::command]
+#[specta::specta]
+pub fn transfer_delete_file(
+    state: State<'_, AppState>,
+    transfer_id: String,
+) -> Result<(), IpcError> {
+    state.transfer.delete_file(&transfer_id)
+}
+
+/// Send an already-completed file to another trusted device.
+#[tauri::command]
+#[specta::specta]
+pub async fn transfer_forward(
+    state: State<'_, AppState>,
+    transfer_id: String,
+    device_id: String,
+) -> Result<Vec<TransferSummary>, IpcError> {
+    state.transfer.forward(&transfer_id, &device_id).await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn transfers_list(state: State<'_, AppState>) -> Result<Vec<TransferSummary>, IpcError> {
@@ -855,6 +883,9 @@ pub fn specta_builder() -> Builder<Wry> {
             transfer_respond,
             transfer_control,
             transfer_open,
+            transfer_reveal,
+            transfer_delete_file,
+            transfer_forward,
             device_set_auto_accept,
             transfers_list
         ])
