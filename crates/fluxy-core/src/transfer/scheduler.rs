@@ -20,7 +20,7 @@ use super::manifest::Manifest;
 /// number of requests the receiver keeps outstanding.
 pub const DEFAULT_STREAMS: usize = 8;
 /// Default requests in flight per window unit.
-pub const DEFAULT_WINDOW_PER_STREAM: usize = 2;
+pub const DEFAULT_WINDOW_PER_STREAM: usize = 4;
 /// Default retry budget per chunk.
 pub const DEFAULT_MAX_RETRIES: u32 = 3;
 /// Default per-chunk timeout from the transfer plan.

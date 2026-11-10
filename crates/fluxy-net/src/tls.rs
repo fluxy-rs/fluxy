@@ -174,13 +174,15 @@ fn transport_config() -> TransportConfig {
     let mut config = TransportConfig::default();
     // The windows have to cover the in-flight window of a fast LAN transfer: a
     // transfer keeps all of its chunks on one stream, and the receiver's request
-    // window is up to 16 chunks of 4 MiB, so a stream window smaller than that
-    // stalls the sender at every acknowledgement.
+    // window is up to 32 chunks of 4 MiB. A window smaller than the request
+    // window stalls the sender at every acknowledgement and turns the transfer
+    // into a sequence of round trips, which is exactly what a 4 MiB chunk on a
+    // 50 ms path cannot afford.
     config
         .max_concurrent_bidi_streams(VarInt::from_u32(16))
         .max_concurrent_uni_streams(VarInt::from_u32(32))
-        .stream_receive_window(VarInt::from_u32(16 * 1024 * 1024))
-        .receive_window(VarInt::from_u32(128 * 1024 * 1024))
+        .stream_receive_window(VarInt::from_u32(64 * 1024 * 1024))
+        .receive_window(VarInt::from_u32(256 * 1024 * 1024))
         // Loopback and most LANs carry 1500-byte frames; 1452 keeps the packet
         // under that once QUIC and UDP headers are counted. Path MTU discovery
         // raises or lowers this once the handshake completes - measured on

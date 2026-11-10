@@ -429,7 +429,7 @@ pub async fn send_file(
     );
     let Incoming { mut send, recv } = router_for(connection).claim(transfer_id, control).await?;
     tracing::info!(%transfer_id, "sender: the receiver named this transfer");
-    serve_on_stream(
+    let served = serve_on_stream(
         &mut send,
         recv,
         identity,
@@ -439,7 +439,20 @@ pub async fn send_file(
         source,
         control,
     )
-    .await
+    .await;
+    // The counters that decide whether the next release is faster: cwnd and
+    // min_rtt say how much the transport allowed in flight, lost_packets and
+    // congestion_events say whether the path was the limit or the sender was.
+    let path = connection.stats().path;
+    tracing::info!(
+        rtt_ms = path.rtt.as_millis() as u64,
+        cwnd = path.cwnd,
+        lost_packets = path.lost_packets,
+        sent_packets = path.sent_packets,
+        congestion_events = path.congestion_events,
+        "transfer path state at the end"
+    );
+    served
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1001,7 +1014,9 @@ async fn pull_file(
                             // A tampered or mismatched chunk is rejected and
                             // re-requested; the transfer fails only when the
                             // retry budget for that block is exhausted.
+                            let hash_started = Instant::now();
                             let hash_ok = blake3::hash(&payload).as_bytes() == &header.payload_hash;
+                            let hash_ms = hash_started.elapsed().as_millis() as u64;
                             if !hash_ok || header.verify(&manifest, &payload).is_err() {
                                 scheduler.on_chunk_rejected(index, Instant::now());
                                 if scheduler.has_failed() {
@@ -1022,7 +1037,9 @@ async fn pull_file(
                             // bytes are the same, but the byte count must not grow.
                             let fresh = !scheduler.bitmap().is_set(index as usize);
                             let offset = index as u64 * manifest.block_size as u64;
+                            let write_started = Instant::now();
                             sink.write_at(offset, &payload)?;
+                            let write_ms = write_started.elapsed().as_millis() as u64;
                             scheduler.on_chunk_received(index, Instant::now());
                             checkpoint.mark_received(index);
                             if fresh {
@@ -1037,6 +1054,7 @@ async fn pull_file(
                                     resume.store.save_progress(checkpoint)?;
                                 }
                             }
+                            let ack_started = Instant::now();
                             send_ack(
                                 &mut control_send,
                                 identity,
@@ -1059,6 +1077,12 @@ async fn pull_file(
                                 &mut scheduler,
                             )
                             .await?;
+                            // Per-chunk cost is the first thing to check when a
+                            // transfer is slower than the link: if this line shows
+                            // milliseconds while chunks arrive hundreds of
+                            // milliseconds apart, the receiver is not the limit.
+                            let ack_ms = ack_started.elapsed().as_millis() as u64;
+                            tracing::debug!(index, hash_ms, write_ms, ack_ms, "chunk consumed");
                         }
                     }
                 }
