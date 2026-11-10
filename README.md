@@ -9,6 +9,10 @@ transfer without an account, cloud relay, or persisted chat history.
 This repository contains the v0.2.0 desktop implementation and the Android
 v0.3.0 track.
 
+> **Android is a preview.** A 0.2.x release does attach APKs, but the Android
+> client is still on the 0.3.0 track: it is not feature-complete, nothing about
+> its behaviour is guaranteed, and it is there to try rather than to rely on.
+
 ## Fluxy 0.2 vs 0.1.x
 
 0.2 is a rewrite of the transfer path, not a restyle of it. 0.1.x was a Tauri 1
