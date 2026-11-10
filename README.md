@@ -7,6 +7,91 @@ transfer without an account, cloud relay, or persisted chat history.
 This repository contains the v0.2.0 desktop implementation and the Android
 v0.3.0 track.
 
+## Fluxy 0.2 vs 0.1.x
+
+0.2 is a rewrite of the transfer path, not a restyle of it. 0.1.x was a Tauri 1
+app with a single Rust crate that served the far device a web page over plain
+HTTP; 0.2 splits the engine into crates and moves the wire to QUIC. The two do
+not interoperate, because 0.1.x's HTTP upload and 0.2's QUIC session share
+neither transport nor framing, so both ends must be on the same line.
+
+### Where 0.2 is better
+
+- **The engine is a library, not a window.** 0.1.x's transfer code sat behind
+  Tauri commands in `src-tauri/src/server/`, reachable only by opening the app.
+  0.2 puts frames in `fluxy-proto`, transport and discovery in `fluxy-net`,
+  offers, checkpoints and path rules in `fluxy-core`, and app state in
+  `fluxy-app`. `fluxy-cli` drives that engine headlessly, and `tools/udp-chaos`
+  injects loss, reordering and stalls against it in tests.
+
+- **Encrypted and authenticated by construction.** A 0.2 session is QUIC over
+  TLS 1.3 with a self-signed certificate per device, pinned at pairing.
+  Discovery records are hints only: `pair` derives a six-digit code from both
+  device IDs, nonces and certificate fingerprints, writes a trust pin only once
+  both sides confirm, and refuses a device whose certificate, key or ID has
+  changed since it was paired. 0.1.x served unencrypted HTTP, authenticated by
+  a single-use token in the QR URL, so whoever held that link had the same
+  access as the phone it was shown to, and the bytes on the wire were readable.
+
+- **A transfer survives the network, not just the connection.** Files arrive in
+  4 MiB chunks, each verified with BLAKE3 and the whole file checked against
+  its root hash, and the receiver writes a checkpoint per chunk, so a pause, a
+  crash or a restart resumes from the missing blocks. 0.1.x streamed one HTTP
+  POST per file: a dropped connection meant sending that file again from zero.
+
+- **Devices find each other instead of being handed an address.** mDNS
+  (`_fluxy._udp.local.`) with a UDP broadcast and gateway-probe fallback, and
+  an automatic adapter choice that avoids VPN and hypervisor interfaces and
+  re-checks every two seconds. 0.1.x printed a URL for the phone to scan, and
+  an address that had moved meant nothing connected.
+
+- **Folders arrive as folders, and paths are checked first.** A batch carries
+  the tree, empty directories included, and every relative path is validated
+  before a byte is written: no absolute paths, traversal, reserved device
+  names, alternate data streams, control or bidirectional characters, or
+  case-only duplicates, and symbolic links are refused rather than followed.
+  0.1.x moved one file at a time through the browser.
+
+- **Chat and clipboard share the session.** Text messages and clipboard values
+  travel over the same authenticated connection, with a per-device receive
+  policy and a guarantee that a value which arrived from a peer is never sent
+  back. 0.1.x had neither.
+
+### Where 0.1.x is still better
+
+- **Nothing to install on the far end.** 0.1.x's phone story was: scan the code
+  in any browser, pick files, upload. 0.2 needs Fluxy on both devices, and the
+  Android client is still on the 0.3.0 track, so a guest's phone cannot send
+  you a file without installing an app first.
+
+- **It updates itself.** 0.1.x shipped Tauri's updater, with a release
+  endpoint and a minisign key, so a new version arrived by itself. 0.2 has no
+  updater plugin: upgrading means downloading and installing again, over
+  unsigned installers.
+
+- **It could be poked with `curl`.** The 0.1.x surface was `GET /connect`,
+  `GET /files`, `GET /download/<path>` and `POST /upload`, with JSON around it,
+  so a shell could exercise it and a third-party client was an afternoon's
+  work. 0.2's wire is encrypted QUIC carrying protobuf: you use the CLI, a
+  packet capture or the chaos harness, and another client means reading
+  [docs/PROTOCOL.md](docs/PROTOCOL.md) and linking a TLS stack.
+
+- **It is a smaller thing to build and audit.** One crate on Tauri 1 and Salvo,
+  against a workspace that links QUIC, rustls, prost and BLAKE3 and asks for
+  Rust 1.85 with edition 2024. Both the clean build and the dependency surface
+  `cargo deny` reviews are larger now.
+
+- **It has more miles on it, and less ceremony.** 0.1.x had seventeen
+  releases behind it, while 0.2.0 is an alpha with documented limits in
+  [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). Pairing is also stricter:
+  reinstalling a device changes its certificate, so it has to be paired again
+  instead of quietly reconnecting.
+
+The 0.1.x line is not deleted. It is kept on the `0.1.X` branch of
+[fluxy-rs/fluxy-0.2](https://github.com/fluxy-rs/fluxy-0.2), with its releases
+still online, for anyone who needs the browser workflow. This repository's
+`main` is 0.2, and development continues here.
+
 ## Documentation
 
 | Document | What it covers |
