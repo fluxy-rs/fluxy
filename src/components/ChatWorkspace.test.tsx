@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { ChatWorkspace } from "./ChatWorkspace";
 import { makeConversation, makeMessage, makeSnapshot, makeTransfer } from "../test/fixtures";
+import { toast } from "../ui";
 import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
@@ -65,6 +66,28 @@ describe("ChatWorkspace", () => {
     // Mounting used to select the first conversation, which navigated the
     // route away from the device the URL named.
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("says why a received file could not be opened", async () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ direction: "receive", state: "completed" })],
+    });
+    const engine = createMockEngine({
+      snapshot: () => snapshot,
+      openReceivedTransfer: vi.fn(async () => {
+        throw new Error("the received file is gone");
+      }),
+    });
+    const reported = vi.spyOn(toast, "error").mockImplementation(() => "");
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    fireEvent.click(screen.getByText("report.bin"));
+
+    await waitFor(() =>
+      expect(reported).toHaveBeenCalledWith("无法打开文件：the received file is gone"),
+    );
+    reported.mockRestore();
   });
 
   it("renders the first conversation and its messages", () => {
