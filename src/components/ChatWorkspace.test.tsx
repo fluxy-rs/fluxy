@@ -6,6 +6,22 @@ import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
 describe("ChatWorkspace", () => {
+  it("opens a received file when its card is clicked", () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ direction: "receive", state: "completed" })],
+    });
+    const engine = createMockEngine({
+      snapshot: () => snapshot,
+      openReceivedTransfer: vi.fn(async () => {}),
+    });
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    fireEvent.click(screen.getByText("report.bin"));
+
+    expect(engine.openReceivedTransfer).toHaveBeenCalledWith("transfer-1");
+  });
+
   it("offers the file actions on a completed transfer", async () => {
     const snapshot = makeSnapshot({
       chat: { conversations: [makeConversation()], messages: [] },
