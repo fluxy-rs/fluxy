@@ -164,6 +164,12 @@ export const commands = {
 	 *  the runtime decides whether it is openable and where it sits.
 	 */
 	transferOpen: (transferId: string) => typedError<null, IpcError>(__TAURI_INVOKE("transfer_open", { transferId })),
+	/**  Show a finished transfer's file in the platform's file manager. */
+	transferReveal: (transferId: string) => typedError<null, IpcError>(__TAURI_INVOKE("transfer_reveal", { transferId })),
+	/**  Delete a finished transfer's file from this machine. */
+	transferDeleteFile: (transferId: string) => typedError<null, IpcError>(__TAURI_INVOKE("transfer_delete_file", { transferId })),
+	/**  Send an already-completed file to another trusted device. */
+	transferForward: (transferId: string, deviceId: string) => typedError<TransferSummary[], IpcError>(__TAURI_INVOKE("transfer_forward", { transferId, deviceId })),
 	/**
 	 *  Set or clear a device's automatic acceptance of incoming files.
 	 * 

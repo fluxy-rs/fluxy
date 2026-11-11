@@ -147,8 +147,14 @@ describe("i18n catalog", () => {
     // The catalog is the only place that may hold translated copy; source files
     // outside it are written in English, so any CJK character is a hardcoded
     // string that would ignore the locale.
+    // `ui/context-menu` and `ui/scroll-arrows` are copied verbatim from
+    // neut/ui, which documents itself in Chinese. Those are comments, not
+    // interface copy: every label those components render is passed in by a
+    // caller and therefore lives in this catalog anyway.
+    const vendored = ["ui/context-menu/", "ui/scroll-arrows/"];
     const offenders = sources
       .filter(({ file }) => !file.startsWith("i18n/"))
+      .filter(({ file }) => !vendored.some((prefix) => file.startsWith(prefix)))
       .filter(({ text }) => /[\u4e00-\u9fff]/.test(text))
       .map(({ file }) => file);
     expect(offenders).toEqual([]);

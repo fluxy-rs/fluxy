@@ -6,6 +6,34 @@ import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
 describe("ChatWorkspace", () => {
+  it("offers the file actions on a completed transfer", async () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ state: "completed" })],
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    fireEvent.contextMenu(screen.getByText("report.bin"));
+
+    expect(await screen.findByRole("menuitem", { name: "显示传输详情" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "在目录中显示" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "删除此文件" })).toBeInTheDocument();
+  });
+
+  it("shows no menu while a file is still moving", () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ state: "transferring" })],
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    fireEvent.contextMenu(screen.getByText("report.bin"));
+
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
   it("shows the rate next to the progress of a moving transfer", () => {
     const snapshot = makeSnapshot({
       chat: { conversations: [makeConversation()], messages: [] },

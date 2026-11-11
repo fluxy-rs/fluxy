@@ -111,6 +111,9 @@ export function createMockEngine(options: MockEngineOptions = {}): EngineContext
     clearDrop: vi.fn(),
     respondTransfer: vi.fn(async (): Promise<TransferSummary> => makeTransfer()),
     controlTransfer: vi.fn(async (): Promise<TransferSummary> => makeTransfer()),
+    revealTransfer: vi.fn(async () => {}),
+    deleteTransferFile: vi.fn(async () => {}),
+    forwardTransfer: vi.fn(async (): Promise<TransferSummary[]> => [makeTransfer()]),
     clearTransferError: vi.fn(),
     clearPairingNotice: vi.fn(),
   };

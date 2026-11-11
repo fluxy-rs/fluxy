@@ -33,6 +33,9 @@ import {
   cancelPairing as cancelPairingCommand,
   confirmPairing as confirmPairingCommand,
   controlTransfer as controlTransferCommand,
+  deleteTransferFile as deleteTransferFileCommand,
+  forwardTransfer as forwardTransferCommand,
+  revealTransfer as revealTransferCommand,
   getStateSnapshot,
   isDesktopRuntime,
   openChat as openChatCommand,
@@ -210,6 +213,12 @@ export type EngineContextValue = {
   openReceivedTransfer: (transferId: string) => Promise<void>;
   respondTransfer: (transferId: string, accepted: boolean) => Promise<TransferSummary>;
   controlTransfer: (transferId: string, action: TransferAction) => Promise<TransferSummary>;
+  /// Show a finished transfer's file in the platform's file manager.
+  revealTransfer: (transferId: string) => Promise<void>;
+  /// Delete the local file behind a finished transfer.
+  deleteTransferFile: (transferId: string) => Promise<void>;
+  /// Send the same file to another trusted device.
+  forwardTransfer: (transferId: string, deviceId: string) => Promise<TransferSummary[]>;
   clearTransferError: () => void;
   clearPairingNotice: () => void;
 };
@@ -1203,6 +1212,20 @@ export function EngineProvider(props: ParentProps) {
     }
   }
 
+  async function revealTransfer(transferId: string): Promise<void> {
+    await revealTransferCommand(transferId);
+  }
+
+  async function deleteTransferFile(transferId: string): Promise<void> {
+    await deleteTransferFileCommand(transferId);
+  }
+
+  async function forwardTransfer(transferId: string, deviceId: string): Promise<TransferSummary[]> {
+    const started = await forwardTransferCommand(transferId, deviceId);
+    for (const summary of started) upsertTransfer(summary);
+    return started;
+  }
+
   function clearTransferError() {
     setTransferError(null);
   }
@@ -1299,6 +1322,9 @@ export function EngineProvider(props: ParentProps) {
         openReceivedTransfer,
         respondTransfer,
         controlTransfer,
+        revealTransfer,
+        deleteTransferFile,
+        forwardTransfer,
         clearTransferError,
         clearPairingNotice,
       }}
