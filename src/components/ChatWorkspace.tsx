@@ -227,7 +227,11 @@ export function ChatWorkspace(props: {
     const listener = (event: MediaQueryListEvent) => setCompact(event.matches);
     query.addEventListener("change", listener);
     onCleanup(() => query.removeEventListener("change", listener));
-    if (compact()) return;
+    // Only a list with nothing open picks a thread for the user. A route
+    // that already names a device is an instruction, not a default: opening
+    // the first conversation here used to replace it and send the deep link
+    // to whoever happened to be at the top of the list.
+    if (compact() || selectedId()) return;
     const first = conversations()[0];
     if (first) openConversation(first.device_id);
   });
