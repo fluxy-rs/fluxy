@@ -151,7 +151,7 @@ describe("i18n catalog", () => {
     // neut/ui, which documents itself in Chinese. Those are comments, not
     // interface copy: every label those components render is passed in by a
     // caller and therefore lives in this catalog anyway.
-    const vendored = ["ui/context-menu/", "ui/scroll-arrows/"];
+    const vendored = ["ui/context-menu/", "ui/popover/", "ui/scroll-arrows/"];
     const offenders = sources
       .filter(({ file }) => !file.startsWith("i18n/"))
       .filter(({ file }) => !vendored.some((prefix) => file.startsWith(prefix)))

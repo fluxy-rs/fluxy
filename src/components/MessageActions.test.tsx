@@ -33,11 +33,11 @@ describe("MessageActions", () => {
     expect(screen.getByRole("menuitem", { name: "删除" })).toBeInTheDocument();
   });
 
-  it("sits above the pressed message when there is room", () => {
+  it("renders nothing while closed", () => {
     render(() => (
       <I18nProvider>
         <MessageActions
-          open
+          open={false}
           anchor={{ x: 200, y: 600 }}
           onClose={() => {}}
           label="消息操作"
@@ -46,10 +46,6 @@ describe("MessageActions", () => {
       </I18nProvider>
     ));
 
-    const menu = screen.getByRole("menu", { name: "消息操作" }) as HTMLElement;
-    // jsdom reports a zero-height viewport, so the flip decision has to be
-    // read from the element rather than from a rendered position.
-    expect(Number.parseFloat(menu.style.top)).toBeGreaterThanOrEqual(0);
-    expect(Number.parseFloat(menu.style.left)).toBeGreaterThanOrEqual(0);
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 });
