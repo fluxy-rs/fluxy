@@ -2990,21 +2990,64 @@ impl TransferRuntime {
 
         #[cfg(not(target_os = "android"))]
         {
+            // `cmd /C start` worked but flashed a console window, and a
+            // terminal appearing before the picture does not look like the
+            // user opened a file. ShellExecuteW is the API that double-click
+            // in Explorer ends up in, and it spawns nothing.
             #[cfg(target_os = "windows")]
-            let spawned = std::process::Command::new("cmd")
-                .args(["/C", "start", ""])
-                .arg(&path)
-                .spawn();
+            let spawned = Self::shell_open(&path);
 
             #[cfg(target_os = "macos")]
-            let spawned = std::process::Command::new("open").arg(&path).spawn();
+            let spawned = std::process::Command::new("open")
+                .arg(&path)
+                .spawn()
+                .map(|_| ());
 
             #[cfg(all(unix, not(target_os = "macos")))]
-            let spawned = std::process::Command::new("xdg-open").arg(&path).spawn();
+            let spawned = std::process::Command::new("xdg-open")
+                .arg(&path)
+                .spawn()
+                .map(|_| ());
 
-            spawned
-                .map(|_| ())
-                .map_err(|error| crate::contract::IpcError::internal(error.to_string()))
+            spawned.map_err(|error| crate::contract::IpcError::internal(error.to_string()))
+        }
+    }
+
+    /// Hand a path to whatever Windows associates with it.
+    ///
+    /// The predecessor spawned `cmd /C start`, which put a console window on
+    /// screen for a frame before the viewer appeared.
+    #[cfg(target_os = "windows")]
+    fn shell_open(path: &std::path::Path) -> std::io::Result<()> {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::UI::Shell::ShellExecuteW;
+        use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+        fn wide(value: &std::ffi::OsStr) -> Vec<u16> {
+            value.encode_wide().chain(std::iter::once(0)).collect()
+        }
+
+        let verb = wide(std::ffi::OsStr::new("open"));
+        let file = wide(path.as_os_str());
+        // SAFETY: every string is NUL-terminated and outlives the call.
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                verb.as_ptr(),
+                file.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                SW_SHOWNORMAL,
+            )
+        };
+        // ShellExecuteW reports success as anything above 32.
+        if result as isize > 32 {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(format!(
+                "ShellExecuteW returned {}",
+                result as isize
+            )))
         }
     }
 
