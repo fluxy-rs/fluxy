@@ -12,9 +12,10 @@
     "serve": "vite preview",
     "tauri": "tauri",
     "dev": "tauri dev",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && node scripts/check-code-limits.mjs",
     "format": "biome format --write .",
     "check:format": "biome format .",
+    "check:limits": "node scripts/check-code-limits.mjs",
     "check:security": "bun scripts/check-ui-security.mjs",
     "audit": "node scripts/security/audit.mjs",
     "check:docs": "node scripts/check-docs-links.mjs",
@@ -40,6 +41,7 @@
     "uqr": "^0.1.3"
   },
   "devDependencies": {
+    "@babel/parser": "^8.1.0",
     "@biomejs/biome": "^2.6.4",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.3.4",
