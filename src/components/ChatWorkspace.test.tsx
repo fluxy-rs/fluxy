@@ -7,6 +7,29 @@ import { createMockEngine } from "../test/mock-engine";
 import { renderWithEngine } from "../test/render";
 
 describe("ChatWorkspace", () => {
+  it("lets one message be selected after the menu asks for it", async () => {
+    const snapshot = makeSnapshot({
+      chat: {
+        conversations: [makeConversation()],
+        messages: [makeMessage({ text: "hello there" })],
+      },
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    const bubble = screen.getByText("hello there");
+
+    vi.useFakeTimers();
+    fireEvent.pointerDown(bubble, { pointerType: "touch", clientX: 10, clientY: 10 });
+    vi.advanceTimersByTime(500);
+    vi.useRealTimers();
+
+    fireEvent.click(await screen.findByRole("menuitem", { name: "选择文本" }));
+
+    const host = bubble.closest("[data-message-id]");
+    expect(host?.classList.contains("select-text")).toBe(true);
+  });
+
   it("offers the file actions on a completed transfer", async () => {
     const snapshot = makeSnapshot({
       chat: { conversations: [makeConversation()], messages: [] },

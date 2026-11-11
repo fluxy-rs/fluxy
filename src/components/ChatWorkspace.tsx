@@ -11,6 +11,7 @@ import {
 import {
   ChevronLeft,
   Copy,
+  TextSelect,
   Info,
   Share2,
   Trash2,
@@ -138,6 +139,9 @@ export function ChatWorkspace(props: {
   const [forwardTextOf, setForwardTextOf] = createSignal<string | null>(null);
   // Messages live in memory only, so hiding one may live there too.
   const [hiddenMessages, setHiddenMessages] = createSignal<readonly string[]>([]);
+  // One message at a time may be selected, and only because the user asked
+  // for it from the menu: selection is off everywhere else.
+  const [selectableMessage, setSelectableMessage] = createSignal<string | null>(null);
   const [forwardOf, setForwardOf] = createSignal<TransferSummary | null>(null);
   // A phone-shaped viewport cannot show a conversation list and a thread side by
   // side: 218px of list squeezed the messages into a letterbox. Compact mode
@@ -280,9 +284,35 @@ export function ChatWorkspace(props: {
         onSelect: () => void copyMessage(target.message),
       },
       forward(() => setForwardTextOf(target.message.text)),
+      {
+        label: t("chat.selectText"),
+        icon: TextSelect,
+        onSelect: () => selectMessageText(target.message),
+      },
       remove(() => setHiddenMessages([...hiddenMessages(), target.message.message_id])),
     ];
   };
+
+  /// Lets one message be selected, then selects it so the handles appear.
+  ///
+  /// Selection is disabled application-wide, so the class has to be in place
+  /// before the range is built - the browser will not select text it is told
+  /// is unselectable, and the style change lands on the next frame.
+  function selectMessageText(message: ChatMessageView) {
+    setSelectableMessage(message.message_id);
+    requestAnimationFrame(() => {
+      const element = document.querySelector<HTMLElement>(
+        `[data-message-id="${message.message_id}"]`,
+      );
+      if (!element) return;
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const selection = window.getSelection();
+      if (!selection) return;
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
+  }
 
   async function copyMessage(message: ChatMessageView) {
     try {
@@ -579,6 +609,12 @@ export function ChatWorkspace(props: {
         class="relative grid min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card"
         classList={{
           "grid-cols-[minmax(15rem,18.75rem)_minmax(0,1fr)]": !compact(),
+        }}
+        onPointerDown={(event: PointerEvent) => {
+          const id = selectableMessage();
+          if (!id) return;
+          const target = event.target as HTMLElement | null;
+          if (!target?.closest(`[data-message-id="${id}"]`)) setSelectableMessage(null);
         }}
         aria-label={t("chat.title")}
       >
@@ -919,6 +955,9 @@ export function ChatWorkspace(props: {
                               const message = () => text()!.message;
                               const sent = message().direction === "sent";
                               const openTextMenu = createLongPress((event) => {
+                                // A new menu means a new target: the previous
+                                // message gives its selection back.
+                                setSelectableMessage(null);
                                 setMenuAnchor(anchorOf(event));
                                 setActionsFor({ kind: "text", message: message() });
                               });
@@ -928,6 +967,11 @@ export function ChatWorkspace(props: {
                                     <MessageContent>
                                       <Bubble
                                         variant={sent ? "default" : "muted"}
+                                        data-message-id={message().message_id}
+                                        classList={{
+                                          "select-text":
+                                            selectableMessage() === message().message_id,
+                                        }}
                                         // Without these the WebView starts its own
                                         // text selection on a long press and shows a
                                         // system toolbar instead of this menu.

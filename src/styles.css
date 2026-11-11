@@ -592,5 +592,26 @@
   }
   body {
     font-family: var(--font-ui);
+    /* The app reads like an app, not a document: a drag across a
+       conversation must not smear a selection over every bubble. Text
+       fields keep their own rules, and a message opts back in through
+       `select-text` when the user asks for it. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Anything the user is entitled to select: inputs, and the explicit
+     opt-in used by "select text" and by copyable details. */
+  input,
+  textarea,
+  select,
+  [contenteditable="true"],
+  .select-text,
+  .select-text *,
+  pre,
+  code {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
