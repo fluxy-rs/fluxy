@@ -108,7 +108,13 @@ function PointerAnchor(props: { anchor: MenuAnchor | null }) {
     // The library builds these for exactly this: a press point standing in
     // for a trigger element. The cast is the popover context being narrower
     // than the positioner it feeds.
-    ctx.setReference(createVirtualElement({ x: anchor.x, y: anchor.y }) as unknown as Element);
+    const element = createVirtualElement({ x: anchor.x, y: anchor.y });
+    // The popover asks its reference whether a press landed inside it. A
+    // virtual element has no DOM, so answer no rather than not answering:
+    // a missing method makes the outside-press handler throw and the menu
+    // then never closes.
+    const reference = Object.assign(element, { contains: () => false });
+    ctx.setReference(reference as unknown as Element);
   });
 
   return null;

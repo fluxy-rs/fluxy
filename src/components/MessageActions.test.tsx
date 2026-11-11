@@ -33,6 +33,26 @@ describe("MessageActions", () => {
     expect(screen.getByRole("menuitem", { name: "删除" })).toBeInTheDocument();
   });
 
+  it("closes when the press lands outside the menu", () => {
+    const closed = vi.fn();
+
+    render(() => (
+      <I18nProvider>
+        <MessageActions
+          open
+          anchor={{ x: 200, y: 400 }}
+          onClose={closed}
+          label="消息操作"
+          actions={[{ label: "复制", icon: Copy, onSelect: () => {} }]}
+        />
+      </I18nProvider>
+    ));
+
+    fireEvent.pointerDown(document.body);
+
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
   it("renders nothing while closed", () => {
     render(() => (
       <I18nProvider>
