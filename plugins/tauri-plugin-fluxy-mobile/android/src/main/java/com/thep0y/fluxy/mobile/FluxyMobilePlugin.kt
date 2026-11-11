@@ -15,6 +15,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.net.Uri
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import java.io.File
@@ -367,9 +368,33 @@ class FluxyMobilePlugin(private val host: Activity) : Plugin(host) {
                 file,
             )
         }
+        val mime = host.contentResolver.getType(uri) ?: "*/*"
+
+        // An APK is not opened by an app, it is handed to the package
+        // installer - and the installer only runs for a caller that may
+        // install packages. Without the permission the installer starts and
+        // immediately closes, which reads as "the card does nothing". Send
+        // the user to the switch instead of failing silently, and let the
+        // next tap go through once it is on.
+        if (mime == "application/vnd.android.package-archive" &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !host.packageManager.canRequestPackageInstalls()
+        ) {
+            runCatching {
+                host.startActivity(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:" + host.packageName)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    },
+                )
+            }
+            invoke.reject("install_permission_required")
+            return
+        }
+
         runCatching {
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, host.contentResolver.getType(uri) ?: "*/*")
+                setDataAndType(uri, mime)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

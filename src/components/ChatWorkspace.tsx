@@ -180,7 +180,14 @@ export function ChatWorkspace(props: {
     try {
       await engine.openReceivedTransfer(transfer.transfer_id);
     } catch (cause) {
-      toast.error(t("chat.openFailed", { message: describe(cause) }));
+      const message = describe(cause);
+      // The installer refuses to start until the user lets Fluxy install
+      // apps; the plugin answers with a code so the copy stays here.
+      toast.error(
+        message.includes("install_permission_required")
+          ? t("chat.openNeedsInstallPermission")
+          : t("chat.openFailed", { message }),
+      );
     }
   }
 
