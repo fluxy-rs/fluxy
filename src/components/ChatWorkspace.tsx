@@ -10,6 +10,10 @@ import {
 } from "solid-js";
 import {
   ChevronLeft,
+  Copy,
+  Info,
+  Share2,
+  Trash2,
   Link2,
   MessageCircle,
   Paperclip,
@@ -50,6 +54,8 @@ import { formatBytes, formatClock, formatSpeed } from "../lib/format";
 import { fileKind } from "../lib/file-kind";
 import { failureReason } from "../lib/transfer-errors";
 import { TransferActions } from "./TransferActions";
+import { MessageActions, type MessageAction } from "./MessageActions";
+import { createLongPress } from "../lib/long-press";
 
 /// Sending a file from the conversation instead of the transfers page: the two
 /// belong together, and switching pages to attach something is the whole point of
@@ -121,6 +127,15 @@ export function ChatWorkspace(props: {
   // opens are held here rather than inside the message list.
   const [detailsOf, setDetailsOf] = createSignal<TransferSummary | null>(null);
   const [deleteOf, setDeleteOf] = createSignal<TransferSummary | null>(null);
+  // One menu, two kinds of target: a file card and a text bubble share the
+  // sheet but not their actions.
+  const [actionsFor, setActionsFor] = createSignal<
+    { kind: "file"; transfer: TransferSummary } | { kind: "text"; message: ChatMessageView } | null
+  >(null);
+  // Forwarding a text needs a destination just like forwarding a file does.
+  const [forwardTextOf, setForwardTextOf] = createSignal<string | null>(null);
+  // Messages live in memory only, so hiding one may live there too.
+  const [hiddenMessages, setHiddenMessages] = createSignal<readonly string[]>([]);
   const [forwardOf, setForwardOf] = createSignal<TransferSummary | null>(null);
   // A phone-shaped viewport cannot show a conversation list and a thread side by
   // side: 218px of list squeezed the messages into a letterbox. Compact mode
@@ -150,7 +165,10 @@ export function ChatWorkspace(props: {
   const selectedMessages = createMemo(() => {
     const peer = selected();
     if (!peer) return [];
-    return messages().filter((message) => message.device_id === peer.device_id);
+    const hidden = hiddenMessages();
+    return messages().filter(
+      (message) => message.device_id === peer.device_id && !hidden.includes(message.message_id),
+    );
   });
   /**
    * Text and files in one stream, ordered by when they started.
@@ -164,6 +182,11 @@ export function ChatWorkspace(props: {
   /// The peer it already reached is left out: sending it back is a plain
   /// re-send of the same file, which is a different intention from forwarding
   /// a copy somewhere else.
+  /// Every device a text can be forwarded to, including the one it came from:
+  /// quoting a message back to its author is a normal thing to want.
+  const trustedPeers = () =>
+    (engine.snapshot()?.peers ?? []).filter((peer) => peer.online && peer.trusted);
+
   const forwardTargets = (transfer: TransferSummary) =>
     (engine.snapshot()?.peers ?? []).filter(
       (peer) => peer.online && peer.trusted && peer.device_id !== transfer.device_id,
@@ -207,6 +230,64 @@ export function ChatWorkspace(props: {
       toast.error(t("transfers.deleteFailed", { message: describe(cause) }));
     } finally {
       setDeleteOf(null);
+    }
+  }
+
+  /// The actions a long press offers, by what was pressed.
+  const sheetActions = (): MessageAction[] => {
+    const target = actionsFor();
+    if (!target) return [];
+    const forward = (onSelect: () => void): MessageAction => ({
+      label: t("chat.forward"),
+      icon: Share2,
+      onSelect,
+    });
+    const remove = (onSelect: () => void): MessageAction => ({
+      label: t("chat.delete"),
+      icon: Trash2,
+      destructive: true,
+      onSelect,
+    });
+
+    if (target.kind === "file") {
+      return [
+        {
+          label: t("chat.details"),
+          icon: Info,
+          onSelect: () => setDetailsOf(target.transfer),
+        },
+        forward(() => setForwardOf(target.transfer)),
+        remove(() => setDeleteOf(target.transfer)),
+      ];
+    }
+    return [
+      {
+        label: t("chat.copy"),
+        icon: Copy,
+        onSelect: () => void copyMessage(target.message),
+      },
+      forward(() => setForwardTextOf(target.message.text)),
+      remove(() => setHiddenMessages([...hiddenMessages(), target.message.message_id])),
+    ];
+  };
+
+  async function copyMessage(message: ChatMessageView) {
+    try {
+      await navigator.clipboard.writeText(message.text);
+      toast.success(t("chat.copied"));
+    } catch {
+      toast.error(t("chat.copyFailed"));
+    }
+  }
+
+  async function forwardText(text: string, deviceId: string) {
+    try {
+      await engine.sendChat(deviceId, text);
+      toast.success(t("chat.forwarded"));
+    } catch (cause) {
+      toast.error(t("chat.forwardFailed", { message: describe(cause) }));
+    } finally {
+      setForwardTextOf(null);
     }
   }
 
@@ -663,6 +744,9 @@ export function ChatWorkspace(props: {
                                 const moving = () =>
                                   transfer().state === "transferring" ||
                                   transfer().state === "preparing";
+                                const openCardMenu = createLongPress(() =>
+                                  setActionsFor({ kind: "file", transfer: transfer() }),
+                                );
                                 const openable =
                                   transfer().direction === "receive" &&
                                   transfer().state === "completed";
@@ -680,12 +764,18 @@ export function ChatWorkspace(props: {
                                       <MessageContent>
                                         <ContextMenu
                                           disabled={
-                                            !engine.desktop || transfer().state !== "completed"
+                                            !engine.desktop ||
+                                            engine.mobile() ||
+                                            transfer().state !== "completed"
                                           }
                                         >
                                           <ContextMenuTrigger class="contents">
                                             <Attachment
                                               state={attachmentState(transfer().state)}
+                                              onPointerDown={(event) => openCardMenu.start(event)}
+                                              onPointerMove={(event) => openCardMenu.move(event)}
+                                              onPointerUp={openCardMenu.cancel}
+                                              onPointerCancel={openCardMenu.cancel}
                                               class="max-w-[min(22rem,80%)] cursor-pointer"
                                               // Only a received, finished file is worth opening: the
                                               // sender's copy is already theirs, and a file still
@@ -813,11 +903,20 @@ export function ChatWorkspace(props: {
 
                               const message = () => text()!.message;
                               const sent = message().direction === "sent";
+                              const openTextMenu = createLongPress(() =>
+                                setActionsFor({ kind: "text", message: message() }),
+                              );
                               return (
                                 <MessageScrollerItem messageId={key}>
                                   <Message align={sent ? "end" : "start"}>
                                     <MessageContent>
-                                      <Bubble variant={sent ? "default" : "muted"}>
+                                      <Bubble
+                                        variant={sent ? "default" : "muted"}
+                                        onPointerDown={(event) => openTextMenu.start(event)}
+                                        onPointerMove={(event) => openTextMenu.move(event)}
+                                        onPointerUp={openTextMenu.cancel}
+                                        onPointerCancel={openTextMenu.cancel}
+                                      >
                                         <BubbleContent class="px-3 py-2 text-sm break-words">
                                           {message().text}
                                         </BubbleContent>
@@ -939,6 +1038,41 @@ export function ChatWorkspace(props: {
           </div>
         </Show>
       </section>
+
+      <MessageActions
+        open={actionsFor() !== null}
+        onClose={() => setActionsFor(null)}
+        actions={sheetActions()}
+        label={t("chat.actions")}
+      />
+
+      <Dialog
+        open={forwardTextOf() !== null}
+        onOpenChange={(open) => {
+          if (!open) setForwardTextOf(null);
+        }}
+        title={t("transfers.forwardTitle")}
+        description={t("chat.forwardTextBody")}
+      >
+        <ul class="flex flex-col gap-1">
+          <For each={trustedPeers()}>
+            {(peer) => (
+              <li>
+                <Button
+                  variant="ghost"
+                  class="w-full justify-start"
+                  onClick={() => {
+                    const text = forwardTextOf();
+                    if (text) void forwardText(text, peer.device_id);
+                  }}
+                >
+                  {displayName(peer.device_id, peer.name)}
+                </Button>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Dialog>
 
       {/* Details, delete and forward live outside the timeline so the list
           keeps its own scroll position while a dialog is open. */}
