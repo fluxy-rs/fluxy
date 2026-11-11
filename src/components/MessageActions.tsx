@@ -1,4 +1,5 @@
-import { For, onMount, type Component } from "solid-js";
+import { For, createEffect, type Component } from "solid-js";
+import { createVirtualElement } from "../ui/lib";
 import { Popover, PopoverContent } from "../ui/popover";
 import { usePopoverContext } from "../ui/popover/Popover/Popover.context";
 
@@ -97,12 +98,17 @@ export function MessageActions(props: {
 function PointerAnchor(props: { anchor: MenuAnchor | null }) {
   const ctx = usePopoverContext("MessageActions");
 
-  onMount(() => {
-    const anchor = props.anchor ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    const element = document.createElement("span");
-    element.getBoundingClientRect = () =>
-      DOMRect.fromRect({ x: anchor.x, y: anchor.y, width: 0, height: 0 });
-    ctx.setReference(element);
+  // A fresh element per anchor, not one element whose box changes: the
+  // positioner watches the reference identity, so reusing it would leave the
+  // menu where the first press put it. Mounting is not enough either - the
+  // component is alive before the first long press, when there is no anchor.
+  createEffect(() => {
+    const anchor = props.anchor;
+    if (!anchor) return;
+    // The library builds these for exactly this: a press point standing in
+    // for a trigger element. The cast is the popover context being narrower
+    // than the positioner it feeds.
+    ctx.setReference(createVirtualElement({ x: anchor.x, y: anchor.y }) as unknown as Element);
   });
 
   return null;
