@@ -133,6 +133,8 @@ export function ChatWorkspace(props: {
     { kind: "file"; transfer: TransferSummary } | { kind: "text"; message: ChatMessageView } | null
   >(null);
   // Forwarding a text needs a destination just like forwarding a file does.
+  // Where the pressed message sits, so the menu can float next to it.
+  const [menuAnchor, setMenuAnchor] = createSignal<{ x: number; y: number } | null>(null);
   const [forwardTextOf, setForwardTextOf] = createSignal<string | null>(null);
   // Messages live in memory only, so hiding one may live there too.
   const [hiddenMessages, setHiddenMessages] = createSignal<readonly string[]>([]);
@@ -232,6 +234,17 @@ export function ChatWorkspace(props: {
       setDeleteOf(null);
     }
   }
+
+  /// The point the menu hangs from: the horizontal centre and the top edge of
+  /// the pressed element, which keeps the panel over the message it describes.
+  const anchorOf = (event: PointerEvent) => {
+    // `currentTarget` is cleared once dispatch ends, and the timer fires later.
+    const target = event.target as HTMLElement | null;
+    const rect = target?.getBoundingClientRect();
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top }
+      : { x: event.clientX, y: event.clientY };
+  };
 
   /// The actions a long press offers, by what was pressed.
   const sheetActions = (): MessageAction[] => {
@@ -744,9 +757,10 @@ export function ChatWorkspace(props: {
                                 const moving = () =>
                                   transfer().state === "transferring" ||
                                   transfer().state === "preparing";
-                                const openCardMenu = createLongPress(() =>
-                                  setActionsFor({ kind: "file", transfer: transfer() }),
-                                );
+                                const openCardMenu = createLongPress((event) => {
+                                  setMenuAnchor(anchorOf(event));
+                                  setActionsFor({ kind: "file", transfer: transfer() });
+                                });
                                 const openable =
                                   transfer().direction === "receive" &&
                                   transfer().state === "completed";
@@ -772,6 +786,7 @@ export function ChatWorkspace(props: {
                                           <ContextMenuTrigger class="contents">
                                             <Attachment
                                               state={attachmentState(transfer().state)}
+                                              onContextMenu={(event) => event.preventDefault()}
                                               onPointerDown={(event) => openCardMenu.start(event)}
                                               onPointerMove={(event) => openCardMenu.move(event)}
                                               onPointerUp={openCardMenu.cancel}
@@ -903,15 +918,21 @@ export function ChatWorkspace(props: {
 
                               const message = () => text()!.message;
                               const sent = message().direction === "sent";
-                              const openTextMenu = createLongPress(() =>
-                                setActionsFor({ kind: "text", message: message() }),
-                              );
+                              const openTextMenu = createLongPress((event) => {
+                                setMenuAnchor(anchorOf(event));
+                                setActionsFor({ kind: "text", message: message() });
+                              });
                               return (
                                 <MessageScrollerItem messageId={key}>
                                   <Message align={sent ? "end" : "start"}>
                                     <MessageContent>
                                       <Bubble
                                         variant={sent ? "default" : "muted"}
+                                        // Without these the WebView starts its own
+                                        // text selection on a long press and shows a
+                                        // system toolbar instead of this menu.
+                                        class="select-none [-webkit-touch-callout:none]"
+                                        onContextMenu={(event) => event.preventDefault()}
                                         onPointerDown={(event) => openTextMenu.start(event)}
                                         onPointerMove={(event) => openTextMenu.move(event)}
                                         onPointerUp={openTextMenu.cancel}
@@ -1041,6 +1062,7 @@ export function ChatWorkspace(props: {
 
       <MessageActions
         open={actionsFor() !== null}
+        anchor={menuAnchor()}
         onClose={() => setActionsFor(null)}
         actions={sheetActions()}
         label={t("chat.actions")}

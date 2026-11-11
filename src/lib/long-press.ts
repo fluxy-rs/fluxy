@@ -6,9 +6,16 @@
  * returned handlers are plain callbacks, so a caller can attach them to any
  * element (or to a `<Bubble>`), and tests can drive them without a browser.
  */
-export function createLongPress(onLongPress: () => void, delayMs = 450, tolerancePx = 10) {
+export function createLongPress(
+  onLongPress: (event: PointerEvent) => void,
+  delayMs = 450,
+  tolerancePx = 10,
+) {
   let timer: number | undefined;
   let origin: { x: number; y: number } | undefined;
+  // The menu is placed from the element that was pressed, so the event has to
+  // survive until the timer fires.
+  let pressed: PointerEvent | undefined;
 
   const cancel = () => {
     if (timer !== undefined) {
@@ -23,10 +30,11 @@ export function createLongPress(onLongPress: () => void, delayMs = 450, toleranc
       // A mouse gets the desktop menu; this is for fingers and pens.
       if (event.pointerType === "mouse") return;
       cancel();
+      pressed = event;
       origin = { x: event.clientX, y: event.clientY };
       timer = window.setTimeout(() => {
         timer = undefined;
-        onLongPress();
+        if (pressed) onLongPress(pressed);
       }, delayMs);
     },
     move(event: PointerEvent) {
