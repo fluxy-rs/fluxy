@@ -68,6 +68,30 @@ describe("ChatWorkspace", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("asks for the install permission instead of quoting the plugin", async () => {
+    const snapshot = makeSnapshot({
+      chat: { conversations: [makeConversation()], messages: [] },
+      transfers: [makeTransfer({ direction: "receive", state: "completed" })],
+    });
+    const engine = createMockEngine({
+      snapshot: () => snapshot,
+      openReceivedTransfer: vi.fn(async () => {
+        throw new Error("install_permission_required");
+      }),
+    });
+    const reported = vi.spyOn(toast, "error").mockImplementation(() => "");
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    fireEvent.click(screen.getByText("report.bin"));
+
+    await waitFor(() =>
+      expect(reported).toHaveBeenCalledWith(
+        "先在系统设置里允许 Fluxy 安装应用，然后再点一次这个文件。",
+      ),
+    );
+    reported.mockRestore();
+  });
+
   it("says why a received file could not be opened", async () => {
     const snapshot = makeSnapshot({
       chat: { conversations: [makeConversation()], messages: [] },
