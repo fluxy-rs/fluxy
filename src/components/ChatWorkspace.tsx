@@ -171,6 +171,26 @@ export function ChatWorkspace(props: {
 
   const describe = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
+  /// Hand a finished receive to the platform's default app.
+  ///
+  /// The call used to be `void`ed, so a refusal from the platform - the file
+  /// is gone, nothing is registered for the type, the installer will not run -
+  /// looked exactly like a card that does nothing when clicked.
+  async function openReceived(transfer: TransferSummary) {
+    try {
+      await engine.openReceivedTransfer(transfer.transfer_id);
+    } catch (cause) {
+      const message = describe(cause);
+      // The installer refuses to start until the user lets Fluxy install
+      // apps; the plugin answers with a code so the copy stays here.
+      toast.error(
+        message.includes("install_permission_required")
+          ? t("chat.openNeedsInstallPermission")
+          : t("chat.openFailed", { message }),
+      );
+    }
+  }
+
   async function revealFile(transfer: TransferSummary) {
     try {
       await engine.revealTransfer(transfer.transfer_id);
@@ -673,19 +693,14 @@ export function ChatWorkspace(props: {
                                               role={openable ? "button" : undefined}
                                               tabindex={openable ? 0 : undefined}
                                               onClick={() => {
-                                                if (openable)
-                                                  void engine.openReceivedTransfer(
-                                                    transfer().transfer_id,
-                                                  );
+                                                if (openable) void openReceived(transfer());
                                               }}
                                               onKeyDown={(event) => {
                                                 if (!openable) return;
                                                 if (event.key !== "Enter" && event.key !== " ")
                                                   return;
                                                 event.preventDefault();
-                                                void engine.openReceivedTransfer(
-                                                  transfer().transfer_id,
-                                                );
+                                                void openReceived(transfer());
                                               }}
                                             >
                                               <AttachmentMedia>

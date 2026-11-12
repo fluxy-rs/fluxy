@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Receiving an APK is only useful if it can be installed. Without this
+         the installer starts for one frame and closes; the user still has to
+         allow "install unknown apps" for Fluxy once. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application>
         <!-- Serves a received file as a content:// Uri so the system viewer

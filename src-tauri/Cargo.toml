@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 embed-resource = "3"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Shell"] }
 
 [dev-dependencies]
 tempfile.workspace = true
