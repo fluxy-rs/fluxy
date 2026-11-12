@@ -397,6 +397,97 @@ gh pr create --base feat/the-first-thing
 The second pull request shows only its own diff. Once the first lands and its
 branch is deleted, GitHub retargets the second at `main` on its own.
 
+## Frontend files: one reason to change
+
+The complaint this section answers is real: `ChatWorkspace.tsx` reached 1,200
+lines by accumulating a timeline, a context menu, three dialogs and a forward
+picker. Nothing below is about tidiness for its own sake - it is about a reader
+being able to name what a file does before opening it.
+
+### Shape
+
+```text
+src/
+  pages/            a route: composition, no business state
+  components/       one directory per component
+    ChatWorkspace/
+      index.ts            exports only
+      ChatWorkspace.tsx   JSX and child composition
+      useChatWorkspace.ts state, derived values, handlers, effects
+      ChatWorkspace.types.ts
+      ChatWorkspace.utils.ts   pure functions
+      ChatWorkspace.consts.ts  constants and literal tables
+      ChatWorkspace.test.tsx   tests sit next to the code
+  state/            providers and the engine bridge
+  api/              typed wrappers over the generated bindings
+  lib/              framework-free helpers
+  ui/               vendored neut/ui, not ours to restyle
+```
+
+The split into seven files is a **ceiling, not a template**. A presentational
+component with no state needs `index.ts` and `<Name>.tsx` and nothing else;
+create `use<Name>.ts` when there is state, `.utils.ts` when there is a pure
+helper worth testing alone. Empty files that exist to match a diagram are the
+same cost as a 1,000-line one, just spread out.
+
+### Rules
+
+1. **One exported component per file**, named after the file.
+2. **`.tsx` renders and composes.** No business decisions, no `fetch`/`invoke`,
+   no cross-module side effects. Local UI state is allowed until rule 3 says
+   otherwise; a hover flag does not need a hook.
+3. **Extract a hook when either is true**: the component exceeds 120 lines, or
+   it owns three or more pieces of state. Below that, splitting teaches a
+   reader to jump between files for nothing.
+4. **Props are never destructured** - Solid props are a reactive proxy and
+   destructuring freezes them. Read `props.x` in JSX and inside hooks.
+5. **A controlled prop is read, not copied.** `const value = () => props.value
+   ?? internal()` - never `createEffect` that writes a prop into a signal; that
+   costs a frame, fights the user, and can loop.
+6. **Derived values use `createMemo`**, not `createEffect` plus a signal.
+7. **Handlers are named** and returned from the hook, so a test can call them
+   without simulating a pointer.
+8. **Dependencies point one way**: `pages -> components -> hooks/lib`. A
+   component never imports a page, and no directory reaches into another
+   feature's internals.
+9. **Copy comes from the catalogue** and styles from Tailwind tokens +
+   `.styles.ts`; no literal Chinese in components, no hex colours.
+10. **Async surfaces ship all three states**: loading, error with a retry, empty.
+
+### Hard limits, and why they are ratcheted
+
+| metric | limit |
+| --- | --- |
+| `.tsx` file | 250 lines |
+| `.ts` file | 300 lines |
+| one function body | 120 lines |
+| nested JSX elements | 6 |
+
+Line counts are a proxy, and a crude one - 200 lines of flat JSX read better
+than 140 lines of nested ternaries. They are used because they are the one
+property a machine can hold honestly, and because they catch the failure that
+actually happened here: a component growing every time someone needed one more
+thing. The judgement stays with the reviewer under the heading above.
+
+`bun run check` enforces them through `scripts/check-code-limits.mjs`, which
+measures with a real parser (Babel), not by counting lines of text:
+
+```powershell
+bun run check:limits          # what CI runs
+bun run check:limits --update # regenerate the baseline after a split
+```
+
+Files already over the limit are listed in `scripts/code-limits-baseline.json`
+at their current size. **The baseline may only shrink**: a listed file cannot
+grow, a file that is not listed must fit, and splitting a file by hand removes
+its entry the next time someone runs `--update`. Without that ratchet the rule
+would freeze the repository on the day it landed; with it, the number only
+goes down.
+
+Two files are outside the count, and the reason is stated in the script:
+`src/i18n/index.tsx` is a translation table, and `src/bindings.ts` is generated.
+`src/ui/**` is vendored from neut/ui and keeps upstream's shape - it is still
+measured, so a copy may not grow, but it is not restyled to suit us.
 ## Gates before calling something done
 
 ```powershell

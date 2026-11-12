@@ -1,0 +1,127 @@
+{
+  "src/api/engine.ts": {
+    "lines": 356,
+    "body": 10,
+    "jsx": 0
+  },
+  "src/components/AppShell.tsx": {
+    "lines": 142,
+    "body": 119,
+    "jsx": 7
+  },
+  "src/components/ChatWorkspace.tsx": {
+    "lines": 1242,
+    "body": 1127,
+    "jsx": 21
+  },
+  "src/components/IncomingOfferDialog.tsx": {
+    "lines": 146,
+    "body": 124,
+    "jsx": 6
+  },
+  "src/components/LocalDeviceSettings.tsx": {
+    "lines": 290,
+    "body": 277,
+    "jsx": 6
+  },
+  "src/components/NearbyDevices.tsx": {
+    "lines": 144,
+    "body": 136,
+    "jsx": 9
+  },
+  "src/components/NetworkDiagnostics.tsx": {
+    "lines": 191,
+    "body": 184,
+    "jsx": 7
+  },
+  "src/components/NetworkSettings.tsx": {
+    "lines": 486,
+    "body": 451,
+    "jsx": 10
+  },
+  "src/components/PairingDialog.tsx": {
+    "lines": 136,
+    "body": 124,
+    "jsx": 5
+  },
+  "src/components/Sidebar.tsx": {
+    "lines": 168,
+    "body": 149,
+    "jsx": 6
+  },
+  "src/components/TrustedDevices.tsx": {
+    "lines": 139,
+    "body": 125,
+    "jsx": 7
+  },
+  "src/pages/AdvancedSettingsPage.tsx": {
+    "lines": 237,
+    "body": 217,
+    "jsx": 10
+  },
+  "src/pages/ClipboardPage.tsx": {
+    "lines": 563,
+    "body": 531,
+    "jsx": 12
+  },
+  "src/pages/DevicePage.tsx": {
+    "lines": 401,
+    "body": 384,
+    "jsx": 12
+  },
+  "src/pages/HelpPage.tsx": {
+    "lines": 257,
+    "body": 239,
+    "jsx": 7
+  },
+  "src/pages/MobilePage.tsx": {
+    "lines": 717,
+    "body": 694,
+    "jsx": 13
+  },
+  "src/pages/SettingsPage.tsx": {
+    "lines": 225,
+    "body": 199,
+    "jsx": 9
+  },
+  "src/state/engine.tsx": {
+    "lines": 1343,
+    "body": 1094,
+    "jsx": 1
+  },
+  "src/ui/app/Dialog.tsx": {
+    "lines": 183,
+    "body": 142,
+    "jsx": 5
+  },
+  "src/ui/context-menu/ContextMenu/ContextMenu.tsx": {
+    "lines": 184,
+    "body": 145,
+    "jsx": 1
+  },
+  "src/ui/context-menu/ContextMenuSubTrigger/ContextMenuSubTrigger.tsx": {
+    "lines": 140,
+    "body": 128,
+    "jsx": 2
+  },
+  "src/ui/message-scroller/message-scroller.anchoring.ts": {
+    "lines": 339,
+    "body": 285,
+    "jsx": 0
+  },
+  "src/ui/message-scroller/message-scroller.scroll-state.ts": {
+    "lines": 175,
+    "body": 129,
+    "jsx": 0
+  },
+  "src/ui/message-scroller/message-scroller.visibility.ts": {
+    "lines": 168,
+    "body": 138,
+    "jsx": 0
+  },
+  "src/ui/message-scroller/useMessageScrollerEngine.ts": {
+    "lines": 214,
+    "body": 196,
+    "jsx": 0
+  }
+}
