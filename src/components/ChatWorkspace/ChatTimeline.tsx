@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, onCleanup, onMount } from "solid-js";
+import { For, Show, createMemo } from "solid-js";
 import { MessageCircle } from "lucide-solid";
 import type { ChatMessageView, TransferAction, TransferSummary } from "../../bindings";
 import { useI18n } from "../../i18n";
@@ -12,6 +12,7 @@ import {
 import { FileCard } from "./FileCard";
 import { TextBubble } from "./TextBubble";
 import type { TimelineEntry } from "./ChatWorkspace.types";
+import { useFollowTail } from "./useFollowTail";
 
 /**
  * The conversation itself: text and files in one stream, oldest first.
@@ -50,37 +51,10 @@ export function ChatTimeline(props: {
     ),
   );
 
-  // Following the tail, decided from the scroll event so the check runs
-  // against the pre-append layout. Within a line or two counts as following:
-  // the last message can be taller than the viewport.
-  let pinned = true;
-  let lastDeviceId: string | undefined;
-  let lastCount = 0;
-
-  createEffect(() => {
-    const deviceId = props.deviceId;
-    const count = props.entries.length;
-    const switched = deviceId !== lastDeviceId;
-    const grew = count > lastCount;
-    lastDeviceId = deviceId;
-    lastCount = count;
-    if (!switched && !grew) return;
-    if (!switched && !pinned) return;
-    queueMicrotask(() => {
-      if (!viewport) return;
-      viewport.scrollTop = viewport.scrollHeight;
-      pinned = true;
-    });
-  });
-
-  onMount(() => {
-    const list = viewport;
-    if (!list) return;
-    const onScroll = () => {
-      pinned = list.scrollHeight - list.scrollTop - list.clientHeight < 48;
-    };
-    list.addEventListener("scroll", onScroll, { passive: true });
-    onCleanup(() => list.removeEventListener("scroll", onScroll));
+  useFollowTail({
+    deviceId: () => props.deviceId,
+    count: () => props.entries.length,
+    viewport: () => viewport,
   });
 
   return (
