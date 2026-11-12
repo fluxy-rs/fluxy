@@ -4,11 +4,6 @@
     "body": 10,
     "jsx": 0
   },
-  "src/components/ChatWorkspace.tsx": {
-    "lines": 1242,
-    "body": 1127,
-    "jsx": 21
-  },
   "src/components/IncomingOfferDialog.tsx": {
     "lines": 146,
     "body": 124,

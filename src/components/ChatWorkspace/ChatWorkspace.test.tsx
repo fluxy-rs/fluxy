@@ -1,10 +1,10 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { ChatWorkspace } from "./ChatWorkspace";
-import { makeConversation, makeMessage, makeSnapshot, makeTransfer } from "../test/fixtures";
-import { toast } from "../ui";
-import { createMockEngine } from "../test/mock-engine";
-import { renderWithEngine } from "../test/render";
+import { makeConversation, makeMessage, makeSnapshot, makeTransfer } from "../../test/fixtures";
+import { toast } from "../../ui";
+import { createMockEngine } from "../../test/mock-engine";
+import { renderWithEngine } from "../../test/render";
 
 describe("ChatWorkspace", () => {
   it("lets one message be selected after the menu asks for it", async () => {
