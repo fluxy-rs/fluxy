@@ -13,7 +13,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2024"
 license = "AGPL-3.0-only"
 authors = ["Fluxy contributors"]
@@ -26,15 +26,15 @@ fs2 = "0.4"
 # The version is repeated here because cargo-deny treats a path-only
 # dependency as a wildcard, and an internal crate without a version cannot be
 # published. Keep it in step with [workspace.package] version.
-fluxy-proto = { path = "crates/fluxy-proto", version = "0.2.0-alpha.1" }
-fluxy-core = { path = "crates/fluxy-core", version = "0.2.0-alpha.1" }
-fluxy-net = { path = "crates/fluxy-net", version = "0.2.0-alpha.1" }
-fluxy-app = { path = "crates/fluxy-app", version = "0.2.0-alpha.1" }
+fluxy-proto = { path = "crates/fluxy-proto", version = "0.2.0-alpha.2" }
+fluxy-core = { path = "crates/fluxy-core", version = "0.2.0-alpha.2" }
+fluxy-net = { path = "crates/fluxy-net", version = "0.2.0-alpha.2" }
+fluxy-app = { path = "crates/fluxy-app", version = "0.2.0-alpha.2" }
 # The two plugins and the hardware crate are path dependencies as well, and
 # cargo-deny treats a path-only dependency as a wildcard. They carry the
 # workspace version for the same reason the entries above do.
-fluxy-sysinfo = { path = "crates/fluxy-sysinfo", version = "0.2.0-alpha.1" }
-tauri-plugin-fluxy-mobile = { path = "plugins/tauri-plugin-fluxy-mobile", version = "0.2.0-alpha.1" }
+fluxy-sysinfo = { path = "crates/fluxy-sysinfo", version = "0.2.0-alpha.2" }
+tauri-plugin-fluxy-mobile = { path = "plugins/tauri-plugin-fluxy-mobile", version = "0.2.0-alpha.2" }
 # The vendored scanner tracks its upstream crate and npm package (both 2.5.3);
 # Tauri refuses to build when the two disagree, so it does not follow the app
 # version the way our own plugins do.

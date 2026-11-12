@@ -10,8 +10,8 @@ clap.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-fluxy-app = { path = "../../crates/fluxy-app", version = "0.2.0-alpha.1" }
-fluxy-core = { path = "../../crates/fluxy-core", version = "0.2.0-alpha.1" }
-fluxy-net = { path = "../../crates/fluxy-net", version = "0.2.0-alpha.1" }
+fluxy-app = { path = "../../crates/fluxy-app", version = "0.2.0-alpha.2" }
+fluxy-core = { path = "../../crates/fluxy-core", version = "0.2.0-alpha.2" }
+fluxy-net = { path = "../../crates/fluxy-net", version = "0.2.0-alpha.2" }
 tempfile.workspace = true
 uuid.workspace = true

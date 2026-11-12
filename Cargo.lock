@@ -1434,7 +1434,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "arboard",
  "blake3",
@@ -1467,7 +1467,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy-app"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "dirs",
  "fluxy-core",
@@ -1487,7 +1487,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy-cli"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "blake3",
  "clap",
@@ -1506,7 +1506,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy-core"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "blake3",
  "bytes",
@@ -1526,7 +1526,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy-net"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "blake3",
  "bytes",
@@ -1557,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy-proto"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "prost",
  "prost-build",
@@ -1567,7 +1567,7 @@ dependencies = [
 
 [[package]]
 name = "fluxy-sysinfo"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "winreg 0.52.0",
 ]
@@ -4839,7 +4839,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-fluxy-mobile"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -5463,7 +5463,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "udp-chaos"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 dependencies = [
  "clap",
  "fluxy-app",
