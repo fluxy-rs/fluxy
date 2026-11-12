@@ -10,6 +10,11 @@ import {
 } from "solid-js";
 import {
   ChevronLeft,
+  Copy,
+  TextSelect,
+  Info,
+  Share2,
+  Trash2,
   Link2,
   MessageCircle,
   Paperclip,
@@ -50,6 +55,8 @@ import { formatBytes, formatClock, formatSpeed } from "../lib/format";
 import { fileKind } from "../lib/file-kind";
 import { failureReason } from "../lib/transfer-errors";
 import { TransferActions } from "./TransferActions";
+import { MessageActions, type MessageAction } from "./MessageActions";
+import { createLongPress } from "../lib/long-press";
 
 /// Sending a file from the conversation instead of the transfers page: the two
 /// belong together, and switching pages to attach something is the whole point of
@@ -121,6 +128,20 @@ export function ChatWorkspace(props: {
   // opens are held here rather than inside the message list.
   const [detailsOf, setDetailsOf] = createSignal<TransferSummary | null>(null);
   const [deleteOf, setDeleteOf] = createSignal<TransferSummary | null>(null);
+  // One menu, two kinds of target: a file card and a text bubble share the
+  // sheet but not their actions.
+  const [actionsFor, setActionsFor] = createSignal<
+    { kind: "file"; transfer: TransferSummary } | { kind: "text"; message: ChatMessageView } | null
+  >(null);
+  // Forwarding a text needs a destination just like forwarding a file does.
+  // Where the pressed message sits, so the menu can float next to it.
+  const [menuAnchor, setMenuAnchor] = createSignal<{ x: number; y: number } | null>(null);
+  const [forwardTextOf, setForwardTextOf] = createSignal<string | null>(null);
+  // Messages live in memory only, so hiding one may live there too.
+  const [hiddenMessages, setHiddenMessages] = createSignal<readonly string[]>([]);
+  // One message at a time may be selected, and only because the user asked
+  // for it from the menu: selection is off everywhere else.
+  const [selectableMessage, setSelectableMessage] = createSignal<string | null>(null);
   const [forwardOf, setForwardOf] = createSignal<TransferSummary | null>(null);
   // A phone-shaped viewport cannot show a conversation list and a thread side by
   // side: 218px of list squeezed the messages into a letterbox. Compact mode
@@ -150,7 +171,10 @@ export function ChatWorkspace(props: {
   const selectedMessages = createMemo(() => {
     const peer = selected();
     if (!peer) return [];
-    return messages().filter((message) => message.device_id === peer.device_id);
+    const hidden = hiddenMessages();
+    return messages().filter(
+      (message) => message.device_id === peer.device_id && !hidden.includes(message.message_id),
+    );
   });
   /**
    * Text and files in one stream, ordered by when they started.
@@ -164,6 +188,11 @@ export function ChatWorkspace(props: {
   /// The peer it already reached is left out: sending it back is a plain
   /// re-send of the same file, which is a different intention from forwarding
   /// a copy somewhere else.
+  /// Every device a text can be forwarded to, including the one it came from:
+  /// quoting a message back to its author is a normal thing to want.
+  const trustedPeers = () =>
+    (engine.snapshot()?.peers ?? []).filter((peer) => peer.online && peer.trusted);
+
   const forwardTargets = (transfer: TransferSummary) =>
     (engine.snapshot()?.peers ?? []).filter(
       (peer) => peer.online && peer.trusted && peer.device_id !== transfer.device_id,
@@ -207,6 +236,101 @@ export function ChatWorkspace(props: {
       toast.error(t("transfers.deleteFailed", { message: describe(cause) }));
     } finally {
       setDeleteOf(null);
+    }
+  }
+
+  /// The point the menu hangs from: the horizontal centre and the top edge of
+  /// the pressed element, which keeps the panel over the message it describes.
+  const anchorOf = (event: PointerEvent) => {
+    // `currentTarget` is cleared once dispatch ends, and the timer fires later.
+    const target = event.target as HTMLElement | null;
+    const rect = target?.getBoundingClientRect();
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top }
+      : { x: event.clientX, y: event.clientY };
+  };
+
+  /// The actions a long press offers, by what was pressed.
+  const sheetActions = (): MessageAction[] => {
+    const target = actionsFor();
+    if (!target) return [];
+    const forward = (onSelect: () => void): MessageAction => ({
+      label: t("chat.forward"),
+      icon: Share2,
+      onSelect,
+    });
+    const remove = (onSelect: () => void): MessageAction => ({
+      label: t("chat.delete"),
+      icon: Trash2,
+      destructive: true,
+      onSelect,
+    });
+
+    if (target.kind === "file") {
+      return [
+        {
+          label: t("chat.details"),
+          icon: Info,
+          onSelect: () => setDetailsOf(target.transfer),
+        },
+        forward(() => setForwardOf(target.transfer)),
+        remove(() => setDeleteOf(target.transfer)),
+      ];
+    }
+    return [
+      {
+        label: t("chat.copy"),
+        icon: Copy,
+        onSelect: () => void copyMessage(target.message),
+      },
+      forward(() => setForwardTextOf(target.message.text)),
+      {
+        label: t("chat.selectText"),
+        icon: TextSelect,
+        onSelect: () => selectMessageText(target.message),
+      },
+      remove(() => setHiddenMessages([...hiddenMessages(), target.message.message_id])),
+    ];
+  };
+
+  /// Lets one message be selected, then selects it so the handles appear.
+  ///
+  /// Selection is disabled application-wide, so the class has to be in place
+  /// before the range is built - the browser will not select text it is told
+  /// is unselectable, and the style change lands on the next frame.
+  function selectMessageText(message: ChatMessageView) {
+    setSelectableMessage(message.message_id);
+    requestAnimationFrame(() => {
+      const element = document.querySelector<HTMLElement>(
+        `[data-message-id="${message.message_id}"]`,
+      );
+      if (!element) return;
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const selection = window.getSelection();
+      if (!selection) return;
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
+  }
+
+  async function copyMessage(message: ChatMessageView) {
+    try {
+      await navigator.clipboard.writeText(message.text);
+      toast.success(t("chat.copied"));
+    } catch {
+      toast.error(t("chat.copyFailed"));
+    }
+  }
+
+  async function forwardText(text: string, deviceId: string) {
+    try {
+      await engine.sendChat(deviceId, text);
+      toast.success(t("chat.forwarded"));
+    } catch (cause) {
+      toast.error(t("chat.forwardFailed", { message: describe(cause) }));
+    } finally {
+      setForwardTextOf(null);
     }
   }
 
@@ -486,6 +610,12 @@ export function ChatWorkspace(props: {
         classList={{
           "grid-cols-[minmax(15rem,18.75rem)_minmax(0,1fr)]": !compact(),
         }}
+        onPointerDown={(event: PointerEvent) => {
+          const id = selectableMessage();
+          if (!id) return;
+          const target = event.target as HTMLElement | null;
+          if (!target?.closest(`[data-message-id="${id}"]`)) setSelectableMessage(null);
+        }}
         aria-label={t("chat.title")}
       >
         <Show when={!compact() || !selected()}>
@@ -663,6 +793,10 @@ export function ChatWorkspace(props: {
                                 const moving = () =>
                                   transfer().state === "transferring" ||
                                   transfer().state === "preparing";
+                                const openCardMenu = createLongPress((event) => {
+                                  setMenuAnchor(anchorOf(event));
+                                  setActionsFor({ kind: "file", transfer: transfer() });
+                                });
                                 const openable =
                                   transfer().direction === "receive" &&
                                   transfer().state === "completed";
@@ -680,12 +814,19 @@ export function ChatWorkspace(props: {
                                       <MessageContent>
                                         <ContextMenu
                                           disabled={
-                                            !engine.desktop || transfer().state !== "completed"
+                                            !engine.desktop ||
+                                            engine.mobile() ||
+                                            transfer().state !== "completed"
                                           }
                                         >
                                           <ContextMenuTrigger class="contents">
                                             <Attachment
                                               state={attachmentState(transfer().state)}
+                                              onContextMenu={(event) => event.preventDefault()}
+                                              onPointerDown={(event) => openCardMenu.start(event)}
+                                              onPointerMove={(event) => openCardMenu.move(event)}
+                                              onPointerUp={openCardMenu.cancel}
+                                              onPointerCancel={openCardMenu.cancel}
                                               class="max-w-[min(22rem,80%)] cursor-pointer"
                                               // Only a received, finished file is worth opening: the
                                               // sender's copy is already theirs, and a file still
@@ -813,11 +954,34 @@ export function ChatWorkspace(props: {
 
                               const message = () => text()!.message;
                               const sent = message().direction === "sent";
+                              const openTextMenu = createLongPress((event) => {
+                                // A new menu means a new target: the previous
+                                // message gives its selection back.
+                                setSelectableMessage(null);
+                                setMenuAnchor(anchorOf(event));
+                                setActionsFor({ kind: "text", message: message() });
+                              });
                               return (
                                 <MessageScrollerItem messageId={key}>
                                   <Message align={sent ? "end" : "start"}>
                                     <MessageContent>
-                                      <Bubble variant={sent ? "default" : "muted"}>
+                                      <Bubble
+                                        variant={sent ? "default" : "muted"}
+                                        data-message-id={message().message_id}
+                                        classList={{
+                                          "select-text":
+                                            selectableMessage() === message().message_id,
+                                        }}
+                                        // Without these the WebView starts its own
+                                        // text selection on a long press and shows a
+                                        // system toolbar instead of this menu.
+                                        class="select-none [-webkit-touch-callout:none]"
+                                        onContextMenu={(event) => event.preventDefault()}
+                                        onPointerDown={(event) => openTextMenu.start(event)}
+                                        onPointerMove={(event) => openTextMenu.move(event)}
+                                        onPointerUp={openTextMenu.cancel}
+                                        onPointerCancel={openTextMenu.cancel}
+                                      >
                                         <BubbleContent class="px-3 py-2 text-sm break-words">
                                           {message().text}
                                         </BubbleContent>
@@ -939,6 +1103,42 @@ export function ChatWorkspace(props: {
           </div>
         </Show>
       </section>
+
+      <MessageActions
+        open={actionsFor() !== null}
+        anchor={menuAnchor()}
+        onClose={() => setActionsFor(null)}
+        actions={sheetActions()}
+        label={t("chat.actions")}
+      />
+
+      <Dialog
+        open={forwardTextOf() !== null}
+        onOpenChange={(open) => {
+          if (!open) setForwardTextOf(null);
+        }}
+        title={t("transfers.forwardTitle")}
+        description={t("chat.forwardTextBody")}
+      >
+        <ul class="flex flex-col gap-1">
+          <For each={trustedPeers()}>
+            {(peer) => (
+              <li>
+                <Button
+                  variant="ghost"
+                  class="w-full justify-start"
+                  onClick={() => {
+                    const text = forwardTextOf();
+                    if (text) void forwardText(text, peer.device_id);
+                  }}
+                >
+                  {displayName(peer.device_id, peer.name)}
+                </Button>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Dialog>
 
       {/* Details, delete and forward live outside the timeline so the list
           keeps its own scroll position while a dialog is open. */}
