@@ -6,7 +6,7 @@ import { PairingQrDialog } from "../components/PairingQrDialog";
 import { PageTitle } from "../components/PageTitle";
 import { TrustedDevices } from "../components/TrustedDevices";
 import { useNavigate } from "@solidjs/router";
-import { takeOpenChatDevice } from "../api/engine";
+
 import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import type {
@@ -14,7 +14,6 @@ import type {
   DeviceAutoAccept,
   NearbyPeerView,
   PeerSummary,
-  RegisteredFileView,
 } from "../bindings";
 import type { PairingChallenge } from "../state/engine";
 import { ChevronDown, Keyboard, MessageCircle, QrCode, ScanLine } from "lucide-solid";
@@ -27,7 +26,8 @@ export function MobilePage() {
   const [address, setAddress] = createSignal("");
   const [fingerprint, setFingerprint] = createSignal("");
   const [challenge, setChallenge] = createSignal<PairingChallenge | null>(null);
-  const [files, setFiles] = createSignal<RegisteredFileView[]>([]);
+
+  const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [notice, setNotice] = createSignal<string | null>(null);
@@ -38,85 +38,23 @@ export function MobilePage() {
 
   // Discovery fills this table; polling keeps it current without wiring another
   // event stream into the page.
-  // A tapped chat notification deep-links to fluxy://chat; the activity parks
-  // that in PendingShare and this drains it once the page can navigate.
-  const checkOpenChat = async () => {
-    try {
-      const deviceId = await takeOpenChatDevice();
-      if (deviceId) navigate(`/chat/${deviceId}`);
-    } catch {
-      // A failed drain is not worth a banner; the next poll tries again.
-    }
-  };
-
   onMount(() => {
-    void checkOpenChat();
-    // A share from another app arrives as a content URI; register it so the
-    // send flow can offer it without the user picking the file again.
-    //
-    // Draining once on mount is not enough: a second share lands in the running
-    // activity through onNewIntent, so the page has to ask again whenever it
-    // comes back to the front.
-    const drainShared = async () => {
-      try {
-        const { uris, device } = await engine.sharedFiles();
-        console.warn(`[share] drained ${uris.length} uri(s) target=${device ?? "none"}`);
-        const registered: RegisteredFileView[] = [];
-        for (const uri of uris) {
-          const view = await engine.openSourceFile(uri);
-          console.warn(`[share] registered ${uri} -> ${view ? view.name : "null"}`);
-          if (view) registered.push(view);
-        }
-        if (registered.length === 0) return;
-        setFiles((current) => [...current, ...registered]);
-        // A deep link that named a device is meant to run without a tap.
-        if (device) {
-          console.warn(`[share] auto-sending ${registered.length} file(s) to ${device}`);
-          await send(device);
-        }
-      } catch (error) {
-        console.warn("[share] failed", error);
-      }
-    };
-    void drainShared();
-    const onVisible = () => {
-      void checkOpenChat();
-      if (!document.hidden) void drainShared();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    onCleanup(() => document.removeEventListener("visibilitychange", onVisible));
-    // visibilitychange only fires when the page actually leaves and returns. A
-    // share into the already-foreground app arrives through onNewIntent while
-    // document.hidden stays false the whole time, so the listener above never
-    // runs and the file is never queued. Poll the queue alongside the peer
-    // refresh: sharedFiles() drains, so a poll is a no-op when nothing is new.
     let stopped = false;
     const refresh = async () => {
       try {
-        // Polled rather than event-driven: visibilitychange does not fire
-        // reliably when the WebView is restored from the background, and this
-        // loop already runs every two seconds.
-        void checkOpenChat();
         const peers = await engine.nearbyPeers();
         if (!stopped) setNearby(peers);
       } catch {
-        // The list simply stays as it was; a transient failure is not worth a
-        // banner on a phone.
+        // The list stays as it was; a transient failure is not worth a banner.
       }
     };
     void refresh();
-    const timer = window.setInterval(() => {
-      void refresh();
-      void drainShared();
-    }, 2500);
+    const timer = window.setInterval(refresh, 2500);
     onCleanup(() => {
       stopped = true;
       window.clearInterval(timer);
-      window.clearTimeout(waitTimer);
     });
   });
-
-  const navigate = useNavigate();
   // Accordion: at most one device shows its details, which matters on a phone
   // where an expanded row pushes everything else off the screen.
   const [expanded, setExpanded] = createSignal<string | null>(null);
@@ -253,32 +191,6 @@ export function MobilePage() {
       await engine.pairConfirm();
       setChallenge(null);
       setNotice(t("mobile.pairConfirmed"));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function send(deviceId: string) {
-    const ids = files().map((file) => file.file_id);
-    console.warn(`[send] attempt device=${deviceId} files=${ids.length}`);
-    if (ids.length === 0) {
-      // Silence used to look like a dead button; say something instead.
-      setError(t("mobile.noFiles"));
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    // Hashing a multi-gigabyte file happens before the first byte moves, and on
-    // a phone that is tens of seconds. Say so, or the screen looks frozen.
-    setNotice(t("mobile.preparing"));
-    try {
-      console.warn(`[send] invoking startTransfers ids=${ids.join(",")}`);
-      const summaries = await engine.startTransfers(deviceId, ids);
-      console.warn(`[send] startTransfers returned ${summaries.length}`);
-      setFiles([]);
-      setNotice(t("mobile.sent"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
