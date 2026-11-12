@@ -24,8 +24,15 @@ const LIMITS = {
   module: 300,
   /** One function body, nested functions counted separately. */
   body: 120,
-  /** Nested JSX elements, so a wall of divs fails even when each line is short. */
-  jsx: 6,
+  /**
+   * Nested JSX elements, so a wall of divs fails even when each line is short.
+   *
+   * Ten, not six: measuring the codebase at six flagged ordinary cards and
+   * lists - a title, an icon and two wrappers reach it - and a limit that
+   * catches everything teaches people to ignore the gate. What it is meant to
+   * catch is a component five screens deep in its own JSX.
+   */
+  jsx: 10,
 };
 
 /** Data, not behaviour: counting its lines says nothing about maintainability. */

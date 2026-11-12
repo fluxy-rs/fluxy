@@ -461,7 +461,7 @@ same cost as a 1,000-line one, just spread out.
 | `.tsx` file | 250 lines |
 | `.ts` file | 300 lines |
 | one function body | 120 lines |
-| nested JSX elements | 6 |
+| nested JSX elements | 10 |
 
 Line counts are a proxy, and a crude one - 200 lines of flat JSX read better
 than 140 lines of nested ternaries. They are used because they are the one
