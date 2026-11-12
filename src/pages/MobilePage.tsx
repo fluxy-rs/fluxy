@@ -27,7 +27,6 @@ export function MobilePage() {
   const [fingerprint, setFingerprint] = createSignal("");
   const [challenge, setChallenge] = createSignal<PairingChallenge | null>(null);
 
-
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -36,7 +35,6 @@ export function MobilePage() {
   const [manualOpen, setManualOpen] = createSignal(false);
   const [waiting, setWaiting] = createSignal(false);
   let waitTimer: number | undefined;
-
 
   // Discovery fills this table; polling keeps it current without wiring another
   // event stream into the page.
@@ -199,7 +197,6 @@ export function MobilePage() {
       setBusy(false);
     }
   }
-
 
   // The payload another device needs to reach this one. The fingerprint is not
   // in it on purpose: pairing still ends in a SAS comparison on both screens,
@@ -579,7 +576,6 @@ export function MobilePage() {
           </>
         }
       />
-
 
       <PairingQrDialog open={qrOpen()} onOpenChange={setQrOpen} />
 
