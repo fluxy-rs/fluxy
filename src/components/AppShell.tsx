@@ -12,6 +12,7 @@ import { Sidebar } from "./Sidebar";
 import { ToastOutlet, toast } from "../ui";
 import { IncomingOfferDialog } from "./IncomingOfferDialog";
 import { ReceiveDirDialog } from "./ReceiveDirDialog";
+import { IncomingShareBridge } from "./IncomingShareBridge";
 
 function titleKey(pathname: string): string {
   if (pathname.startsWith("/transfers")) return "transfers.title";
@@ -137,6 +138,7 @@ export function AppShell(props: ParentProps) {
           space above every page. */}
       <IncomingOfferDialog />
       <ReceiveDirDialog />
+      <IncomingShareBridge />
     </TooltipProvider>
   );
 }
