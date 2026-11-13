@@ -19,11 +19,27 @@ export function EnvironmentCard() {
 
   const supports = (feature: string) => (CSS.supports(feature) ? "✓" : "✗");
 
+  /// Cascade layers cannot be asked about with CSS.supports - the first version
+  /// here tested `(color: red)` and reported a cheerful tick on an engine that
+  /// drops every layer. A one-rule sheet is the only honest probe.
+  const supportsLayers = createMemo(() => {
+    const style = document.createElement("style");
+    style.textContent = "@layer fx-probe{.fx-probe{color:rgb(1,2,3)}}";
+    document.head.append(style);
+    const probe = document.createElement("div");
+    probe.className = "fx-probe";
+    document.body.append(probe);
+    const layered = getComputedStyle(probe).color === "rgb(1, 2, 3)";
+    probe.remove();
+    style.remove();
+    return layered;
+  });
+
   const rows = createMemo(() => [
     { label: t("help.envVersion"), value: engine.snapshot()?.status.version ?? "?" },
     { label: t("help.envPlatform"), value: navigator.platform || "?" },
     { label: t("help.envAgent"), value: navigator.userAgent },
-    { label: t("help.envLayers"), value: supports("(color: red)") + " @layer" },
+    { label: t("help.envLayers"), value: (supportsLayers() ? "✓" : "✗") + " @layer" },
     { label: t("help.envColors"), value: supports("color: oklch(0.5 0.1 200)") + " oklch" },
     {
       label: t("help.envMix"),
