@@ -1,209 +1,161 @@
 #!/usr/bin/env node
 // Rewrites the built stylesheet into something an old WebView can read.
 //
-// A car head unit reported "every style is gone". The bundle is Tailwind v4,
-// and its output is wrapped in @layer - which an engine older than Chrome 99
-// discards whole, so not one rule applies. The palette is written in oklch(),
-// which needs Chrome 111; there the layout would survive and the colours would
-// not. Both are lowered here, in the built file, so the source stays modern and
-// the shipped CSS stays readable by engines that never heard of either.
+// A car head unit runs Chrome 95 and reported "every style is gone", then a
+// layout with no height, no sidebar and dialogs in the wrong place. Four
+// features are newer than that engine: @layer (99), the range media syntax
+// (104), oklch() and color-mix() (111), and dvh units (108).
 //
-// Run after `vite build`; it edits dist/assets/*.css in place.
+// Three of the four have a maintained PostCSS plugin and use it: media
+// min/max, oklab and color-mix come from @csstools. Two are handled here as
+// PostCSS visitors, because no plugin covers them: dvh fallbacks, and
+// color-mix over a var() token (the plugin resolves literal colours only, and
+// this palette is entirely variables).
+//
+// Cascade layers are unwrapped by hand instead of @csstools/postcss-cascade-
+// layers. That plugin keeps layer semantics by inflating every selector with
+// :not(#\#) hacks; with the whole sheet flattened there is nothing left to
+// order against, and the hacks would rewrite thousands of selectors on a
+// device that cannot be inspected.
+//
+// Runs after `vite build`; it edits dist/assets/*.css in place.
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import postcss from "postcss";
+import mediaMinmax from "@csstools/postcss-media-minmax";
+import oklabFunction from "@csstools/postcss-oklab-function";
+import colorMixFunction from "@csstools/postcss-color-mix-function";
 
 const ASSETS = join("dist", "assets");
 
-/** Oklch -> sRGB, the standard conversion through Oklab and linear sRGB. */
-function oklchToRgb(lightness, chroma, hue) {
-  const radians = (hue * Math.PI) / 180;
-  const a = chroma * Math.cos(radians);
-  const b = chroma * Math.sin(radians);
+/// Older engines ignore a dvh value outright, so the height collapses to
+/// nothing. Emitting the vh form first gives them something to use; the dvh
+/// declaration stays for engines that understand it.
+/// `oklch(98.5% 0 none)` is valid CSS and the @csstools plugin does not read
+/// the keyword, so the neutral palette survived untouched. `none` means a zero
+/// hue; spelling it as 0 lets the plugin do the conversion.
+const oklchNoneHue = () => ({
+  postcssPlugin: "fx-oklch-none",
+  Declaration(decl) {
+    if (!decl.value.includes("oklch(") || !decl.value.includes("none")) return;
+    decl.value = decl.value.split("none").join("0");
+  },
+});
+oklchNoneHue.postcss = true;
 
-  const l = lightness + 0.3963377774 * a + 0.2158037573 * b;
-  const m = lightness - 0.1055613458 * a - 0.0638541728 * b;
-  const s = lightness - 0.0894841775 * a - 1.291485548 * b;
+const dvhFallback = () => ({
+  postcssPlugin: "fx-dvh-fallback",
+  Declaration(decl) {
+    if (!/\d(?:dvh|svh|lvh|dvw|svw|lvw)/.test(decl.value)) return;
+    const fallback = decl.value.replace(/dvh/g, "vh").replace(/svh/g, "vh").replace(/lvh/g, "vh");
+    if (fallback === decl.value) return;
+    decl.cloneBefore({ value: fallback });
+  },
+});
+dvhFallback.postcss = true;
 
-  const l3 = l * l * l;
-  const m3 = m * m * m;
-  const s3 = s * s * s;
-
-  const linear = [
-    4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3,
-    -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3,
-    -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3,
-  ];
-
-  const encode = (value) => {
-    const clamped = Math.min(1, Math.max(0, value));
-    return clamped <= 0.0031308
-      ? Math.round(clamped * 12.92 * 255)
-      : Math.round((1.055 * Math.pow(clamped, 1 / 2.4) - 0.055) * 255);
-  };
-
-  return linear.map(encode);
-}
-
-/** Replace every oklch() literal with the rgb()/rgba() an old engine knows. */
-export function lowerOklch(css) {
-  return css.replace(/oklch\(([^()]*)\)/g, (match, body) => {
-    const [colorPart, alphaPart] = body.split("/");
-    const parts = colorPart.trim().split(/\s+/);
-    if (parts.length < 3) return match;
-    // The shipped form is "70.4% .191 22.216": lightness in percent, chroma
-    // as a fraction (percent means of 0.4), and a hue that may be "none".
-    const lightness = parts[0].endsWith("%") ? Number.parseFloat(parts[0]) / 100 : Number(parts[0]);
-    const chroma = parts[1].endsWith("%") ? Number.parseFloat(parts[1]) * 0.004 : Number(parts[1]);
-    const hueToken = parts[2].replace(/deg$/, "");
-    const hue = hueToken === "none" ? 0 : Number(hueToken);
-    if ([lightness, chroma, hue].some((value) => Number.isNaN(value))) return match;
-    const [r, g, b] = oklchToRgb(lightness, chroma, hue);
-    const alpha = alphaPart === undefined ? 1 : Number(alphaPart.trim());
-    if (Number.isNaN(alpha)) return match;
-    return alpha >= 1 ? `rgb(${r} ${g} ${b})` : `rgba(${r} ${g} ${b} / ${alpha})`;
-  });
-}
-
-/**
- * Unwrap @layer blocks and drop the @layer statements.
- *
- * The body is kept, the wrapper goes. Braces are counted rather than matched
- * with a regex, so a layer that contains nested blocks survives intact; strings
- * and comments are skipped because both may legally contain a brace.
- */
-export function flattenLayers(css) {
-  let out = "";
-  let index = 0;
-
-  while (index < css.length) {
-    const start = css.indexOf("@layer", index);
-    if (start === -1) {
-      out += css.slice(index);
-      break;
-    }
-    out += css.slice(index, start);
-    let cursor = start + "@layer".length;
-    const open = css.indexOf("{", cursor);
-    const semicolon = css.indexOf(";", cursor);
-
-    // `@layer a, b, c;` declares order and carries no rules.
-    if (semicolon !== -1 && (open === -1 || semicolon < open)) {
-      index = semicolon + 1;
-      continue;
-    }
-    if (open === -1) {
-      out += css.slice(start);
-      break;
-    }
-
-    let depth = 0;
-    let end = open;
-    let quote = null;
-    for (; end < css.length; end += 1) {
-      const character = css[end];
-      const previous = css[end - 1];
-      if (quote) {
-        if (character === quote && previous !== "\\") quote = null;
-        continue;
-      }
-      if (character === '"' || character === "\u0027") {
-        quote = character;
-        continue;
-      }
-      if (character === "/" && css[end + 1] === "*") {
-        const close = css.indexOf("*/", end + 2);
-        if (close === -1) break;
-        end = close + 1;
-        continue;
-      }
-      if (character === "{") depth += 1;
-      if (character === "}") {
-        depth -= 1;
-        if (depth === 0) break;
-      }
-    }
-
-    // Keep what the layer contained, without its braces.
-    out += css.slice(open + 1, end);
-    index = end + 1;
-  }
-
-  return out;
-}
-
-/**
- * Rewrite range media queries into the min/max form.
- *
- * Tailwind v4 writes `@media (width>=48rem)`, which is Media Queries 4 and
- * needs Chrome 104. An older WebView drops the query - and with it every
- * responsive rule, which is how a 1280 px screen ends up in the phone layout.
- */
-export function lowerMediaQueries(css) {
-  return css
-    .replace(/\(\s*width\s*>=\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(min-width:$1)")
-    .replace(/\(\s*width\s*<=\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(max-width:$1)")
-    .replace(/\(\s*width\s*>\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(min-width:$1)")
-    .replace(/\(\s*width\s*<\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(max-width:$1)");
-}
-
-/**
- * Give every colour token an rgb companion, and consume it in color-mix().
- *
- * `color-mix(in oklab, var(--x) 40%, transparent)` needs Chrome 111. The same
- * alpha can be written `rgb(var(--x-rgb) / 40%)`, which every engine reads -
- * but only if the token has an rgb triple beside it, one per theme, which is
- * what this adds.
- */
-export function lowerColorMix(css) {
-  const withCompanions = css.replace(
-    /--([a-z0-9-]+):\s*rgb\(([^)]*)\)(?!\s*rgb)/g,
-    (match, name, body) => {
-      const parts = body
+/// color-mix(in oklab, var(--x) 40%, transparent) needs Chrome 111. Every
+/// colour token is a plain rgb() at this point, so the mix can be written as
+/// rgb(var(--x-rgb) / 40%) - but only if the token has an rgb triple beside
+/// it, one per theme, which this adds.
+const tokenColorMix = () => ({
+  postcssPlugin: "fx-token-colour-mix",
+  Once(root) {
+    const triples = new Map();
+    root.walkDecls(/^--[a-z0-9-]+$/, (decl) => {
+      if (!/^rgb\(/.test(decl.value)) return;
+      const parts = decl.value
+        .replace(/^rgb\(|\)$/g, "")
         .replace(/\//g, " ")
         .split(/[\s,]+/)
         .filter(Boolean)
         .slice(0, 3);
-      if (parts.length < 3) return match;
-      return `${match};--${name}-rgb:${parts.join(" ")}`;
-    },
-  );
-  return withCompanions.replace(
-    /color-mix\(in oklab,\s*var\(--([a-z0-9-]+)\)\s+([0-9.]+)%\s*,\s*transparent\s*\)/g,
-    (_match, name, percent) => `rgb(var(--${name}-rgb) / ${percent}%)`,
-  );
-}
-export function legacyCss(css) {
-  return lowerColorMix(lowerMediaQueries(lowerOklch(flattenLayers(css))));
+      if (parts.length === 3) triples.set(decl.prop, parts.join(" "));
+    });
+
+    root.walkDecls((decl) => {
+      const pattern =
+        /color-mix\(in oklab,\s*var\((--[a-z0-9-]+)\)\s+([0-9.]+)%\s*,\s*transparent\s*\)/g;
+      if (!pattern.test(decl.value)) return;
+      decl.value = decl.value.replace(pattern, (match, token, percent) => {
+        const triple = triples.get(token);
+        if (!triple) return match;
+        const prop = token + "-rgb";
+        decl.parent.insertBefore(decl, decl.clone({ prop, value: triple }));
+        return `rgb(var(${prop}) / ${percent}%)`;
+      });
+    });
+  },
+});
+tokenColorMix.postcss = true;
+
+/**
+ * Unwrap @layer blocks and drop the @layer statements.
+ *
+ * Parsed, not scanned: an @layer inside a string or a URL would defeat a text
+ * search, and one brace miscounted would corrupt the sheet.
+ */
+const unwrapLayers = () => ({
+  postcssPlugin: "fx-unwrap-layers",
+  Once(root) {
+    root.walkAtRules("layer", (at) => {
+      if (at.nodes) at.replaceWith(at.nodes);
+      else at.remove();
+    });
+  },
+});
+unwrapLayers.postcss = true;
+
+export async function legacyCss(css) {
+  const result = await postcss([
+    unwrapLayers(),
+    mediaMinmax(),
+    oklchNoneHue(),
+    oklabFunction(),
+    colorMixFunction(),
+    dvhFallback(),
+    tokenColorMix(),
+  ]).process(css, { from: undefined });
+  return result.css;
 }
 
 function selfTest() {
-  const flatten = flattenLayers("@layer a, b;\n@layer utilities{.x{color:red}}");
-  const lowered = lowerOklch(".x{color:oklch(0.7 0.1 200)}");
-  const media = lowerMediaQueries("@media (width>=48rem){.x{color:red}}");
-  const mixed = lowerColorMix(
-    ":root{--primary:rgb(10 10 10)}.y{background:color-mix(in oklab, var(--primary) 40%, transparent)}",
-  );
-  const checks = [
-    ["the layer statement goes", !flatten.includes("@layer")],
-    ["the rules stay", flatten.includes(".x{color:red}")],
-    ["oklch becomes rgb", lowered.startsWith(".x{color:rgb(")],
-    ["a range query becomes min-width", media.includes("(min-width:48rem)")],
-    ["a token gains an rgb twin", mixed.includes("--primary-rgb:10 10 10")],
-    ["color-mix becomes rgb()", mixed.includes("rgb(var(--primary-rgb) / 40%)")],
-  ];
-  let failed = 0;
-  for (const [name, ok] of checks) {
-    if (!ok) {
-      console.error("self-test failed: " + name);
-      failed += 1;
+  return legacyCss(
+    [
+      "@layer a, b;",
+      "@layer utilities{.x{color:red}}",
+      "@media (width>=48rem){.md{color:blue}}",
+      ":root{--primary:rgb(10 10 10)}",
+      ".y{background:color-mix(in oklab, var(--primary) 40%, transparent)}",
+      ".z{height:100dvh}",
+    ].join("\n"),
+  ).then((out) => {
+    const checks = [
+      ["the layer statement goes", !out.includes("@layer")],
+      ["the rules stay", out.includes(".x{color:red}")],
+      [
+        "a range query becomes min-width",
+        out.includes("(min-width: 48rem)") || out.includes("(min-width:48rem)"),
+      ],
+      ["a token gains an rgb twin", out.includes("--primary-rgb:10 10 10")],
+      ["color-mix becomes rgb()", out.includes("rgb(var(--primary-rgb) / 40%)")],
+      ["dvh gains a vh fallback", out.includes("height:100vh")],
+    ];
+    let failed = 0;
+    for (const [name, ok] of checks) {
+      if (!ok) {
+        console.error("self-test failed: " + name);
+        failed += 1;
+      }
     }
-  }
-  return failed === 0;
+    return failed === 0;
+  });
 }
 
 if (process.argv.includes("--self-test")) {
-  if (!selfTest()) process.exit(1);
+  const ok = await selfTest();
+  if (!ok) process.exit(1);
   console.log("css legacy: self-test ok");
   process.exit(0);
 }
@@ -213,7 +165,7 @@ for (const name of readdirSync(ASSETS)) {
   if (!name.endsWith(".css")) continue;
   const path = join(ASSETS, name);
   const before = readFileSync(path, "utf8");
-  const after = legacyCss(before);
+  const after = await legacyCss(before);
   if (after === before) continue;
   writeFileSync(path, after);
   changed += 1;
