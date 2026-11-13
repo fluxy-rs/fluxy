@@ -132,17 +132,65 @@ export function flattenLayers(css) {
   return out;
 }
 
+/**
+ * Rewrite range media queries into the min/max form.
+ *
+ * Tailwind v4 writes `@media (width>=48rem)`, which is Media Queries 4 and
+ * needs Chrome 104. An older WebView drops the query - and with it every
+ * responsive rule, which is how a 1280 px screen ends up in the phone layout.
+ */
+export function lowerMediaQueries(css) {
+  return css
+    .replace(/\(\s*width\s*>=\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(min-width:$1)")
+    .replace(/\(\s*width\s*<=\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(max-width:$1)")
+    .replace(/\(\s*width\s*>\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(min-width:$1)")
+    .replace(/\(\s*width\s*<\s*([0-9.]+(?:rem|px|em))\s*\)/g, "(max-width:$1)");
+}
+
+/**
+ * Give every colour token an rgb companion, and consume it in color-mix().
+ *
+ * `color-mix(in oklab, var(--x) 40%, transparent)` needs Chrome 111. The same
+ * alpha can be written `rgb(var(--x-rgb) / 40%)`, which every engine reads -
+ * but only if the token has an rgb triple beside it, one per theme, which is
+ * what this adds.
+ */
+export function lowerColorMix(css) {
+  const withCompanions = css.replace(
+    /--([a-z0-9-]+):\s*rgb\(([^)]*)\)(?!\s*rgb)/g,
+    (match, name, body) => {
+      const parts = body
+        .replace(/\//g, " ")
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .slice(0, 3);
+      if (parts.length < 3) return match;
+      return `${match};--${name}-rgb:${parts.join(" ")}`;
+    },
+  );
+  return withCompanions.replace(
+    /color-mix\(in oklab,\s*var\(--([a-z0-9-]+)\)\s+([0-9.]+)%\s*,\s*transparent\s*\)/g,
+    (_match, name, percent) => `rgb(var(--${name}-rgb) / ${percent}%)`,
+  );
+}
 export function legacyCss(css) {
-  return lowerOklch(flattenLayers(css));
+  return lowerColorMix(lowerMediaQueries(lowerOklch(flattenLayers(css))));
 }
 
 function selfTest() {
   const flatten = flattenLayers("@layer a, b;\n@layer utilities{.x{color:red}}");
   const lowered = lowerOklch(".x{color:oklch(0.7 0.1 200)}");
+  const media = lowerMediaQueries("@media (width>=48rem){.x{color:red}}");
+  const mixed = lowerColorMix(
+    ":root{--primary:rgb(10 10 10)}.y{background:color-mix(in oklab, var(--primary) 40%, transparent)}",
+  );
   const checks = [
     ["the layer statement goes", !flatten.includes("@layer")],
     ["the rules stay", flatten.includes(".x{color:red}")],
     ["oklch becomes rgb", lowered.startsWith(".x{color:rgb(")],
+    ["a range query becomes min-width", media.includes("(min-width:48rem)")],
+    ["a token gains an rgb twin", mixed.includes("--primary-rgb:10 10 10")],
+    ["color-mix becomes rgb()", mixed.includes("rgb(var(--primary-rgb) / 40%)")],
   ];
   let failed = 0;
   for (const [name, ok] of checks) {
