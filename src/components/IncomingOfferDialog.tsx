@@ -10,34 +10,49 @@ import { formatBytes } from "../lib/format";
  * The accept/reject prompt for incoming files.
  *
  * A sender that picks several files at once produces one offer per file, so a
- * prompt per offer asks the receiver the same question N times and leaves the
- * queue blocked behind each answer. Everything pending from one batch - or, for
- * a plain multi-select, from one peer at one moment - is answered together.
+ * prompt per offer asks the same question N times and blocks the queue behind
+ * each answer. Everything pending from one batch is answered together.
  *
- * This used to live inside the transfers page, which meant an offer only
- * produced a prompt while that page happened to be mounted. A file sent to a
- * phone sitting on the conversation list therefore arrived, waited, and expired
- * with nothing on screen to answer it. The prompt is a property of the
- * connection, not of a page, so it is mounted once in the shell.
+ * It used to live inside the transfers page, so an offer only prompted while
+ * that page was mounted: a file sent to someone sitting elsewhere arrived,
+ * waited and expired. The prompt belongs to the connection, not the page.
  */
+/**
+ * Whether the runtime answers this peer on its own.
+ *
+ * A device set to auto-accept, or one inheriting a global auto-accept, is
+ * accepted the moment the offer lands. Prompting for it produced a dialog that
+ * appeared and vanished on its own, which reads as a glitch and teaches people
+ * to ignore the prompt.
+ */
+/// The sender releases a whole gesture's offers together, so they land within
+/// a few milliseconds. Holding the list still for one render turns "1 file,
+/// then 3" into one stable prompt.
+const ARRIVAL_WINDOW_MS = 350;
+
+function answeredWithoutAsking(engine: ReturnType<typeof useEngine>, deviceId: string): boolean {
+  const peer = engine.snapshot()?.peers.find((item) => item.device_id === deviceId);
+  if (peer?.auto_accept === "auto") return true;
+  if (peer?.auto_accept === "ask") return false;
+  return engine.snapshot()?.settings.auto_accept_transfers === true;
+}
+
 export function IncomingOfferDialog() {
   const engine = useEngine();
   const { t } = useI18n();
 
   const [pending, setPending] = createSignal(false);
 
-  // The sender releases a whole gesture's offers together, so they normally
-  // land within a few milliseconds. Holding the list still for one render turns
-  // "1 file, then 3" into one stable prompt; a file that still arrives after
-  // the answer follows it without a second prompt (the runtime remembers it).
-  const ARRIVAL_WINDOW_MS = 350;
   const [incoming, setIncoming] = createSignal(engine.incomingOffers());
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Whether a prompt is already up is tracked outside the signal: reading it
   // inside the effect would make the effect depend on its own write and spin.
   let shown = false;
+
   createEffect(() => {
-    const next = engine.incomingOffers();
+    const next = engine
+      .incomingOffers()
+      .filter((offer) => !answeredWithoutAsking(engine, offer.device_id));
     clearTimeout(timer);
     if (!shown) {
       setIncoming(next);

@@ -31,7 +31,11 @@ export function ChatWorkspace(props: {
   return (
     <>
       <section
-        class="relative grid min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card"
+        // `grid-cols-1` is load-bearing: a grid with no template sizes its
+        // implicit track to the content, and a truncated file name is as wide
+        // as the whole name, which stretched the column past the viewport and
+        // hid half the conversation behind the section's clip.
+        class="relative grid grid-cols-1 min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card"
         classList={{ "grid-cols-[minmax(15rem,18.75rem)_minmax(0,1fr)]": !workspace.compact() }}
         onPointerDown={(event: PointerEvent) => {
           const id = workspace.selection.selectable();
