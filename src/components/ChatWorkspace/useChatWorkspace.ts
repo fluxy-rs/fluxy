@@ -2,6 +2,7 @@ import { createMemo, createSignal } from "solid-js";
 import type { TransferSummary } from "../../bindings";
 import { useEngine } from "../../state/engine";
 import { useI18n } from "../../i18n";
+import { createCompact } from "../../lib/viewport";
 import type { MenuTarget } from "./ChatWorkspace.types";
 import * as commands from "./ChatWorkspace.commands";
 import { buildTimeline } from "./ChatWorkspace.selectors";
@@ -34,8 +35,9 @@ export function useChatWorkspace(props: {
   // A phone-shaped viewport cannot show a conversation list and a thread side
   // by side: 218px of list squeezed the messages into a letterbox. Compact mode
   // swaps one for the other, the way a chat app does, instead of stacking two
-  // scroll areas inside a square screen.
-  const [compact, setCompact] = createSignal(false);
+  // scroll areas inside a square screen. The test is the window, not the
+  // platform: a car head unit is Android with room for both columns.
+  const compact = createCompact();
   const [hiddenMessages, setHiddenMessages] = createSignal<readonly string[]>([]);
   const [selectableMessage, setSelectableMessage] = createSignal<string | null>(null);
 
@@ -104,7 +106,6 @@ export function useChatWorkspace(props: {
     selectedId,
     selected,
     compact,
-    setCompact,
     openConversation,
     closeConversation,
   });
