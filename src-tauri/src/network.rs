@@ -13,14 +13,13 @@ use fluxy_app::{AppConfig, Engine};
 use fluxy_core::{TrustEntry, TrustStore};
 #[cfg(not(target_os = "android"))]
 use fluxy_net::default_gateway;
-#[cfg(not(target_os = "android"))]
-use fluxy_net::interface::select_auto;
-#[cfg(not(target_os = "android"))]
-use fluxy_net::interface::select_manual;
+// The interface table now answers on every platform, so these are not gated
+// the way they were when Android skipped it.
 use fluxy_net::interface::{
     InterfaceInfo, Selection, SelectionError, SelectionMode, default_route_interface,
     display_order, enumerate,
 };
+use fluxy_net::interface::{select_auto, select_manual};
 use fluxy_net::{
     DEFAULT_PEER_TTL, DiscoveryConfig, DiscoveryEvent, FALLBACK_PEER_TTL, FALLBACK_PROBE_INTERVAL,
     FallbackConfig, FallbackDiagnostics, FallbackDiscovery, FallbackEvent, HandshakeError,
