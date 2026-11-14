@@ -329,8 +329,19 @@ impl NetworkRuntime {
         if let Ok(mut current) = self.shutdown.lock() {
             *current = shutdown;
         }
+        // The reset state reports the mode the user chose, not the mode that
+        // was bound a moment ago. Building it from `starting()` alone said
+        // "automatic" for the whole rebind, so applying a manual selection
+        // flipped the panel back to automatic before the new address landed.
+        let chosen = self
+            .engine
+            .lock()
+            .map(|engine| engine.config().network.mode)
+            .unwrap_or(SelectionMode::Auto);
         if let Ok(mut state) = self.state.lock() {
-            *state = NetworkState::starting(state.dev_loopback, state.discovery_port);
+            let mut next = NetworkState::starting(state.dev_loopback, state.discovery_port);
+            next.selection_mode = chosen.as_str().into();
+            *state = next;
         }
         self.running.store(true, Ordering::SeqCst);
         self.fallback_active.store(false, Ordering::SeqCst);
@@ -1082,6 +1093,14 @@ impl NetworkRuntime {
                     retryable: true,
                 })?;
         }
+        // Publish the mode the user just chose before the runtime moves.
+        // The restart is asynchronous, so a snapshot taken here would still
+        // describe the previous binding - and the settings panel seeds itself
+        // from that snapshot, which is how an applied manual selection flipped
+        // back to automatic for a second.
+        if let Ok(mut state) = self.state.lock() {
+            state.selection_mode = selection.mode.as_str().into();
+        }
         self.hub.bump_snapshot();
         Ok(())
     }
@@ -1759,69 +1778,19 @@ fn peer_record(peer: &tauri_plugin_fluxy_mobile::DiscoveredPeer) -> Option<PeerR
 
 /// Pick the local address from the persisted preference. A manual selection that
 /// no longer exists is an error (the plan's 2003), never a silent downgrade.
+///
+/// The interface table answers whenever it exists, on every platform. Android
+/// used to skip it on the belief that SELinux always hides the interfaces; a
+/// car head unit reports wlan0 and eth0, and with the table ignored a manual
+/// pick bound the platform's default address instead - the setting applied,
+/// the IP never moved.
 fn choose_binding(
     config: &AppConfig,
     interfaces: &[InterfaceInfo],
     default_route: Option<&str>,
-    #[cfg_attr(not(target_os = "android"), allow(unused_variables))] mobile: Option<
-        &tauri_plugin_fluxy_mobile::LocalNetworkInfo,
-    >,
+    mobile: Option<&tauri_plugin_fluxy_mobile::LocalNetworkInfo>,
 ) -> Result<Binding, SelectionError> {
-    // Android has no interface table through the desktop path (SELinux blocks
-    // sysfs/proc reads), so the platform plugin reports the link's addresses
-    // instead. Binding the real address matters: listening on 0.0.0.0 leaves
-    // the socket path-ambiguous, which measured out as a 32 s delay before an
-    // inbound QUIC stream could be accepted and as small control frames being
-    // lost outright. SO_BINDTODEVICE is unavailable on Android, so the address
-    // is the only lever there is.
-    #[cfg(target_os = "android")]
-    {
-        let _ = (interfaces, default_route);
-        let parsed = mobile
-            .map(|info| {
-                info.addresses
-                    .iter()
-                    .filter_map(|text| text.parse::<IpAddr>().ok())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        // A private IPv4 is the LAN path; anything else is a last resort.
-        let address = parsed
-            .iter()
-            .copied()
-            .find(|address| matches!(address, IpAddr::V4(v4) if v4.is_private()))
-            .or_else(|| {
-                parsed
-                    .iter()
-                    .copied()
-                    .find(|address| !address.is_loopback())
-            })
-            .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        let name = mobile
-            .and_then(|info| info.interface.clone())
-            .filter(|name| !name.trim().is_empty())
-            .unwrap_or_else(|| "any".into());
-        tracing::info!(%address, %name, candidates = parsed.len(), "the listener binds the platform address");
-        return Ok(Binding {
-            selection: Selection {
-                interface: InterfaceInfo {
-                    label: name.clone(),
-                    name,
-                    description: None,
-                    index: 0,
-                    kind: fluxy_net::interface::InterfaceKind::Other,
-                    up: true,
-                    addresses: Vec::new(),
-                },
-                address,
-                source: fluxy_net::interface::SelectionSource::FirstAvailable,
-            },
-            mode: config.network.mode,
-            local_addresses: Vec::new(),
-        });
-    }
-    #[cfg(not(target_os = "android"))]
-    {
+    if !interfaces.is_empty() {
         let local_addresses = interfaces
             .iter()
             .filter(|interface| !interface.is_loopback())
@@ -1842,12 +1811,67 @@ fn choose_binding(
                 select_auto(interfaces, default_route, config.dev_allow_loopback)?
             }
         };
-        Ok(Binding {
+        return Ok(Binding {
             selection,
             mode: config.network.mode,
             local_addresses,
-        })
+        });
     }
+
+    // No table: some Android builds hide sysfs and proc under SELinux, and the
+    // platform plugin is then the only source. Binding the real address
+    // matters - 0.0.0.0 leaves the socket path-ambiguous, measured out as a
+    // 32 s delay before an inbound QUIC stream and as lost control frames -
+    // and SO_BINDTODEVICE is unavailable there, so the address is the lever.
+    if let SelectionMode::Manual = config.network.mode {
+        // A manual pick cannot be honoured without a table. Saying so beats
+        // binding another address and reporting success.
+        return Err(SelectionError::MissingInterface(
+            config.network.interface_id.clone().unwrap_or_default(),
+        ));
+    }
+    let parsed = mobile
+        .map(|info| {
+            info.addresses
+                .iter()
+                .filter_map(|text| text.parse::<IpAddr>().ok())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    // A private IPv4 is the LAN path; anything else is a last resort.
+    let address = parsed
+        .iter()
+        .copied()
+        .find(|address| matches!(address, IpAddr::V4(v4) if v4.is_private()))
+        .or_else(|| {
+            parsed
+                .iter()
+                .copied()
+                .find(|address| !address.is_loopback())
+        })
+        .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+    let name = mobile
+        .and_then(|info| info.interface.clone())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| "any".into());
+    tracing::info!(%address, %name, candidates = parsed.len(), "the listener binds the platform address");
+    Ok(Binding {
+        selection: Selection {
+            interface: InterfaceInfo {
+                label: name.clone(),
+                name,
+                description: None,
+                index: 0,
+                kind: fluxy_net::interface::InterfaceKind::Other,
+                up: true,
+                addresses: Vec::new(),
+            },
+            address,
+            source: fluxy_net::interface::SelectionSource::FirstAvailable,
+        },
+        mode: config.network.mode,
+        local_addresses: Vec::new(),
+    })
 }
 
 /// What the two-second interface poll decided.
@@ -2021,6 +2045,79 @@ mod tests {
         }
     }
 
+    /// A manual pick on a machine with more than one NIC binds that NIC. The
+    /// platform facts are ignored, which is what failed on the car head unit:
+    /// the Android branch used the plugin address and the chosen one never
+    /// reached the listener.
+    #[test]
+    fn a_manual_pick_beats_the_platform_address() {
+        let config = AppConfig {
+            network: fluxy_app::NetworkPreference {
+                mode: SelectionMode::Manual,
+                interface_id: Some("Ethernet".into()),
+                address: Some("10.0.0.5".into()),
+            },
+            ..AppConfig::default()
+        };
+        let platform = tauri_plugin_fluxy_mobile::LocalNetworkInfo {
+            gateway: None,
+            interface: Some("wlan0".into()),
+            addresses: vec!["192.168.43.4".into()],
+            wifi: true,
+            hotspot: false,
+        };
+
+        let binding = choose_binding(&config, &[wifi(), ethernet()], None, Some(&platform))
+            .expect("the table answers");
+
+        assert_eq!(binding.selection.address.to_string(), "10.0.0.5");
+        assert_eq!(binding.selection.interface.name, "Ethernet");
+        assert_eq!(binding.mode, SelectionMode::Manual);
+    }
+
+    /// Without a table the platform address is all there is, so a manual pick
+    /// is an error rather than a silent bind of something else.
+    #[test]
+    fn a_manual_pick_without_a_table_is_refused() {
+        let config = AppConfig {
+            network: fluxy_app::NetworkPreference {
+                mode: SelectionMode::Manual,
+                interface_id: Some("eth0".into()),
+                address: Some("192.168.195.2".into()),
+            },
+            ..AppConfig::default()
+        };
+        let platform = tauri_plugin_fluxy_mobile::LocalNetworkInfo {
+            gateway: None,
+            interface: Some("wlan0".into()),
+            addresses: vec!["192.168.43.4".into()],
+            wifi: true,
+            hotspot: false,
+        };
+
+        let result = choose_binding(&config, &[], None, Some(&platform));
+        assert!(
+            result.is_err(),
+            "a manual pick must not bind another address"
+        );
+    }
+
+    /// With no table and automatic mode, the platform link is the answer.
+    #[test]
+    fn automatic_mode_falls_back_to_the_platform_address() {
+        let config = AppConfig::default();
+        let platform = tauri_plugin_fluxy_mobile::LocalNetworkInfo {
+            gateway: None,
+            interface: Some("wlan0".into()),
+            addresses: vec!["192.168.43.4".into()],
+            wifi: true,
+            hotspot: false,
+        };
+
+        let binding = choose_binding(&config, &[], None, Some(&platform)).expect("platform");
+        assert_eq!(binding.selection.address.to_string(), "192.168.43.4");
+        assert_eq!(binding.selection.interface.name, "wlan0");
+    }
     #[test]
     fn automatic_mode_follows_a_better_interface() {
         let current = selection(wifi(), "192.168.1.20");
