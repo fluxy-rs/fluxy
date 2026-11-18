@@ -6,6 +6,7 @@ import { createLongPress } from "../../lib/long-press";
 import { Bubble, BubbleContent } from "../../ui/bubble";
 import { Message, MessageContent } from "../../ui/message";
 import { errorLabel, statusLabel } from "./ChatWorkspace.utils";
+import { ChatMarkdown } from "./ChatMarkdown";
 
 /** A text message, with its delivery state and a retry when it failed. */
 export function TextBubble(props: {
@@ -37,7 +38,9 @@ export function TextBubble(props: {
           onPointerUp={press.cancel}
           onPointerCancel={press.cancel}
         >
-          <BubbleContent class="px-3 py-2 text-sm break-words">{props.message.text}</BubbleContent>
+          <BubbleContent class="px-3 py-2 text-sm break-words">
+            <ChatMarkdown text={props.message.text} />
+          </BubbleContent>
         </Bubble>
         <div
           class="flex flex-wrap items-center gap-2 text-label text-muted-foreground"

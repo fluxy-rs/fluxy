@@ -25,6 +25,34 @@ pub fn state_snapshot(state: State<'_, AppState>) -> Result<AppSnapshot, IpcErro
     state.snapshot()
 }
 
+/// Hand a link the user clicked to the system browser.
+///
+/// The WebView must never navigate to a URL that arrived in a message - the app
+/// is the page, and a navigation would replace it. Only the schemes a message
+/// can legitimately carry are accepted.
+#[tauri::command]
+#[specta::specta]
+pub fn open_external(url: String) -> Result<(), IpcError> {
+    let url = url.trim().to_string();
+    let allowed = ["http://", "https://", "mailto:"]
+        .iter()
+        .any(|prefix| url.starts_with(prefix));
+    if !allowed {
+        return Err(IpcError {
+            code: "invalid_url".into(),
+            code_number: 4003,
+            message: "only http, https and mailto links are opened".into(),
+            retryable: false,
+        });
+    }
+    webbrowser::open(&url).map_err(|error| IpcError {
+        code: "open_failed".into(),
+        code_number: 4003,
+        message: error.to_string(),
+        retryable: true,
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn events_subscribe(
@@ -841,6 +869,7 @@ pub fn specta_builder() -> Builder<Wry> {
         .commands(collect_commands![
             engine_status,
             state_snapshot,
+            open_external,
             events_subscribe,
             identity_rotate,
             pair_start,
