@@ -1,5 +1,4 @@
 import { For, createEffect, type Component } from "solid-js";
-import { createVirtualElement } from "../ui/lib";
 import { Popover, PopoverContent } from "../ui/popover";
 import { usePopoverContext } from "../ui/popover/Popover/Popover.context";
 
@@ -11,8 +10,8 @@ export type MessageAction = {
   onSelect: () => void;
 };
 
-/** Where the finger pressed, so the menu can sit next to that message. */
-export type MenuAnchor = { x: number; y: number };
+/** The box the menu hangs from - the message itself, not the press point. */
+export type MenuAnchor = { x: number; y: number; width: number; height: number };
 
 const COLUMNS = 4;
 
@@ -108,7 +107,23 @@ function PointerAnchor(props: { anchor: MenuAnchor | null }) {
     // The library builds these for exactly this: a press point standing in
     // for a trigger element. The cast is the popover context being narrower
     // than the positioner it feeds.
-    const element = createVirtualElement({ x: anchor.x, y: anchor.y });
+    // A box, not a point: with zero height the positioner can only flip the
+    // panel across the line it was given, which put the menu on top of a tall
+    // message. With the message box it flips above/below the whole message.
+    const box = {
+      x: anchor.x,
+      y: anchor.y,
+      width: anchor.width,
+      height: anchor.height,
+      top: anchor.y,
+      left: anchor.x,
+      right: anchor.x + anchor.width,
+      bottom: anchor.y + anchor.height,
+    };
+    const element = {
+      contextElement: undefined,
+      getBoundingClientRect: () => box,
+    };
     // The popover asks its reference whether a press landed inside it. A
     // virtual element has no DOM, so answer no rather than not answering:
     // a missing method makes the outside-press handler throw and the menu

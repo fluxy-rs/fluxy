@@ -1,10 +1,43 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { ChatWorkspace } from "./ChatWorkspace";
+import { menuAnchorFrom } from "./ChatWorkspace.utils";
 import { makeConversation, makeMessage, makeSnapshot, makeTransfer } from "../../test/fixtures";
 import { toast } from "../../ui";
 import { createMockEngine } from "../../test/mock-engine";
 import { renderWithEngine } from "../../test/render";
+
+describe("menuAnchorFrom", () => {
+  it("hangs the menu from the message box, not the node the cursor hit", () => {
+    // A right click lands on a paragraph inside a long bubble; anchoring there
+    // put the panel across the message instead of above it.
+    const message = {
+      getBoundingClientRect: () => ({ left: 100, top: 200, width: 300, height: 400 }),
+    };
+    const target = { closest: () => message } as unknown as HTMLElement;
+
+    expect(menuAnchorFrom(target, { x: 120, y: 380 })).toEqual({
+      x: 100,
+      y: 200,
+      width: 300,
+      height: 400,
+    });
+  });
+
+  it("falls back to the press point when no message is involved", () => {
+    const target = {
+      closest: () => null,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
+    } as unknown as HTMLElement;
+
+    expect(menuAnchorFrom(target, { x: 10, y: 20 })).toEqual({
+      x: 10,
+      y: 20,
+      width: 0,
+      height: 0,
+    });
+  });
+});
 
 describe("ChatWorkspace", () => {
   it("lets one message be selected after the menu asks for it", async () => {

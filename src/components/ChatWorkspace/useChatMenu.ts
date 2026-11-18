@@ -3,6 +3,7 @@ import { Copy, Info, Share2, TextSelect, Trash2 } from "lucide-solid";
 import type { ChatMessageView, TransferSummary } from "../../bindings";
 import type { useI18n } from "../../i18n";
 import type { MessageAction } from "../MessageActions";
+import { menuAnchorFrom } from "./ChatWorkspace.utils";
 import type { MenuAnchor, MenuTarget } from "./ChatWorkspace.types";
 
 type Translator = ReturnType<typeof useI18n>["t"];
@@ -29,14 +30,13 @@ export function createChatMenu(input: {
   const [anchor, setAnchor] = createSignal<MenuAnchor | null>(null);
 
   /// The point the menu hangs from: the horizontal centre and the top edge of
-  /// the pressed element, which keeps the panel over the message it describes.
+  /// the message, so the panel opens above it rather than across it.
   const anchorOf = (event: MouseEvent): MenuAnchor => {
     // `currentTarget` is cleared once dispatch ends, and the timer fires later.
-    const element = event.target as HTMLElement | null;
-    const rect = element?.getBoundingClientRect();
-    return rect
-      ? { x: rect.left + rect.width / 2, y: rect.top }
-      : { x: event.clientX, y: event.clientY };
+    return menuAnchorFrom(event.target as HTMLElement | null, {
+      x: event.clientX,
+      y: event.clientY,
+    });
   };
 
   const actions = (): MessageAction[] => {

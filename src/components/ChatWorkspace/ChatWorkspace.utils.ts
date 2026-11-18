@@ -31,6 +31,27 @@ export function transferLabel(transfer: TransferSummary, t: Translator): string 
  * The library names its attachment states for the sender's side of an
  * upload; this project names them for both directions.
  */
+/**
+ * Where the message menu hangs from.
+ *
+ * The panel sits above this point, so the point has to belong to the whole
+ * message: anchoring on the node the cursor happened to land on put the menu
+ * across the middle of a long bubble, hiding the text it was describing.
+ * The message element carries the answer; the pressed node is only the way in.
+ */
+export function menuAnchorFrom(
+  target: HTMLElement | null,
+  point: { x: number; y: number },
+): { x: number; y: number; width: number; height: number } {
+  const selector = '[data-slot="message"], [data-message-id]';
+  const message = target?.closest<HTMLElement>(selector) ?? null;
+  const rect = (message ?? target)?.getBoundingClientRect();
+  if (!rect || (rect.width === 0 && rect.height === 0)) {
+    return { x: point.x, y: point.y, width: 0, height: 0 };
+  }
+  return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+}
+
 export function attachmentState(state: string) {
   if (state === "transferring") return "uploading" as const;
   if (state === "failed") return "error" as const;

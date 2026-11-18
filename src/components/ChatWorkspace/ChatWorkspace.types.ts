@@ -10,5 +10,5 @@ export type MenuTarget =
   | { kind: "file"; transfer: TransferSummary }
   | { kind: "text"; message: ChatMessageView };
 
-/** Where the finger pressed, so the menu can float beside that message. */
-export type MenuAnchor = { x: number; y: number };
+/** The box the menu hangs from: the whole message, so it can sit above or below. */
+export type MenuAnchor = { x: number; y: number; width: number; height: number };

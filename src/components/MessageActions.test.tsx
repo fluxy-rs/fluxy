@@ -13,7 +13,7 @@ describe("MessageActions", () => {
       <I18nProvider>
         <MessageActions
           open
-          anchor={{ x: 200, y: 400 }}
+          anchor={{ x: 200, y: 400, width: 120, height: 40 }}
           onClose={closed}
           label="消息操作"
           actions={[
@@ -40,7 +40,7 @@ describe("MessageActions", () => {
       <I18nProvider>
         <MessageActions
           open
-          anchor={{ x: 200, y: 400 }}
+          anchor={{ x: 200, y: 400, width: 120, height: 40 }}
           onClose={closed}
           label="消息操作"
           actions={[{ label: "复制", icon: Copy, onSelect: () => {} }]}
@@ -58,7 +58,7 @@ describe("MessageActions", () => {
       <I18nProvider>
         <MessageActions
           open={false}
-          anchor={{ x: 200, y: 600 }}
+          anchor={{ x: 200, y: 600, width: 120, height: 40 }}
           onClose={() => {}}
           label="消息操作"
           actions={[{ label: "复制", icon: Copy, onSelect: () => {} }]}
