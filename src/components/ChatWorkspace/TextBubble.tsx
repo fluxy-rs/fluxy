@@ -16,6 +16,7 @@ export function TextBubble(props: {
   retrying: boolean;
   selectable: boolean;
   onLongPress: (event: PointerEvent) => void;
+  onMenu: (event: MouseEvent) => void;
   onRetry: () => void;
 }) {
   const { t, locale } = useI18n();
@@ -32,7 +33,15 @@ export function TextBubble(props: {
           // Without these the WebView starts its own text selection on a long
           // press and shows a system toolbar instead of this menu.
           class="select-none [-webkit-touch-callout:none]"
-          onContextMenu={(event) => event.preventDefault()}
+          // A mouse has no long press to give: the right button is its menu.
+          // The native WebView menu is still suppressed - it offers "copy"
+          // for the whole bubble and hides the actions this app defines.
+          onContextMenu={(event) => {
+            event.preventDefault();
+            const pointer = event as PointerEvent;
+            if (pointer.pointerType && pointer.pointerType !== "mouse") return;
+            props.onMenu(event);
+          }}
           onPointerDown={(event) => press.start(event)}
           onPointerMove={(event) => press.move(event)}
           onPointerUp={press.cancel}

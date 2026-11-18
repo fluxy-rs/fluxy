@@ -30,7 +30,7 @@ export function createChatMenu(input: {
 
   /// The point the menu hangs from: the horizontal centre and the top edge of
   /// the pressed element, which keeps the panel over the message it describes.
-  const anchorOf = (event: PointerEvent): MenuAnchor => {
+  const anchorOf = (event: MouseEvent): MenuAnchor => {
     // `currentTarget` is cleared once dispatch ends, and the timer fires later.
     const element = event.target as HTMLElement | null;
     const rect = element?.getBoundingClientRect();
@@ -86,7 +86,9 @@ export function createChatMenu(input: {
     setTarget({ kind: "file", transfer });
   };
 
-  const onTextLongPress = (event: PointerEvent, message: ChatMessageView) => {
+  /// One entrance for both gestures: a long press on a touch screen and a right
+  /// click with a mouse open the same panel over the same message.
+  const onTextLongPress = (event: MouseEvent, message: ChatMessageView) => {
     // A new menu means a new target: the previous message gives its selection back.
     input.onClearSelection();
     setAnchor(anchorOf(event));

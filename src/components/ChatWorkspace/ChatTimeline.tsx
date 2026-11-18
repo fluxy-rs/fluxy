@@ -36,7 +36,7 @@ export function ChatTimeline(props: {
   onDetailsFile: (transfer: TransferSummary) => void;
   onForwardFile: (transfer: TransferSummary) => void;
   onFileLongPress: (event: PointerEvent, transfer: TransferSummary) => void;
-  onTextLongPress: (event: PointerEvent, message: ChatMessageView) => void;
+  onTextLongPress: (event: MouseEvent, message: ChatMessageView) => void;
   onControl: (transfer: TransferSummary, action: TransferAction) => void;
   onRetry: (message: ChatMessageView) => void;
 }) {
@@ -102,6 +102,7 @@ export function ChatTimeline(props: {
                                 onLongPress={(event) =>
                                   props.onTextLongPress(event, entry().message)
                                 }
+                                onMenu={(event) => props.onTextLongPress(event, entry().message)}
                                 onRetry={() => props.onRetry(entry().message)}
                               />
                             )}

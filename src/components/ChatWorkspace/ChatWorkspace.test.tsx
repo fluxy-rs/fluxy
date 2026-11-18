@@ -30,6 +30,21 @@ describe("ChatWorkspace", () => {
     expect(host?.classList.contains("select-text")).toBe(true);
   });
 
+  it("opens the message menu on a right click", async () => {
+    const snapshot = makeSnapshot({
+      chat: {
+        conversations: [makeConversation()],
+        messages: [makeMessage({ text: "hello there" })],
+      },
+    });
+    const engine = createMockEngine({ snapshot: () => snapshot });
+
+    renderWithEngine(() => <ChatWorkspace />, engine);
+    fireEvent.contextMenu(screen.getByText("hello there"), { button: 2 });
+
+    expect(await screen.findByRole("menuitem", { name: "复制" })).toBeInTheDocument();
+  });
+
   it("offers the file actions on a completed transfer", async () => {
     const snapshot = makeSnapshot({
       chat: { conversations: [makeConversation()], messages: [] },
