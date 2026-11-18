@@ -1130,19 +1130,34 @@ impl ChatRuntime {
                     break;
                 }
                 ChatCommand::Send { message_id, text } => {
-                    if let Err(error) = sender.send_text_with_id(message_id, text).await {
-                        let retryable = error.is_retryable();
-                        self.mark_failed(
-                            message_id,
-                            session_error_code(&error),
-                            &error.to_string(),
-                            retryable,
-                        );
-                        // A failed write leaves the control stream in an
-                        // unknown state; close it so the event loop reports a
-                        // disconnect and pending messages fail consistently.
-                        let _ = sender.close().await;
-                        break;
+                    match sender.send_text_with_id(message_id, text).await {
+                        Ok(_) => {}
+                        // The call answers within five seconds, but the write
+                        // itself is not cancelled by that deadline: a peer that
+                        // was suspended still reads the frame when it wakes.
+                        // Declaring failure here told the sender "not
+                        // delivered" about a message the other side was about
+                        // to display. Leave it sending - the acknowledgement
+                        // completes it, and a session that really ends fails it
+                        // through `fail_pending`.
+                        Err(SessionError::Timeout) => {
+                            tracing::info!(%message_id, "chat: the write is still in flight");
+                        }
+                        Err(error) => {
+                            let retryable = error.is_retryable();
+                            self.mark_failed(
+                                message_id,
+                                session_error_code(&error),
+                                &error.to_string(),
+                                retryable,
+                            );
+                            // A failed write leaves the control stream in an
+                            // unknown state; close it so the event loop reports
+                            // a disconnect and pending messages fail
+                            // consistently.
+                            let _ = sender.close().await;
+                            break;
+                        }
                     }
                 }
                 ChatCommand::ClipboardOffer {
