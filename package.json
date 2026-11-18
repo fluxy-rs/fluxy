@@ -36,7 +36,9 @@
     "@tauri-apps/plugin-barcode-scanner": "2.5.3",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
+    "dompurify": "^3.4.18",
     "lucide-solid": "^1.68.0",
+    "marked": "^18.2.1",
     "solid-js": "^1.9.18",
     "uqr": "^0.1.3"
   },

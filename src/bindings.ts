@@ -6,6 +6,14 @@ import { invoke as __TAURI_INVOKE, Channel } from "@tauri-apps/api/core";
 export const commands = {
 	engineStatus: () => typedError<EngineStatusView, IpcError>(__TAURI_INVOKE("engine_status")),
 	stateSnapshot: () => typedError<AppSnapshot, IpcError>(__TAURI_INVOKE("state_snapshot")),
+	/**
+	 *  Hand a link the user clicked to the system browser.
+	 * 
+	 *  The WebView must never navigate to a URL that arrived in a message - the app
+	 *  is the page, and a navigation would replace it. Only the schemes a message
+	 *  can legitimately carry are accepted.
+	 */
+	openExternal: (url: string) => typedError<null, IpcError>(__TAURI_INVOKE("open_external", { url })),
 	eventsSubscribe: (channel: Channel<AppEventEnvelope>) => typedError<SubscriptionInfo, IpcError>(__TAURI_INVOKE("events_subscribe", { channel })),
 	identityRotate: () => typedError<EngineStatusView, IpcError>(__TAURI_INVOKE("identity_rotate")),
 	pairStart: (deviceId: string) => typedError<PairingChallengeView, IpcError>(__TAURI_INVOKE("pair_start", { deviceId })),

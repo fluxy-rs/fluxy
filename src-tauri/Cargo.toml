@@ -41,6 +41,8 @@ serde_json.workspace = true
 tracing.workspace = true
 fs2.workspace = true
 tauri-plugin-notification = "2"
+# Opening links from a message: the WebView must never navigate away from the app.
+webbrowser = "1"
 tauri-plugin-dialog = "2"
 
 
