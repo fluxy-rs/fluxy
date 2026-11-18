@@ -4,11 +4,11 @@ import { useEngine } from "../state/engine";
 import { useI18n } from "../i18n";
 import { RoutedSheet } from "../components/RoutedSheet";
 import { PageTitle } from "../components/PageTitle";
+import { EnvironmentCard } from "../components/EnvironmentCard";
 import { Button, toast } from "../ui";
 import { copyText, errorDetails } from "../lib/format";
 
-/** Windows and Linux rules are literal shell syntax, so they live in the
- * catalog with the ports substituted at render time. */
+/** Shell rules are literal syntax; the ports are filled in at render time. */
 function fill(template: string, values: Record<string, string>): string {
   return Object.entries(values).reduce(
     (text, [key, value]) => text.split(`{${key}}`).join(value),
@@ -21,7 +21,6 @@ export function HelpPage() {
   const { t } = useI18n();
   const settings = () => engine.snapshot()!.settings;
   const network = () => engine.snapshot()!.network;
-
   /** The bound transfer port, when the listener already published one. */
   const transferPort = () => {
     const bound = network().listen_addr ?? "";
@@ -74,6 +73,7 @@ export function HelpPage() {
     <RoutedSheet title={t("help.title")}>
       <div class="flex flex-col gap-4">
         <PageTitle title={t("help.title")} subtitle={t("help.body")} />
+        <EnvironmentCard />
 
         <section
           class="overflow-hidden rounded-lg border border-border bg-card"
