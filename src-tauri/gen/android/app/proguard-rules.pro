@@ -1,21 +1,20 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+## Fluxy release rules.
+##
+## R8 shrinks the archive from 24.7 MB to 9.6 MB, but it also renamed the ML Kit
+## barcode internals and the scanner broke: "Attempt to read from field
+## 'al1 cg1.a' on a null object reference". The bundled model loader reaches
+## those classes by name, so names have to survive; shrinking still removes the
+## rest of the dependency graph.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+-dontobfuscate
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Barcode scanning: the bundled model is loaded by reflection, and the plugin
+# points at it from Kotlin that R8 cannot see through.
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_barcode_bundled.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_common.** { *; }
+-keep class app.tauri.barcodescanner.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Tauri reaches plugin classes through the generated registry; keeping the
+# framework intact costs little and avoids another silent breakage.
+-keep class app.tauri.** { *; }
