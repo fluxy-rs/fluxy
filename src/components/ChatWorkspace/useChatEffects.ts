@@ -1,4 +1,4 @@
-import { createEffect, on, onCleanup, onMount } from "solid-js";
+import { createEffect, on, onMount } from "solid-js";
 import type { ChatConversationView } from "../../bindings";
 import type { useEngine } from "../../state/engine";
 import type { useI18n } from "../../i18n";
@@ -19,16 +19,10 @@ export function useChatEffects(input: {
   selectedId: () => string | null;
   selected: () => ChatConversationView | undefined;
   compact: () => boolean;
-  setCompact: (value: boolean) => void;
   openConversation: (deviceId: string) => void;
   closeConversation: () => void;
 }) {
   onMount(() => {
-    const query = window.matchMedia("(max-width: 768px)");
-    input.setCompact(query.matches);
-    const listener = (event: MediaQueryListEvent) => input.setCompact(event.matches);
-    query.addEventListener("change", listener);
-    onCleanup(() => query.removeEventListener("change", listener));
     // Only a list with nothing open picks a thread for the user. A route that
     // already names a device is an instruction, not a default: opening the
     // first conversation here used to replace it and send the deep link to
