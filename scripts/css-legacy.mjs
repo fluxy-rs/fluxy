@@ -44,6 +44,44 @@ const oklchNoneHue = () => ({
 });
 oklchNoneHue.postcss = true;
 
+/// Tailwind positions with the individual transform properties (translate:,
+/// rotate:, scale:), which Chrome 104 introduced. An older engine drops them
+/// silently - a dialog keeps left/top of 50% and loses the -50% that made it
+/// centre, so it lands bottom-right and its buttons fall off the panel. Every
+/// rule that sets them is rewritten into one transform in the order the spec
+/// composes them: translate, then rotate, then scale, then any transform the
+/// rule already had.
+const transformProperties = () => ({
+  postcssPlugin: "fx-transform-properties",
+  Once(root) {
+    root.walkRules((rule) => {
+      const declarations = (rule.nodes ?? []).filter((node) => node.type === "decl");
+      const translate = declarations.find((node) => node.prop === "translate");
+      const rotate = declarations.find((node) => node.prop === "rotate");
+      const scale = declarations.find((node) => node.prop === "scale");
+      if (!translate && !rotate && !scale) return;
+
+      // The other half of a translation lives in an @property initial value,
+      // which this engine also ignores; without a fallback the whole function
+      // is invalid and the element is left where it was.
+      const fallback = (value, rest) => value.replace(/var\((--tw-[a-z-]+)\)/g, `var($1, ${rest})`);
+      const parts = [];
+      if (translate) parts.push(`translate(${fallback(translate.value, "0")})`);
+      if (rotate) parts.push(`rotate(${fallback(rotate.value, "0deg")})`);
+      if (scale) parts.push(`scale(${fallback(scale.value, "1")})`);
+
+      const existing = declarations.find((node) => node.prop === "transform");
+      if (existing) {
+        parts.push(existing.value);
+        existing.remove();
+      }
+      const anchor = translate ?? rotate ?? scale;
+      anchor.cloneBefore({ prop: "transform", value: parts.join(" ") });
+      for (const node of [translate, rotate, scale]) node?.remove();
+    });
+  },
+});
+transformProperties.postcss = true;
 const dvhFallback = () => ({
   postcssPlugin: "fx-dvh-fallback",
   Declaration(decl) {
@@ -115,6 +153,7 @@ export async function legacyCss(css) {
     oklabFunction(),
     colorMixFunction(),
     dvhFallback(),
+    transformProperties(),
     tokenColorMix(),
   ]).process(css, { from: undefined });
   return result.css;
@@ -129,6 +168,8 @@ function selfTest() {
       ":root{--primary:rgb(10 10 10)}",
       ".y{background:color-mix(in oklab, var(--primary) 40%, transparent)}",
       ".z{height:100dvh}",
+      "--tw-translate-x:-50%;.c{--tw-translate-y:-50%;translate:var(--tw-translate-x) var(--tw-translate-y)}",
+      ".s{scale:var(--tw-scale-x) var(--tw-scale-y)}",
     ].join("\n"),
   ).then((out) => {
     const checks = [
@@ -141,6 +182,12 @@ function selfTest() {
       ["a token gains an rgb twin", out.includes("--primary-rgb:10 10 10")],
       ["color-mix becomes rgb()", out.includes("rgb(var(--primary-rgb) / 40%)")],
       ["dvh gains a vh fallback", out.includes("height:100vh")],
+      [
+        "translate becomes transform",
+        out.includes("transform:translate(var(--tw-translate-x, 0) var(--tw-translate-y, 0))"),
+      ],
+      ["the individual property is gone", !out.includes("translate:var(")],
+      ["scale falls back to 1", out.includes("scale(var(--tw-scale-x, 1) var(--tw-scale-y, 1))")],
     ];
     let failed = 0;
     for (const [name, ok] of checks) {
