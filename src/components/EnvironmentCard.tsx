@@ -37,6 +37,8 @@ export function EnvironmentCard() {
 
   const rows = createMemo(() => [
     { label: t("help.envVersion"), value: engine.snapshot()?.status.version ?? "?" },
+    // Which build, not just which version: every APK carries the same semver.
+    { label: t("help.envBuild"), value: __BUILD_ID__ },
     { label: t("help.envPlatform"), value: navigator.platform || "?" },
     { label: t("help.envAgent"), value: navigator.userAgent },
     { label: t("help.envLayers"), value: (supportsLayers() ? "✓" : "✗") + " @layer" },
