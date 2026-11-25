@@ -93,36 +93,61 @@ const dvhFallback = () => ({
 });
 dvhFallback.postcss = true;
 
-/// color-mix(in oklab, var(--x) 40%, transparent) needs Chrome 111. Every
-/// colour token is a plain rgb() at this point, so the mix can be written as
-/// rgb(var(--x-rgb) / 40%) - but only if the token has an rgb triple beside
-/// it, one per theme, which this adds.
+/// color-mix(in oklab, var(--x) 40%, transparent) needs Chrome 111, and an
+/// engine without it falls back to whatever came before the guarded rule.
+/// Tailwind writes that fallback as the *solid* token - so every opacity
+/// modifier degraded to full strength: `bg-warning/10` painted solid warning,
+/// which then hid `text-warning` on top of itself.
+///
+/// Every colour token is a plain rgb() by now, so the same alpha can be written
+/// rgb(var(--x-rgb) / 40%). This adds the triple beside each token, rewrites
+/// every mix it can - inside the @supports block as well - and then unwraps
+/// those guards, because what is left no longer needs one.
 const tokenColorMix = () => ({
   postcssPlugin: "fx-token-colour-mix",
-  Once(root) {
-    const triples = new Map();
-    root.walkDecls(/^--[a-z0-9-]+$/, (decl) => {
-      if (!/^rgb\(/.test(decl.value)) return;
-      const parts = decl.value
+  // OnceExit, not Once: the tokens are still oklch() when the first pass sees
+  // them, and only the oklab plugin turns them into rgb().
+  OnceExit(root) {
+    // The triple is taken from the declaration it sits beside, not from a
+    // shared map: a token is defined once per theme, and the themes differ.
+    const tripleOf = (value) => {
+      if (!/^rgb\(/.test(value)) return null;
+      const parts = value
         .replace(/^rgb\(|\)$/g, "")
         .replace(/\//g, " ")
         .split(/[\s,]+/)
         .filter(Boolean)
         .slice(0, 3);
-      if (parts.length === 3) triples.set(decl.prop, parts.join(" "));
+      return parts.length === 3 ? parts.join(" ") : null;
+    };
+    const known = new Set();
+    root.walkDecls(/^--[a-z0-9-]+$/, (decl) => {
+      if (decl.prop.endsWith("-rgb")) return;
+      const triple = tripleOf(decl.value);
+      if (!triple) return;
+      known.add(decl.prop);
+      decl.after(decl.clone({ prop: `${decl.prop}-rgb`, value: triple }));
     });
 
+    const pattern = () =>
+      /color-mix\(in oklab,\s*var\((--[a-z0-9-]+)\)\s+([0-9.]+)%\s*,\s*transparent\s*\)/g;
     root.walkDecls((decl) => {
-      const pattern =
-        /color-mix\(in oklab,\s*var\((--[a-z0-9-]+)\)\s+([0-9.]+)%\s*,\s*transparent\s*\)/g;
-      if (!pattern.test(decl.value)) return;
-      decl.value = decl.value.replace(pattern, (match, token, percent) => {
-        const triple = triples.get(token);
-        if (!triple) return match;
-        const prop = token + "-rgb";
-        decl.parent.insertBefore(decl, decl.clone({ prop, value: triple }));
-        return `rgb(var(${prop}) / ${percent}%)`;
+      if (!decl.value.includes("color-mix(")) return;
+      decl.value = decl.value.replace(pattern(), (match, token, percent) => {
+        if (!known.has(token)) return match;
+        return `rgb(var(${token}-rgb) / ${percent}%)`;
       });
+    });
+
+    // A guard that only protected a colour-mix is now protecting rgb(); drop
+    // it so the rewritten declaration wins over the solid fallback.
+    root.walkAtRules("supports", (at) => {
+      if (!at.params.includes("color-mix") || !at.nodes) return;
+      let remains = false;
+      at.walkDecls((decl) => {
+        if (decl.value.includes("color-mix(")) remains = true;
+      });
+      if (!remains) at.replaceWith(at.nodes);
     });
   },
 });
@@ -167,6 +192,7 @@ function selfTest() {
       "@media (width>=48rem){.md{color:blue}}",
       ":root{--primary:rgb(10 10 10)}",
       ".y{background:color-mix(in oklab, var(--primary) 40%, transparent)}",
+      ".tint{background-color:var(--primary)}@supports (color:color-mix(in lab, red, red)){.tint{background-color:color-mix(in oklab, var(--primary) 10%, transparent)}}",
       ".z{height:100dvh}",
       "--tw-translate-x:-50%;.c{--tw-translate-y:-50%;translate:var(--tw-translate-x) var(--tw-translate-y)}",
       ".s{scale:var(--tw-scale-x) var(--tw-scale-y)}",
@@ -181,6 +207,8 @@ function selfTest() {
       ],
       ["a token gains an rgb twin", out.includes("--primary-rgb:10 10 10")],
       ["color-mix becomes rgb()", out.includes("rgb(var(--primary-rgb) / 40%)")],
+      ["a guarded tint is lowered", out.includes("rgb(var(--primary-rgb) / 10%)")],
+      ["its guard is unwrapped", !out.includes("@supports (color:color-mix")],
       ["dvh gains a vh fallback", out.includes("height:100vh")],
       [
         "translate becomes transform",
