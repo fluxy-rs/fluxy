@@ -13,6 +13,7 @@ import { ToastOutlet, toast } from "../ui";
 import { IncomingOfferDialog } from "./IncomingOfferDialog";
 import { ReceiveDirDialog } from "./ReceiveDirDialog";
 import { IncomingShareBridge } from "./IncomingShareBridge";
+import { createCompact } from "../lib/viewport";
 
 function titleKey(pathname: string): string {
   if (pathname.startsWith("/transfers")) return "transfers.title";
@@ -29,11 +30,10 @@ export function AppShell(props: ParentProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  /// The desktop device page is a two-column layout that fills the viewport; a
-  /// phone has no such page, so it must keep scrolling normally. This cannot be
-  /// `engine.desktop`, which only asks whether the Tauri bridge exists and is
-  /// equally true on Android.
-  const deviceColumn = () => engine.desktop && !engine.mobile();
+  /// Whether the page should be a flex column that owns the full height.
+  /// A question about the window, not the platform: a car unit is Android on
+  /// a 1280 px screen, and `engine.mobile()` sized its device card to content.
+  const compact = createCompact();
 
   createEffect(() => {
     document.title = `${t(titleKey(location.pathname))} · Fluxy`;
@@ -102,7 +102,7 @@ export function AppShell(props: ParentProps) {
               // overflow:hidden, so the page could not be dragged at all.
               "flex flex-col overflow-hidden":
                 location.pathname.startsWith("/chat") ||
-                (deviceColumn() && location.pathname.startsWith("/devices")),
+                (!compact() && location.pathname.startsWith("/devices")),
             }}
             tabindex="-1"
           >

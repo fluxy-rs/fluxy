@@ -366,6 +366,12 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    /* Bubble tints. These were `oklch(from var(--primary) 0.93 calc(c * 0.4) h)`,
+       relative colour syntax that Chrome 95 silently drops - the bubbles then
+       fell back to a plain surface. The primary token is achromatic, so the
+       result is a pure lightness step; the numbers are that step, resolved. */
+    --fx-bubble: rgb(232 232 232);
+    --fx-bubble-hover: rgb(215 215 215);
   }
 
   [data-theme="dark"] {
@@ -407,6 +413,8 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --fx-bubble: rgb(46 46 46);
+    --fx-bubble-hover: rgb(58 58 58);
   }
 }
 
